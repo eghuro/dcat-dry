@@ -34,7 +34,7 @@ isodate==0.6.0
 isort==4.3.16
 itsdangerous==1.1.0
 Jinja2==2.10
-kombu==4.3.0
+kombu==4.4.0
 Mako==1.0.8
 MarkupSafe==1.1.1
 mccabe==0.6.1
