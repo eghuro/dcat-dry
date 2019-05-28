@@ -20,7 +20,7 @@ flake8-isort==2.7.0
 flake8-polyfill==1.0.2
 flake8-quotes==2.0.1
 Flask==1.0.3
-Flask-Caching==1.7.1
+Flask-Caching==1.7.2
 Flask-Cors==3.0.7
 gevent==1.4.0
 greenlet==0.4.15
