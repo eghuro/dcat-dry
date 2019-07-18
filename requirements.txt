@@ -28,7 +28,7 @@ gunicorn==19.9.0
 html5lib==1.0.1
 idna==2.8
 isodate==0.6.0
-isort==4.3.20
+isort==4.3.21
 itsdangerous==1.1.0
 Jinja2==2.10.1
 kombu==4.5.0
