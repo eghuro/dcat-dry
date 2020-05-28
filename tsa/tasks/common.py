@@ -1,6 +1,6 @@
 import logging
 import redis as redis_lib
-from redisrwlock import Rwlock, RwlockClient
+#from redisrwlock import Rwlock, RwlockClient
 
 from celery import Task
 
@@ -70,7 +70,6 @@ class TrackableTask(Task):
         batch_id = red.hget('taskBatchId', task_id)
         red.srem(f'batch:{batch_id}', task_id)
             #keep taskBatchId as we need it for children tasks
-        on_complete(batch_id, red)
             #client.unlock(rwlock)
         #elif rwlock.status == Rwlock.DEADLOCK:
             #logging.getLogger(__name__).exception('Deadlock, retrying')
@@ -78,7 +77,7 @@ class TrackableTask(Task):
 
 def on_complete(batch_id, red):
     if red.scard(f'batch:{batch_id}') == 0:
-        logging.getLogger(__name__).info(f'Completed batch {batch_id}')
+        logging.getLogger(__name__).warn(f'Completed batch {batch_id}')
         # here we can cleanup taskBatchId
         for key in red.hkeys('taskBatchId'):
             for b_id in red.hget('taskBatchId', key):

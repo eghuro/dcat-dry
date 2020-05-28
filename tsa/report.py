@@ -2,7 +2,12 @@ import json
 import logging
 import redis
 
-from tsa.extensions import redis_pool
+from collections import defaultdict
+from functools import lru_cache
+
+from tsa.analyzer import AbstractAnalyzer
+from tsa.extensions import redis_pool, mongo_db
+from tsa.redis import codelist as codelist_key
 
 
 def query_dataset(iri):
@@ -11,22 +16,49 @@ def query_dataset(iri):
         "profile": query_profile(iri)
     }
 
+reltypes = sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
 
+@lru_cache()
+def get_all_related():
+    for r in mongo_db.related.find({}):
+        return r
+
+
+@lru_cache()
 def query_related(ds_iri):
-    key = f'distrquery:{ds_iri}'
-    red = redis.Redis(connection_pool=redis_pool)
+    log = logging.getLogger(__name__)
     try:
-        return json.loads(red.get(key))
+        all_related = get_all_related()
+        out = {}
+        for reltype in reltypes:
+            out[reltype] = dict()
+            for item in all_related[reltype]:
+                token = item['iri']
+                related = item['related']
+                if ds_iri in related:
+                    out[reltype][token] = related
+                    out[reltype][token].remove(ds_iri)
+        return out
     except TypeError:
-        return []
+        log.exception('Failed to query related')
+        return {}
 
 
 def query_profile(ds_iri):
-    key = f'dsanalyses:{ds_iri}'
-    red = redis.Redis(connection_pool=redis_pool)
     log = logging.getLogger(__name__)
 
-    analysis = json.loads(red.get(key))  # raises TypeError if key is missing
+    analyses = mongo_db.dsanalyses.find({'ds_iri': ds_iri})
+    analysis = {}
+    for a in analyses:
+        del a['_id']
+        del a['ds_iri']
+        del a['batch_id']
+        for k in a.keys():
+            analysis[k] = a[k]
+
+    #key = f'dsanalyses:{ds_iri}'
+    red = redis.Redis(connection_pool=redis_pool)
+    #analysis = json.loads(red.get(key))  # raises TypeError if key is missing
 
     supported_languages = ["cs", "en"]
 
@@ -34,45 +66,55 @@ def query_profile(ds_iri):
     output["triples"] = analysis["generic"]["triples"]
 
     output["classes"] = []
-    for cls in analysis["generic"]["classes"].keys():
-        iri = cls
-        count = analysis["generic"]["classes"][cls]
+    #log.info(json.dumps(analysis["generic"]))
+    for x in analysis["generic"]["classes"]:
         label = create_labels(ds_iri, supported_languages)
-        output["classes"].append({'iri': iri, 'count': count, 'label': label})
+        output["classes"].append({'iri': x['iri'], 'label': label})
 
-    output["predicates"] = []
-    for pred in analysis["generic"]["predicates"].keys():
-        output["predicates"].append({
-            'iri': pred,
-            'count': analysis["generic"]["predicates"][pred]
-        })
+    output["predicates"] = analysis["generic"]["predicates"]
 
     output["concepts"] = []
     if "concepts" in analysis["skos"]:
-        for concept in analysis["skos"]["concepts"].keys():
+        for x in analysis["skos"]["concepts"]:
+            concept = x['iri']
             output["concepts"].append({
                 'iri': concept,
                 'label': create_labels(concept, supported_languages)
             })
 
+    #output["codelists"] = set()
+    #for o in analysis["generic"]["external"]["not_subject"]:
+    #    for c in red.smembers(codelist_key(o)):  # codelists - datasets, that contain o as a subject
+    #        output["codelists"].add(c)
+    #output["codelists"] = list(output["codelists"])
+
     output["schemata"] = []
-    for schema in analysis["skos"]["schema"].keys():
+    for x in analysis["skos"]["schema"]:
         output["schemata"].append({
-            'iri': schema,
-            'label': create_labels(schema, supported_languages)
+            'iri': x['iri'],
+            'label': create_labels(x['iri'], supported_languages)
         })
 
-    dimensions, measures = set(), set()
+    dimensions, measures, resources_on_dimension = set(), set(), defaultdict(list)
     datasets = analysis["cube"]["datasets"]
-    for ds in datasets.keys():
-        dimensions.update(datasets[ds]["dimensions"])
-        measures.update(datasets[ds]["measures"])
+    for x in datasets:
+        ds = x['iri']
+        try:
+            dimensions.update([ y["dimension"] for y in x["dimensions"]])
+            for y in x["dimensions"]:
+                resources_on_dimension[y["dimension"]] = y["resources"]
+        except TypeError:
+            dimensions.update(x["dimensions"])
+        measures.update(x["measures"])
+
     output["dimensions"], output["measures"] = [], []
     for d in dimensions:
         output["dimensions"].append({
             'iri': d,
-            'label': create_labels(d, supported_languages)
+            'label': create_labels(d, supported_languages),
+            'resources': resources_on_dimension[d],
         })
+
     for m in measures:
         output["measures"].append({
             'iri': m,

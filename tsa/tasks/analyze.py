@@ -74,7 +74,7 @@ def analyze_named(endpoint_iri, named_graph):
     """Analyze triples in a named graph of an endpoint."""
     tokens = [it.token for it in AbstractAnalyzer.__subclasses__()]
     tasks = [run_one_named_analyzer.si(token, endpoint_iri, named_graph) for token in tokens]
-    return chord(tasks)(store_named_analysis.si(endpoint_iri, named_graph))
+    return chord(tasks)(store_named_analysis.s(endpoint_iri, named_graph))
 
 
 @celery.task(base=TrackableTask)

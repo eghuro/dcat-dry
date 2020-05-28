@@ -10,11 +10,12 @@ from json import JSONEncoder, JSONDecoder
 import redis
 import rfc3987
 from celery import group, chain, chord
+from pymongo.errors import DocumentTooLarge
 
 from tsa.celery import celery
-from tsa.extensions import redis_pool
+from tsa.extensions import redis_pool, mongo_db
 from tsa.analyzer import AbstractAnalyzer, SkosAnalyzer
-from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, related as related_key
+from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, related as related_key, root_name, KeyRoot, codelist
 
 
 ### ANALYSIS ###
@@ -42,7 +43,7 @@ def split_analyses_by_iri(analyses, id):
                 iri = analysis['iri']
                 iris.add(iri)
             elif 'endpoint' in analysis.keys() and 'graph' in analysis.keys():
-                iri = f'{analysis["endpoint"]}/{analysis["graph"]}'
+                iri = f'{analysis["endpoint"]}'  # /{analysis["graph"]}'
                 iris.add(analysis['endpoint'])  # this is because named graph is not extracted from DCAT
             else:
                 log.error('Missing iri and endpoint/graph')
@@ -58,6 +59,42 @@ def split_analyses_by_iri(analyses, id):
     return list(iris)
 
 
+@celery.task
+def extract_codelists_objects(ds_list):
+    red = redis.Redis(connection_pool=redis_pool)
+    log = logging.getLogger(__name__)
+    for ds in ds_list:
+        if red.hexists(root_name[KeyRoot.CODELISTS], ds):  # this is a codelist
+            try:
+                analysis = json.loads(red.get(f'dsanalyses:{ds}'))
+                # hash: object -> ds (lookup: object -> codelist)
+                if "generic" in analysis:
+                    try:
+                        for subject in analysis["generic"]["subjects"]:  # index subjects (they will be referenced)
+                            red.sadd(codelist(subject), ds)
+                            red.sadd(codelist(ds), subject)
+                    except KeyError:
+                        pass
+                        #log.exception(f'DS: {ds}')
+            except TypeError:
+                pass
+                #log.exception(f'DS: {ds}')
+
+
+def gen_analyses(id, ds, red):
+    for ds_iri in ds:
+
+        for distr_iri in red.smembers(f'dsdistr:{ds_iri}'):
+            key_in = f'analysis:{id}:{distr_iri!s}'
+            logging.getLogger(__name__).info(key_in)
+            for a in [json.loads(a) for a in red.lrange(key_in, 0, -1)]:
+                for b in a:  # flatten
+                    for key in b.keys():  # 1 element
+                        analysis = {'ds_iri': ds_iri, 'batch_id': id}
+                        analysis[key] = b[key]  # merge dicts
+                        yield analysis
+
+
 @celery.task(ignore_result=True)
 def merge_analyses_by_distribution_iri_and_store(iris, id):
     red = redis.Redis(connection_pool=redis_pool)
@@ -65,8 +102,6 @@ def merge_analyses_by_distribution_iri_and_store(iris, id):
 
     # Get list of dcat:Dataset iris for distribution iris
     # and create a mapping of (used) distribution iris per dataset iri
-
-    # in key = f'analysis:{id}:{iri!s}' there's a list of analyses (list of lists)
 
     ds = []
     if len(iris) > 0:
@@ -87,30 +122,16 @@ def merge_analyses_by_distribution_iri_and_store(iris, id):
 
     ds = set(ds)
 
-    # Merge individual distribution analyses into DS analysis (for query endpoint) and into batch report
-    batch = {}
-    for ds_iri in ds:
-        batch[ds_iri] = {}
-        key_out = f'dsanalyses:{ds_iri}'
-        for distr_iri in red.smembers(f'dsdistr:{ds_iri}'):
-            key_in = f'analysis:{id}:{distr_iri!s}'
-            for a in [json.loads(a) for a in red.lrange(key_in, 0, -1)]:
-                for b in a:  # flatten
-                    for key in b.keys():  # 1 element
-                        batch[ds_iri][key] = b[key]  # merge dicts
-            #red.expire(key_in, 0)
-        red.set(key_out, json.dumps(batch[ds_iri]))
-        red.expire(key_out, EXPIRATION_CACHED)
-        #red.expire(f'dsdistr:{ds_iri}', 0)
-
-        # now we have ds_analyses for every ds_iri known
-        # those are NOT labeled by the batch query id as it will be used in querying from dcat-ap-viewer
-
-    # dump the batch report
-    key = f'analysis:{id}'
-    red.set(key, json.dumps(batch))
-    red.expire(key, EXPIRATION_CACHED)
+    # Merge individual distribution analyses into DS analysis (for query endpoint)
+    try:
+        log.info('Cleaning mongo')
+        mongo_db.dsanalyses.delete_many({})
+        mongo_db.dsanalyses.insert_many([analysis for analysis in gen_analyses(id, ds, red)])
+    except DocumentTooLarge:
+        log.exception('Failed to store analysis for {iri}')
     log.info("Done")
+
+    return list(ds)
 
 
 ### INDEX ###
@@ -128,52 +149,22 @@ def gen_related_ds():
     distributions = set()
 
     for rel_type in reltypes:
-        related_ds[rel_type] = dict()
+        related_ds[rel_type] = []
         root = f'related:{rel_type!s}:'
         for key in red.scan_iter(match=f'related:{rel_type!s}:*'):
             token = key[len(root):]
             related_dist = red.smembers(related_key(rel_type, token))  # these are related by token
             if len(related_dist) > 0:
-                related_ds[rel_type][token] = list(set(red.hmget('distrds', *related_dist)))
+                related_ds[rel_type].append({'iri': token, 'related': list(set(red.hmget('distrds', *related_dist))) })
 
-    with red.pipeline() as pipe:
-        pipe.set('relatedds', json.dumps(related_ds))
-        pipe.sadd('purgeable', 'relatedds')
-        pipe.expire(key, EXPIRATION_CACHED)
-        pipe.execute()
+    try:
+        mongo_db.related.delete_many({})
+        mongo_db.related.insert(related_ds)
+    except DocumentTooLarge:
+        log.exception('Failed to store related datasets')
+
+    del related_ds['_id']
     return related_ds
-
-
-@celery.task(ignore_result=True)
-def index_distribution_query(iri):
-    """Query the index and construct related datasets for the iri of a distribution.
-
-    Final result is stored in redis.
-    """
-    red = redis.Redis(connection_pool=redis_pool)
-    #if not missing(iri, red):
-    #    return
-
-    related_ds = json.loads(red.get('relatedds'))
-    current_dataset = red.hget('distrds', iri)
-
-    for rel_type in reltypes:
-        to_delete = []
-        for token in related_ds[rel_type].keys():
-            if current_dataset in related_ds[rel_type][token]:
-                related_ds[rel_type][token].remove(current_dataset)
-            else:
-                to_delete.append(token)
-        for token in to_delete:
-            del related_ds[rel_type][token]
-
-    exp = EXPIRATION_CACHED  # 30D
-    key = f'distrquery:{current_dataset}'
-    with red.pipeline() as pipe:
-        pipe.set(key, json.dumps(related_ds))
-        pipe.sadd('purgeable', key)
-        pipe.expire(key, exp)
-        pipe.execute()
 
 
 ### MISC ###

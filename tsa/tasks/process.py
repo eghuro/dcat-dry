@@ -15,7 +15,7 @@ from tsa.monitor import monitor
 from tsa.robots import session, user_agent, allowed as robots_allowed
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.index import index, index_named
-from tsa.tasks.analyze import analyze
+from tsa.tasks.analyze import analyze, analyze_named
 from tsa.redis import data as data_key, expiration, KeyRoot, MAX_CONTENT_LENGTH, root_name, graph, delay as delay_key
 
 
@@ -34,14 +34,14 @@ class Skip(BaseException):
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
 @celery.task(bind=True, base=TrackableTask)
-def process_priority(self, iri):
-    do_process(iri, self, True)
+def process_priority(self, iri, force):
+    do_process(iri, self, True, force)
 
-@celery.task(bind=True, time_limit=60, base=TrackableTask)
-def process(self, iri):
-    do_process(iri, self)
+@celery.task(bind=True, time_limit=600, base=TrackableTask)
+def process(self, iri, force):
+    do_process(iri, self, False, force)
 
-def do_process(iri, task, is_prio=False):
+def do_process(iri, task, is_prio, force):
     """Analyze an RDF distribution under given IRI."""
     log = logging.getLogger(__name__)
 
@@ -58,11 +58,11 @@ def do_process(iri, task, is_prio=False):
     if not is_prio and (iri.endswith('xml') or iri.endswith('xml.zip')):
         log.warn(f'Skipping distribution as it will not be supported: {iri!s} (xml in the non-priority channel)')
 
-    key = root_name[KeyRoot.DISTRIBUTIONS]
     red = task.redis
-    if red.sadd(key, iri) == 0:
-        log.warn(f'Skipping distribution as it was recently processed: {iri!s}')
-        return
+    key = root_name[KeyRoot.DISTRIBUTIONS]
+    if (red.sadd(key, iri) == 0) and not force:
+            log.warn(f'Skipping distribution as it was recently processed: {iri!s}')
+            return
     red.expire(key, expiration[KeyRoot.DISTRIBUTIONS])
     red.sadd('purgeable', key)
 
@@ -82,6 +82,9 @@ def do_process(iri, task, is_prio=False):
             log.exception('HTTP Error') # this is a 404 or similar, not worth retrying
             raise
         except requests.exceptions.RequestException as e:
+            red.srem(key, iri)
+            task.retry(exc=e)
+        except requests.exceptions.ChunkedEncodingError as e:
             red.srem(key, iri)
             task.retry(exc=e)
         except GeventTimeout as e:  # this is gevent.timeout.Timeout
@@ -109,6 +112,9 @@ def do_process(iri, task, is_prio=False):
             except SizeException:
                 log.warn(f'File is too large: {iri}')
                 raise
+            except requests.exceptions.ChunkedEncodingError as e:
+                red.srem(key, iri)
+                task.retry(exc=e)
             else:
                 pipeline = group(index.si(iri, guess), analyze.si(iri, guess))
         if is_prio:
@@ -294,25 +300,39 @@ def fetch(iri, log, red):
 
 
 @celery.task(base=TrackableTask)
-def process_endpoint(iri): #Low priority as we are doing scan of all graphs in the endpoint
+def process_endpoint(iri, force): #Low priority as we are doing scan of all graphs in the endpoint
     log = logging.getLogger(__name__)
 
     """Index and analyze triples in the endpoint."""
     key = root_name[KeyRoot.ENDPOINTS]
     red = process_endpoint.redis
     red.sadd('purgeable', key)
-    if red.sadd(key, iri) > 0:
-        red.expire(key, expiration[KeyRoot.ENDPOINTS])
+    if (red.sadd(key, iri) == 0) and not force:
+        log.debug(f'Skipping endpoint as it was recently analyzed: {iri!s}')
+
+    red.expire(key, expiration[KeyRoot.ENDPOINTS])
+    try:
         a = SparqlEndpointAnalyzer()
-        tasks = []
-        for g in a.get_graphs_from_endpoint(iri):
-            key = graph(iri)
-            red.sadd('purgeable', key)
-            if red.sadd(key, g) > 0:
-                # this is to prevent repeated processing of a graph (same as distributions)
-                # and also for analysis query
-                tasks.append(index_named.si(iri, g))
-                tasks.append(analyze_named.si(iri, g))
-            red.expire(key, expiration[KeyRoot.GRAPHS])
-        return group(tasks).apply_async(queue='low_priority')
-    log.debug(f'Skipping endpoint as it was recently analyzed: {iri!s}')
+        buffer = []
+        log.debug(f'Processing endpoint {iri}')
+        for task in gen_endpoint_tasks(a, iri, force, red, log):
+            buffer.append(task)
+            if len(buffer) == 20:
+                log.debug(f'Exec buffer for {iri}')
+                group(buffer).apply_async(queue='low_priority')
+                buffer = []
+    except:
+        log.error(f'Failed to process endpoint {iri}')
+        log.debug('Details', exc_info=True)
+
+def gen_endpoint_tasks(a, iri, force, red, log):
+    for g in a.get_graphs_from_endpoint(iri):  # not distinct
+        key = graph(iri, g)
+        red.sadd('purgeable', key)
+        if force or red.sadd(key, g) > 0:
+            # this is to prevent repeated processing of a graph (same as distributions)
+            # and also for analysis query
+            log.debug(g)
+            yield index_named.si(iri, g)
+            yield analyze_named.si(iri, g)
+        red.expire(key, expiration[KeyRoot.GRAPHS])

@@ -12,17 +12,22 @@ from tsa import commands, public
 from tsa.extensions import cache, cors
 from tsa.settings import ProdConfig
 
-@environment('DSN')
+
+def on_error(x):
+    pass
+
+@environment('DSN', default=[None], onerror=on_error)
 def create_app(config_object, dsn_str):
     """An application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
 
     :param config_object: The configuration object to use.
     """
 
-    sentry_sdk.init(
-        dsn=dsn_str,
-        integrations=[FlaskIntegration()]
-    )
+    if dsn_str:
+        sentry_sdk.init(
+            dsn=dsn_str,
+            integrations=[FlaskIntegration()]
+        )
 
     app = Flask(__name__.split('.')[0])
     app.config.from_object(config_object)

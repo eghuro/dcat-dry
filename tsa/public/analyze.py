@@ -14,6 +14,7 @@ blueprint = Blueprint('analyze', __name__, static_folder='../static')
 @blueprint.route('/api/v1/analyze/catalog', methods=['POST'])
 def api_analyze_catalog():
     """Analyze a catalog."""
+    force = 'force' in request.args
     if 'token' not in session:
         session['token'] = str(uuid.uuid4())
 
@@ -31,7 +32,7 @@ def api_analyze_catalog():
                 time.sleep(60)
                 queueLength = red.scard(key)
 
-            t = inspect_graph.si(iri, graph).apply_async()
+            t = inspect_graph.si(iri, graph, force).apply_async()
             current_app.logger.info(f'Batch id: {session["token"]}, task id: {t.id}')
             red.hset('taskBatchId', t.id, session["token"])
             return ''

@@ -9,6 +9,7 @@ class KeyRoot(Enum):
     ENDPOINTS = 5
     DELAY = 6
     DS_TITLE = 7
+    CODELISTS = 8
 
 
 root_name = {
@@ -19,7 +20,8 @@ root_name = {
     KeyRoot.GRAPHS: 'graphs',
     KeyRoot.ENDPOINTS: 'endpoints',
     KeyRoot.DELAY: 'delay',
-    KeyRoot.DS_TITLE: 'dstitle'
+    KeyRoot.DS_TITLE: 'dstitle',
+    KeyRoot.CODELISTS: 'codelists',
 }
 
 
@@ -53,8 +55,8 @@ def analysis_dataset(iri):
 def analysis_endpoint(endpoint, graph_iri):
     return f'{root_name[KeyRoot.ANALYSIS]}:{endpoint}:{graph_iri}'
 
-def graph(iri):
-    return f'{root_name[KeyRoot.GRAPHS]}:{iri}'
+def graph(endpoint, iri):
+    return f'{root_name[KeyRoot.GRAPHS]}:{endpoint}:{iri}'
 
 def delay(robots_url):
     return f'delay_{robots_url!s}'
@@ -67,3 +69,6 @@ def ds_distr():
 
 def related(rel_type, key):
     return f'{root_name[KeyRoot.RELATED]}:{rel_type!s}:{key!s}'
+
+def codelist(object):
+    return f'{root_name[KeyRoot.CODELISTS]}:{object}'
