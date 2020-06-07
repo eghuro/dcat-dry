@@ -35,7 +35,6 @@ def index(iri, format_guess):
 
 def run_indexer(token, iri, g, red):
     """Get all available analyzers and let them find relationships."""
-    # iri -> distribution iri
     log = logging.getLogger(__name__)
     exp = expiration[KeyRoot.RELATED]
 
@@ -43,32 +42,13 @@ def run_indexer(token, iri, g, red):
     cnt = 0
     analyzer = get_analyzer(token)
     with red.pipeline() as pipe:
-        # FIXME: zatím jenom CubeAnalyzer, zbytek musí být upraven!
-        # relation type, structure, structural element, element
-        # QQQQQQQ: jak určíme, že spolu něco souvisí? (momentálně musí být shoda na reltype a prvek v related_dist, ty se ale nemerguji)
-        # definice dle typu: u DQV obsahuje něco, co je v kostce na dimenzi / measure
-        # DS X souvisí s DS Y (kostka -> číselník, kostka -> kostka)
-
-        for rel_type, structure, structural_element, element in analyzer.find_relation(g):
-            log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, structure: {structure!s}, structural element: {structural_element!s}, element: {element!s}')
-            key = related_key(rel_type, structure, structural_element, element)
+        for key, rel_type in analyzer.find_relation(g):
+            log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, shared key: {key!s}')
+            key = related_key(rel_type, key)
             pipe.sadd(key, iri)
             pipe.expire(key, exp)
             pipe.sadd('purgeable', key)
             cnt = cnt + 1
-
-            # TODO: dereference jednotlivých IRI a získání labelu -> zde
-            # dereference structure, structural_element, element here and fetch labels
-            # QQQQQQQ: co vše pro label? rdfs:label, skos:prefLabel, skos:altLabel, dc:title ... ne skos:hiddenLabel -> schema.org?
-            # přidaat popisky (description, comment) a typ
-            # -> priority
-            # <x> <pred> label -> label - tag -> index
-            # else: fetch -> run same query on dereference
-
-            # u dotazů vynechat typ - ten zjistit
-            # QQQQQQQ: dereference - jen label nebo něco dalšího? popis a typ (u prvku na dimenzi, u dimenze -  může být další typ)
-            # nový task v process.py - dostane iri stáhne - zde fce pro query
-            #toto do bočního indexu
         pipe.execute()
 
     log.info(f'Indexed {cnt!s} records')

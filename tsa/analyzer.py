@@ -25,11 +25,9 @@ class CubeAnalyzer(AbstractAnalyzer):
         """We consider DSs to be related if they share a resource on dimension."""
         log = logging.getLogger(__name__)
         log.debug('Looking up resources used on a dimension')
-        for ds, resource, dimension, structure in self.__resource_on_dimension(graph):
+        for ds, resource, _ in self.__resource_on_dimension(graph):
             # log.debug(f'Dataset: {ds} - Resource on dimension: {resource}')
-
-            # relation type, structure, structural element, element
-            yield 'qb', structure, dimension, resource
+            yield resource, 'qb'
 
     def __dimensions(self, graph):
         d = defaultdict(set)
@@ -65,16 +63,7 @@ class CubeAnalyzer(AbstractAnalyzer):
     def __resource_on_dimension(self, graph):
         log = logging.getLogger(__name__)
         log.debug('Looking up resources on dimensions')
-        dim = self.__dimensions(graph)   # keys: structures, values: dimensions
-        log.debug(f'Datasets: {dim.keys()!s}')
-
-        #prepare reverse mapping dimension -> structure
-        ds_for_dimension = defaultdict(set)
-        for ds in dim.keys():
-            for dim in dim[ds]:
-                ds_for_dimension[dim].add(ds)
-
-        ds_dimensions = self.__dataset_dimensions(graph, dim)
+        ds_dimensions = self.__dataset_dimensions(graph, self.__dimensions(graph))
         log.debug(f'Dimensions: {ds_dimensions!s}')
 
         ds_query = """
@@ -90,8 +79,7 @@ class CubeAnalyzer(AbstractAnalyzer):
                 qb_query = f'SELECT ?resource WHERE {{ <{row.observation!s}> <{dimension!s}> ?resource. }}'
                 qres1 = graph.query(qb_query)
                 for row1 in qres1:
-                    for ds in ds_for_dimension[dimension]:
-                        yield row.dataset, row1.resource, dimension, ds
+                    yield row.dataset, row1.resource, dimension
 
     def analyze(self, graph):
         """Analysis of a datacube."""
