@@ -67,8 +67,8 @@ def ds_title(ds, language):
 def ds_distr():
     return 'dsdistr', 'distrds'
 
-def related(rel_type, key):
-    return f'{root_name[KeyRoot.RELATED]}:{rel_type!s}:{key!s}'
+def related(rel_type, structure, structural_element, element):
+    return f'{root_name[KeyRoot.RELATED]}:{rel_type!s}:{structure!s}:{structural_element!s}:{element!s}'
 
 def codelist(object):
     return f'{root_name[KeyRoot.CODELISTS]}:{object}'

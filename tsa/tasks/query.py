@@ -155,7 +155,8 @@ def gen_related_ds():
             token = key[len(root):]
             related_dist = red.smembers(related_key(rel_type, token))  # these are related by token
             if len(related_dist) > 0:
-                related_ds[rel_type].append({'iri': token, 'related': list(set(red.hmget('distrds', *related_dist))) })
+                structure, structural_element, element = token.split(':')
+                related_ds[rel_type].append({'structure': structure, 'structural_element': element, 'element': element, 'related': list(set(red.hmget('distrds', *related_dist))) })
 
     try:
         mongo_db.related.delete_many({})

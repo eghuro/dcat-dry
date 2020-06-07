@@ -29,16 +29,34 @@ def query_related(ds_iri):
     log = logging.getLogger(__name__)
     try:
         all_related = get_all_related()
-        out = {}
+        # Looks like: related_ds[rel_type] = [{'iri': current_ds_iri, 'related': [related_ds_iri]}]
+        # out = {}
+        # for reltype in reltypes:
+        #     out[reltype] = dict()
+        #     for item in all_related[reltype]:
+        #         token = item['iri']
+        #         related = item['related']
+        #         if ds_iri in related:
+        #             out[reltype][token] = related
+        #             out[reltype][token].remove(ds_iri)
+        # return out
+        # Looks like: out[rel_type] = {token: [related]}
+        # Should look like: out[related_ds_iri] = [{'type': rel_type}]
+
+        out = defaultdict(list)
         for reltype in reltypes:
-            out[reltype] = dict()
             for item in all_related[reltype]:
-                token = item['iri']
+                #token = item['iri']
+                #structure, structural_element, element
                 related = item['related']
                 if ds_iri in related:
-                    out[reltype][token] = related
-                    out[reltype][token].remove(ds_iri)
-        return out
+                    related.remove(ds_iri)
+                    for iri in related:
+                        out[iri].append({'type': reltype,
+                                         'structure': item['structure'],
+                                         'structural_element': item['structural_element'],
+                                         'element': item['element']})
+
     except TypeError:
         log.exception('Failed to query related')
         return {}
@@ -57,30 +75,16 @@ def query_profile(ds_iri):
             analysis[k] = a[k]
 
     #key = f'dsanalyses:{ds_iri}'
-    red = redis.Redis(connection_pool=redis_pool)
+    #red = redis.Redis(connection_pool=redis_pool)
     #analysis = json.loads(red.get(key))  # raises TypeError if key is missing
 
     supported_languages = ["cs", "en"]
 
     output = {}
-    output["triples"] = analysis["generic"]["triples"]
-
-    output["classes"] = []
-    #log.info(json.dumps(analysis["generic"]))
-    for x in analysis["generic"]["classes"]:
-        label = create_labels(ds_iri, supported_languages)
-        output["classes"].append({'iri': x['iri'], 'label': label})
-
-    output["predicates"] = analysis["generic"]["predicates"]
-
-    output["concepts"] = []
-    if "concepts" in analysis["skos"]:
-        for x in analysis["skos"]["concepts"]:
-            concept = x['iri']
-            output["concepts"].append({
-                'iri': concept,
-                'label': create_labels(concept, supported_languages)
-            })
+    output["type"] = []
+    output = create_generic(output, analysis)
+    output = create_skos(output, analysis)
+    return create_cube(output, analysis)
 
     #output["codelists"] = set()
     #for o in analysis["generic"]["external"]["not_subject"]:
@@ -88,14 +92,13 @@ def query_profile(ds_iri):
     #        output["codelists"].add(c)
     #output["codelists"] = list(output["codelists"])
 
-    output["schemata"] = []
-    for x in analysis["skos"]["schema"]:
-        output["schemata"].append({
-            'iri': x['iri'],
-            'label': create_labels(x['iri'], supported_languages)
-        })
 
+
+def create_cube(output, analysis):
     dimensions, measures, resources_on_dimension = set(), set(), defaultdict(list)
+    if "cube" not in analysis.keys():
+        return output
+
     datasets = analysis["cube"]["datasets"]
     for x in datasets:
         ds = x['iri']
@@ -111,18 +114,49 @@ def query_profile(ds_iri):
     for d in dimensions:
         output["dimensions"].append({
             'iri': d,
-            'label': create_labels(d, supported_languages),
+            'label': "", # create_labels(d, supported_languages),
             'resources': resources_on_dimension[d],
         })
 
     for m in measures:
         output["measures"].append({
             'iri': m,
-            'label': create_labels(m, supported_languages)
+            'label': "", #  create_labels(m, supported_languages)
         })
 
     return output
 
+
+def create_generic(output, analysis):
+    output["triples"] = analysis["generic"]["triples"]
+
+    output["classes"] = []
+    #log.info(json.dumps(analysis["generic"]))
+    for x in analysis["generic"]["classes"]:
+        #label = create_labels(ds_iri, supported_languages)
+        label = ""
+        output["classes"].append({'iri': x['iri'], 'label': label})
+
+    output["predicates"] = analysis["generic"]["predicates"]
+
+    return output
+
+
+def create_skos(output, analysis):
+    output["concepts"] = []
+    if "concepts" in analysis["skos"]:
+        for x in analysis["skos"]["concepts"]:
+            concept = x['iri']
+            output["concepts"].append({
+                'iri': concept,
+                'label': create_labels(concept, supported_languages)
+            })
+    output["schemata"] = []
+    for x in analysis["skos"]["schema"]:
+        output["schemata"].append({
+            'iri': x['iri'],
+            'label': create_labels(x['iri'], supported_languages)
+        })
 
 
 def create_labels(ds_iri, tags):
