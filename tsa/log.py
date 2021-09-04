@@ -33,11 +33,11 @@ def logging_setup(token, url):
         },
         'loggers': {
             'tsa': {
-                'level': 'INFO',
+                'level': 'DEBUG',
                 'handlers': ['logzio'],
             },
             'app.logger': {
-                'level': 'INFO',
+                'level': 'DEBUG',
                 'handlers': ['logzio'],
             },
             'gunicorn.error': {

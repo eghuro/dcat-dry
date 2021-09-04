@@ -327,8 +327,6 @@ class GenericAnalyzer(AbstractAnalyzer):
 
             if rfc3987.match(sub) and (sub.startswith('http://') or sub.startswith('https://')):
                 subjects.append(sub)
-            else:
-                log.warning(f'Subject non-http-resource: {sub}')
 
         preds = []
         for p in predicates_count.keys():

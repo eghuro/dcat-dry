@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 """Query endpoints."""
-import itertools
 import json
+import uuid
 from collections import defaultdict
 
 import redis
 import rfc3987
-import uuid
-from flask import Blueprint, abort, current_app, jsonify, request
+from bson.json_util import dumps as dumps_bson
+from flask import Blueprint, abort, current_app, jsonify, render_template, request
 
-from tsa.extensions import redis_pool, mongo_db
-from tsa.monitor import Monitor
-from tsa.tasks.system import cleanup
-from tsa.report import query_dataset
 from tsa.cache import cached
+from tsa.extensions import mongo_db, redis_pool, sameAsIndex
+from tsa.monitor import Monitor
 from tsa.query import query
+from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
+                        list_datasets, query_dataset)
 
 blueprint = Blueprint('public', __name__, static_folder='../static')
 
@@ -23,30 +23,26 @@ blueprint = Blueprint('public', __name__, static_folder='../static')
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def dcat_viewer_index_query():
     iri = request.args.get('iri', None)
-    lang = request.args.get('language', 'cs')
-    if iri is not None:
-        if rfc3987.match(iri):
-            current_app.logger.info(f'Valid dataset request ({lang}) for {iri}')
-            #LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
+    if iri is not None and rfc3987.match(iri):
+        current_app.logger.info(f'Valid dataset request for {iri}')
+        #LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
 
-            translation = {
-                'https://data.gov.cz/zdroj/datové-sady/https---data.cssz.cz-api-3-action-package_show-id-prehled-o-celkovem-poctu-osvc-podle-okresu': 'https://data.gov.cz/zdroj/datové-sady/CSShZbzpcn/695492977/f24c8df0bce40fd04c3c4bfc81d7e68e',
-                'https://data.gov.cz/zdroj/datové-sady/https---data.cssz.cz-api-3-action-package_show-id-pomocne-ciselniky': 'https://data.gov.cz/zdroj/datové-sady/CSShZbzpcn/695492977/38534df5f78ce360ba0cf32665bb2729',
-                'https://data.gov.cz/zdroj/datové-sady/https---data.cssz.cz-api-3-action-package_show-id-ukazatele-pracovni-neschopnosti-podle-pohlavi-a-diagnozy': 'https://data.gov.cz/zdroj/datové-sady/CSShZbzpcn/695492977/8d3ad288011e2ceab4c381e1fedc6dae',
-                'https://data.gov.cz/zdroj/datové-sady/https---data.cssz.cz-api-3-action-package_show-id-prum-vek-u-nove-priznanych-duchodu-dle-druhu': 'https://data.gov.cz/zdroj/datové-sady/CSShZbzpcn/695492977/0c28dd4455e74063f95669aaa90fa329',
-            }
+        try:
+            return jsonify({
+                "jsonld": query_dataset(iri)
+            })
+        except TypeError:
+            current_app.logger.exception(f'Failed to query {iri}')
+            abort(404)
+    abort(400)
 
-            if iri in translation.keys():
-                iri = translation[iri]
-                current_app.logger.warn(f'Translating iri to {iri}')
 
-            try:
-                return jsonify({
-                    "jsonld": query_dataset(iri)
-                })
-            except TypeError:
-                current_app.logger.exception(f'Failed to query {iri}')
-                abort(404)
+@blueprint.route('/api/v1/query/sameas', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def same_as():
+    iri = request.args.get('iri', None)
+    if iri is not None and rfc3987.match(iri):
+        return jsonify([token for token in sameAsIndex.lookup(iri)])
     abort(400)
 
 
@@ -64,18 +60,23 @@ def batch_analysis():
 @blueprint.route('/api/v1/query/analysis/result', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def fetch_analysis():
-    id = request.args.get('id', None)
-    if id is not None:
+    batch_id = request.args.get('id', None)
+    if batch_id is not None:
         analyses = defaultdict(list)
-        for analysis in mongo_db.dsanalyses.find({'batch_id': id}):
-            del analysis['_id']
-            del analysis['batch_id']
-            ds_iri = analysis['ds_iri']
-            del analysis['ds_iri']
-            analyses[ds_iri].append(analysis)
-        if len(analyses) > 0:
+        for analysis in mongo_db.dsanalyses.find({'batch_id': batch_id}):
+            res = {}
+            for key in analysis.keys():
+                res[key] = analysis[key]
+            del res['_id']
+            del res['batch_id']
+            ds_iri = res['ds_iri']
+            del res['ds_iri']
+            analyses[ds_iri].append(res)
+        if len(analyses.keys()) > 0:
             related = mongo_db.related.find({})
             if related is not None:
+                related = json.loads(dumps_bson(related))[0]
+                del related['_id']
                 return jsonify({'analyses': analyses, 'related': related})
             return jsonify({'analyses': analyses})
         else:
@@ -84,13 +85,69 @@ def fetch_analysis():
         abort(400)
 
 
-@blueprint.route('/api/v1/cleanup', methods=['POST', 'DELETE'])
-def cleanup_endpoint():
-    """Clean any purgeable records, Flask cache and possibly also stats."""
-    extra = ['purgeable']
-    stats = 'stats' in request.args
-    if stats:
-        extra.extend(Monitor.KEYS)
+@blueprint.route('/api/v1/export/labels', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def export_labels_endpoint():
+    return jsonify(export_labels())
 
-    cleanup.si(current_app.config['CACHE_KEY_PREFIX'], extra).apply_async(queue='low_priority').get()
+@blueprint.route('/api/v1/import/labels', methods=['PUT'])
+def import_labels_endpoint():
+    labels = request.get_json()
+    import_labels(labels)
     return 'OK'
+
+@blueprint.route('/api/v1/export/related', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def export_related_endpoint():
+    obj = export_related()
+    del obj['_id']
+    return jsonify(obj)
+
+@blueprint.route('/api/v1/export/profile', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def export_profile_endpoint():
+    lst = []
+    for it in export_profile():
+        del it['_id']
+        lst.append(it)
+    return jsonify(lst)
+
+
+@blueprint.route('/api/v1/export/sameas', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def export_sameas_endpoint():
+    return jsonify(sameAsIndex.export_index())
+
+
+@blueprint.route('/api/v1/import/sameas', methods=['PUT'])
+def import_sameas_endpoint():
+    index = request.get_json()
+    sameAsIndex.import_index(index)
+    return 'OK'
+
+@blueprint.route('/api/v1/import/related', methods=['PUT'])
+def import_related_endpoint():
+    related = request.get_json()
+    import_related(related)
+    return 'OK'
+
+@blueprint.route('/api/v1/import/profile', methods=['PUT'])
+def import_profile_endpoint():
+    profiles = request.get_json()
+    import_profiles(profiles)
+    return 'OK'
+
+
+@blueprint.route('/list', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def view_list():
+    data = list_datasets()
+    current_app.logger.debug(data)
+    return render_template('list.html', datasets=data)
+
+@blueprint.route('/detail', methods=['GET'])
+@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
+def view_detail():
+    iri = request.args.get('iri', None)
+    profile = query_dataset(iri)
+    return render_template('detail.html', dataset=profile)

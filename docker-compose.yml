@@ -5,79 +5,35 @@ services:
     build:
         context: .
         args:
-            PYTHON_VERSION: ${PYTHON_VERSION}
+            PYTHON_VERSION: 3.8.7
     environment:
-      - REDIS=redis://redis:6379/0
-      - REDIS_CELERY=redis://redis:6379/1
-      - MONGO=mongodb://mongo:27017/
+      - REDIS=redis://10.114.0.2:6379/0
+      - REDIS_CELERY=redis://10.114.0.2:6379/1
+      - MONGO=mongodb://10.114.0.2:27017/
+      - STATSD_HOST=graphite
+    volumes:
+      - /root/data/log:/log
     ports:
-      - "80:8000"
+      - "8088:8000"
     depends_on:
-     # - celery_high
-     # - celery_default
-      - redis
-      - mongo
-  redis:
-    restart: on-failure
-    image: "redis:alpine"
+     - celery
+    command: gunicorn -k gevent -w 4 -b 0.0.0.0:8000 --log-level info --log-file /log/gunicorn.log autoapp:app
+  celery:
+    restart: always
+    build:
+        context: .
+        args:
+            PYTHON_VERSION: 3.8.7
+    environment:
+      - REDIS=redis://10.114.0.2:6379/0
+      - REDIS_CELERY=redis://10.114.0.2:6379/1
+      - MONGO=mongodb://10.114.0.2:27017/
+      - STATSD_HOST=graphite
+    volumes:
+      - /root/data/log:/log
+    command: celery -A tsa.celery worker -l info -Q high_priority,default,query,low_priority -c 10
+  graphite:
+    image: graphiteapp/graphite-statsd
+    restart: always
     ports:
-      - "6379:6379"
-#  celery_high:
-#    restart: on-failure
-#    build:
-#        context: .
-#        args:
-#            PYTHON_VERSION: ${PYTHON_VERSION}
-#    environment:
-#      - REDIS=redis://redis:6379/0
-#      - REDIS_CELERY=redis://redis:6379/1
-#    user: nobody
-#    depends_on:
-#      - redis
-#    command: celery worker -l info -A tsa.celery -Q high_priority -c 10
-#  celery_default:
-#    restart: on-failure
-#    build:
-#      context: .
-#      args:
-#        PYTHON_VERSION: ${PYTHON_VERSION}
-#    environment:
-#      - REDIS=redis://redis:6379/0
-#      - REDIS_CELERY=redis://redis:6379/1
-#    user: nobody
-#    depends_on:
-#      - redis
-#      - mongo
-#    command: celery worker -l info -A tsa.celery -Q default,query -c 20
-#  celery_low:
-#    restart: on-failure
-#    build:
-#      context: .
-#      args:
-#        PYTHON_VERSION: ${PYTHON_VERSION}
-#    environment:
-#      - REDIS=redis://redis:6379/0
-#      - REDIS_CELERY=redis://redis:6379/1
-#    user: nobody
-#    depends_on:
-#      - redis
-#    command: celery worker -l info -A tsa.celery -Q low_priority -c 5
-#  beat:
-#    restart: on-failure
-#    build:
-#      context: .
-#      args:
-#        PYTHON_VERSION: ${PYTHON_VERSION}
-#    environment:
-#      - REDIS=redis://redis:6379/0
-#      - REDIS_CELERY=redis://redis:6379/1
-#    user: nobody
-#    depends_on:
-#      - redis
-#    command: celery -l info -A tsa.celery beat
-  mongo:
-    restart: on-failure
-    image: "mongo"
-    ports:
-      - "8081:8081"
-      - "27017:27017"
+      - 8088:80
