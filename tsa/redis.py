@@ -126,6 +126,6 @@ def skos_relation(iri):
     return f'{root_name[KeyRoot.SKOS_RELATION]}:{iri}'
 
 
-def distribution_endpoint(iri_distribution):
+def dataset_endpoint(iri_distribution):
     iri = sanitize_key(iri_distribution)
     return f'{root_name[KeyRoot.DISTRIBUTION]}:{iri}'

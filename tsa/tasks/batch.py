@@ -12,7 +12,7 @@ from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
-from tsa.redis import distribution_endpoint, ds_distr
+from tsa.redis import dataset_endpoint, ds_distr
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter, process, process_priority
 
@@ -55,6 +55,14 @@ def _dcat_extractor(g, red, log, force, graph_iri):
         with red.pipeline() as pipe:
             for ds in g.subjects(RDF.type, dcat.Dataset):
                 log.debug(f'DS: {ds!s}')
+                effective_ds = ds
+
+                opt1 = f'OPTIONAL {{ <{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent }}'
+                opt2 = f'OPTIONAL {{ ?parent <http://purl.org/dc/terms/hasPart> <{ds!s}>  }}'
+                query = f'SELECT ?parent WHERE {{ {opt1} {opt2} }}'
+                for parent in g.query(query):
+                    log.info(f'{parent!s} is a series containing {ds!s}')
+                    effective_ds = parent
 
                 #DCAT Distribution
                 for d in g.objects(ds, dcat.distribution):
@@ -80,20 +88,20 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                         #log.debug(f'Down: {download_url!s}')
                         if rfc3987.match(str(download_url)) and not filter(str(download_url)):
                             if download_url.endswith('/sparql'):
-                                log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences')
+                                log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
                                 endpoint = download_url
                             else:
                                 downloads.append(download_url)
                                 distribution = True
-                                log.debug(f'Distribution {download_url!s} from DCAT dataset {ds!s}')
+                                log.debug(f'Distribution {download_url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})')
                                 queue.append(download_url)
-                                pipe.sadd(f'{dsdistr}:{str(ds)}', str(download_url))
-                                pipe.sadd(f'{distrds}:{str(download_url)}', str(ds))
+                                pipe.sadd(f'{dsdistr}:{str(effective_ds)}', str(download_url))
+                                pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_ds))
                         else:
                             log.debug(f'{download_url!s} is not a valid download URL')
                     if endpoint is not None:
-                        for iri in downloads:
-                            pipe.sadd(distribution_endpoint(str(iri)), endpoint)
+                        pipe.sadd(dataset_endpoint(str(effective_ds), endpoint))
+
                     # scan for DCAT2 data services here as well
                     #for access in g.objects(d, dcat.accessURL):
                     #    log.debug(f'Access: {access!s}')
