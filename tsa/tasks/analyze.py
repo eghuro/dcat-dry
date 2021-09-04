@@ -5,7 +5,7 @@ import rdflib
 
 from tsa.analyzer import *
 from tsa.monitor import TimedBlock
-from tsa.redis import KeyRoot, analysis_dataset, expiration
+from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
 
 
@@ -36,7 +36,6 @@ def do_analyze_and_index(g, iri, red):
 
     log.info(f'Analyze and index - execution: {iri}')
     analyses = []
-    exp = expiration[KeyRoot.RELATED]
     analyzers = AbstractAnalyzer.__subclasses__()
     log.debug(f'Analyzers: {len(analyzers)}')
 
@@ -45,7 +44,7 @@ def do_analyze_and_index(g, iri, red):
         log.debug(f'Analyze and index {iri} with {analyzer_token}')
         analyzer = analyzer_class()
 
-        analyze_and_index_one(analyses, analyzer, analyzer_class, exp, g, iri, log, red)
+        analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red)
         log.debug(f'Done analyze and index {iri} with {analyzer_token}')
 
     log.debug(f'Done processing {iri}, now storing')
@@ -56,7 +55,7 @@ def do_analyze_and_index(g, iri, red):
     log.debug(f'Done storing {iri}')
 
 
-def analyze_and_index_one(analyses, analyzer, analyzer_class, exp, g, iri, log, red):
+def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
     log.debug(f'Analyzing {iri} with {analyzer_class.token}')
     try:
         try:

@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class KeyRoot(Enum):
     DATA = 0
     ANALYSIS = 1
@@ -48,7 +49,6 @@ expiration = {
     KeyRoot.RELATED: EXPIRATION_CACHED,
     KeyRoot.DISTRIBUTIONS: EXPIRATION_CACHED,
     KeyRoot.GRAPHS: 24 * 60 * 60,
-    KeyRoot.ENDPOINTS: 24 * 60 * 60,
 }
 
 def sanitize_key(key):
@@ -124,3 +124,8 @@ def same_as(iri):
 def skos_relation(iri):
     iri = sanitize_key(iri)
     return f'{root_name[KeyRoot.SKOS_RELATION]}:{iri}'
+
+
+def distribution_endpoint(iri_distribution):
+    iri = sanitize_key(iri_distribution)
+    return f'{root_name[KeyRoot.DISTRIBUTION]}:{iri}'

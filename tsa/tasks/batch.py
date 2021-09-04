@@ -12,7 +12,7 @@ from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
-from tsa.redis import ds_distr
+from tsa.redis import distribution_endpoint, ds_distr
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter, process, process_priority
 
@@ -55,18 +55,6 @@ def _dcat_extractor(g, red, log, force, graph_iri):
         with red.pipeline() as pipe:
             for ds in g.subjects(RDF.type, dcat.Dataset):
                 log.debug(f'DS: {ds!s}')
-                #dataset titles (possibly multilang)
-                #for t in g.objects(ds, dcterms.title):
-                #    key = ds_title(ds, t.language)
-                #    red.set(key, t.value)
-                # done in GenericAnalyzer().get_details(g) ?
-
-                #NKOD specific
-                #dataset keywords, possibly multilang, strip language tag, pick 'Číselník' only, create a set of those
-                #for keyword in g.objects(ds, dcat.keyword):
-                #    if keyword.value.lower() == 'číselník':
-                #        red.hset(root_name[KeyRoot.CODELISTS], ds, t.value)
-                #TODO: extract data commented out above in postprocessing for interesting DS
 
                 #DCAT Distribution
                 for d in g.objects(ds, dcat.distribution):
@@ -86,17 +74,26 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                             queue = distributions_priority
 
                     # download URL to files
+                    downloads = []
+                    endpoint = None
                     for download_url in g.objects(d, dcat.downloadURL):
                         #log.debug(f'Down: {download_url!s}')
                         if rfc3987.match(str(download_url)) and not filter(str(download_url)):
-                            distribution = True
-                            log.debug(f'Distribution {download_url!s} from DCAT dataset {ds!s}')
-                            queue.append(download_url)
-                            pipe.sadd(f'{dsdistr}:{str(ds)}', str(download_url))
-                            pipe.sadd(f'{distrds}:{str(download_url)}', str(ds))
+                            if download_url.endswith('/sparql'):
+                                log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences')
+                                endpoint = download_url
+                            else:
+                                downloads.append(download_url)
+                                distribution = True
+                                log.debug(f'Distribution {download_url!s} from DCAT dataset {ds!s}')
+                                queue.append(download_url)
+                                pipe.sadd(f'{dsdistr}:{str(ds)}', str(download_url))
+                                pipe.sadd(f'{distrds}:{str(download_url)}', str(ds))
                         else:
                             log.debug(f'{download_url!s} is not a valid download URL')
-
+                    if endpoint is not None:
+                        for iri in downloads:
+                            pipe.sadd(distribution_endpoint(str(iri)), endpoint)
                     # scan for DCAT2 data services here as well
                     #for access in g.objects(d, dcat.accessURL):
                     #    log.debug(f'Access: {access!s}')
@@ -109,9 +106,6 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                     #            pipe.hset(distrds, str(endpoint), str(ds))
                     #        else:
                     #            log.warn(f'{endpoint!s} is not a valid endpoint URL')
-
-            #pipe.sadd('purgeable', dsdistr, distrds)
-            # TODO: expire
             pipe.execute()
     # TODO: possibly scan for service description as well
         if distribution:

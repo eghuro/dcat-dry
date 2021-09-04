@@ -17,7 +17,7 @@ from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
-from tsa.redis import expiration, graph, root_name
+from tsa.redis import distribution_endpoint, expiration, graph, root_name
 from tsa.robots import user_agent
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
@@ -62,12 +62,9 @@ def get_iris_to_dereference(g, iri):
         if rfc3987.match(sub) and (sub.startswith('http://') or sub.startswith('https://')):
             yield sub
 
-def dereference_from_endpoint(iri):
-    log = logging.getLogger(__name__)
-    endpoint_iri = Config.LOOKUP_ENDPOINT
-    if not (rfc3987.match(iri) and (iri.startswith('http://') or iri.startswith('https://'))):
-        return None
 
+def dereference_from_endpoint(iri, endpoint_iri):
+    log = logging.getLogger(__name__)
     log.info(f'Dereference {iri} from endpoint {endpoint_iri}')
     store = SPARQLStore(endpoint_iri, True, True, _node_to_sparql,
                         'application/rdf+xml',
@@ -79,7 +76,7 @@ def dereference_from_endpoint(iri):
 
     g = rdflib.ConjunctiveGraph()
     try:
-        with TimedBlock('dereference_from_endpoint.construct'):
+        with TimedBlock('dereference_from_endpoints.construct'):
             g = f.query(query).graph
     except SPARQLWrapper.SPARQLExceptions.QueryBadFormed:
         log.error(f'Dereference {iri} from endpoint failed. Query:\n{query}\n\n')
@@ -89,10 +86,25 @@ def dereference_from_endpoint(iri):
         log.error(f'Failed to dereference {iri}: {e!s}, query: {query}')
     return g
 
+
+def dereference_from_endpoints(iri, iri_distr, red):
+    if not (rfc3987.match(iri) and (iri.startswith('http://') or iri.startswith('https://'))):
+        return None
+    monitor.log_dereference_processed()
+    g = rdflib.ConjunctiveGraph()
+
+    local_endpoints = red.smembers(distribution_endpoint(str(iri)))
+    endpoints = Config.LOOKUP_ENDPOINTS + +local_endpoints
+    for endpoint_iri in endpoints:
+        g += dereference_from_endpoint(iri, endpoint_iri)
+    return g
+
+
 class FailedDereference(ValueError):
     pass
 
-def dereference_one(iri_to_dereference):
+
+def dereference_one(iri_to_dereference, iri_distr):
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.debug(f'Dereference: {iri_to_dereference}')
@@ -103,54 +115,49 @@ def dereference_one(iri_to_dereference):
         try:
             r = fetch(iri_to_dereference, log, red)
         except RobotsRetry as e:
-            # self.retry(countdown=e.delay)
             log.warning(f'Should retry with delay of {e.delay}, will lookup in endpoint: {iri_to_dereference}')
-            return dereference_from_endpoint(iri_to_dereference)
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
         except requests.exceptions.HTTPError:
-            log.debug(f'HTTP Error dereferencing, will lookup in endpoint: {iri_to_dereference}')  # this is a 404 or similar, not worth retrying
-            return dereference_from_endpoint(iri_to_dereference)
+            log.debug(f'HTTP Error dereferencing, will lookup in endpoint: {iri_to_dereference}')
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
         except requests.exceptions.RequestException:
-            # self.retry(exc=e)
             log.debug(f'Failed to dereference (RequestException fetching): {iri_to_dereference}')
-            return dereference_from_endpoint(iri_to_dereference)
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
         except requests.exceptions.ChunkedEncodingError:
-            # self.retry(exc=e)
             log.debug(f'Failed to dereference (ChunkedEncodingError fetching): {iri_to_dereference}')
-            return dereference_from_endpoint(iri_to_dereference)
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
         except Skip:
-            monitor.log_dereference_processed()
-            return dereference_from_endpoint(iri_to_dereference)
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 
         try:
             test_content_length(iri_to_dereference, r, log)
             guess, _ = guess_format(iri_to_dereference, r, log, red)
         except Skip:
             log.debug(f'Attempt to lookup {iri_to_dereference} in endpoint')
-            return dereference_from_endpoint(iri_to_dereference)
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 
         try:
             content = get_content(iri_to_dereference, r, red)
             if content is None:
                 log.debug(f'No content: {iri_to_dereference}')
-                return dereference_from_endpoint(iri_to_dereference)
+                return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
             else:
                 content.encode('utf-8')
+            monitor.log_dereference_processed()
             return load_graph(iri_to_dereference, content, guess)
         except requests.exceptions.ChunkedEncodingError:
-            # task.retry(exc=e)
             log.warning(f'Failed to dereference (ChunkedEncodingError getting content): {iri_to_dereference}')
-            return dereference_from_endpoint(iri_to_dereference)
-
-        monitor.log_dereference_processed()
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
     except:
         log.exception(f'Failed to dereference: {iri_to_dereference}')
-        return dereference_from_endpoint(iri_to_dereference)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+
 
 def expand_graph_with_dereferences(graph, iri_distr):
     log = logging.getLogger(__name__)
     for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
         try:
-            sub_graph = dereference_one(iri_to_dereference)
+            sub_graph = dereference_one(iri_to_dereference, iri_distr)
             if sub_graph is not None:
                 graph += sub_graph
         except UnicodeDecodeError:
@@ -180,11 +187,11 @@ def do_process(iri, task, is_prio, force):
         monitor.log_processed()
         return
 
-    if iri.endswith('sparql'):
-        log.info(f'Guessing it is a SPARQL endpoint: {iri!s}')
-        monitor.log_processed()
-        return
-        #return process_endpoint.si(iri).apply_async(queue='low_priority')
+    # if iri.endswith('sparql'):
+    #    log.info(f'Guessing it is a SPARQL endpoint: {iri!s}')
+    #    monitor.log_processed()
+    #    return
+    #    #return process_endpoint.si(iri).apply_async(queue='low_priority')
 
     log.info(f'Processing {iri!s}')
 
