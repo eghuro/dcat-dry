@@ -2,10 +2,8 @@
 import logging
 
 import rdflib
-import redis
 import rfc3987
 from celery import group
-from celery.result import AsyncResult
 from rdflib import Namespace
 from rdflib.namespace import RDF
 from requests.exceptions import HTTPError
@@ -13,7 +11,6 @@ from requests.exceptions import HTTPError
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
-from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
 from tsa.redis import ds_distr
 from tsa.tasks.common import TrackableTask
@@ -79,13 +76,13 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                         if str(media) in media_priority:
                             queue = distributions_priority
 
-                    for format in g.objects(d, dcterms.format):
-                        if str(format) in format_priority:
+                    for distribution_format in g.objects(d, dcterms.format):
+                        if str(distribution_format) in format_priority:
                             queue = distributions_priority
 
                     # data.gov.cz specific
-                    for format in g.objects(d, nkod.mediaType):
-                        if 'rdf' in str(format):
+                    for distribution_format in g.objects(d, nkod.mediaType):
+                        if 'rdf' in str(distribution_format):
                             queue = distributions_priority
 
                     # download URL to files

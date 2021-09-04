@@ -54,7 +54,7 @@ def _gen_iris(red, log):
 
 
 @celery.task
-def compile_analyses(id):
+def compile_analyses(batch_id):
     log =  logging.getLogger(__name__)
     log.info("Compile analyzes")
     red = redis.Redis(connection_pool=redis_pool)
@@ -63,7 +63,7 @@ def compile_analyses(id):
     for distr_iri, content in _gen_iris(red, log):
         log.debug(distr_iri)
         ds_iris = red.smembers(f'distrds:{distr_iri}')
-        key = f'analysis:{id}:{sanitize_key(distr_iri)}'
+        key = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
         #log.debug(key)
         for ds_iri in ds_iris:
             if ds_iri is None:
@@ -111,17 +111,17 @@ def extract_codelists_objects(ds_list):
                 #log.exception(f'DS: {ds}')
 
 
-def gen_analyses(id, ds, red):
+def gen_analyses(batch_id, ds, red):
     log =  logging.getLogger(__name__)
     log.info(f'Generate analyzes ({len(ds)})')
     for ds_iri in ds:
         for distr_iri in red.smembers(f'dsdistr:{ds_iri}'):
-            key_in = f'analysis:{id}:{sanitize_key(distr_iri)}'
+            key_in = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
             #logging.getLogger(__name__).info(key_in)
             for a in [json.loads(a) for a in red.lrange(key_in, 0, -1)]:
                 for b in a:  # flatten
                     for key in b.keys():  # 1 element
-                        analysis = {'ds_iri': ds_iri, 'batch_id': id}
+                        analysis = {'ds_iri': ds_iri, 'batch_id': batch_id}
                         analysis[key] = b[key]  # merge dicts
                         yield analysis
 
@@ -133,20 +133,20 @@ def gen_analyses(id, ds, red):
 #        yield lst[i:i + n]
 
 @celery.task(ignore_result=True)
-def store_to_mongo(ds, id):
+def store_to_mongo(ds, batch_id):
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     _, mongo_db = get_mongo()
     log.info('Cleaning mongo')
     mongo_db.dsanalyses.delete_many({})
     insert_count, gen_count = 0, 0
-    for analysis in gen_analyses(id, ds, red):
+    for analysis in gen_analyses(batch_id, ds, red):
         gen_count = gen_count + 1
         try:
             mongo_db.dsanalyses.insert_one(analysis)
         except DocumentTooLarge:
             iri = analysis['ds_iri']
-            log.exception(f'Failed to store analysis for {id} (ds: {iri})')
+            log.exception(f'Failed to store analysis for {batch_id} (ds: {iri})')
         except OperationFailure:
             log.exception(f'Operation failure')
         else:
@@ -234,7 +234,6 @@ def skos_concept_is_resource_on_dimension():
     red = redis.Redis(connection_pool=redis_pool)
     root = 'related:qb:'
     _, mongo_db = get_mongo()
-    dsdistr, distrds = ds_distr()
     for key in red.scan_iter(match=f'{root}*'):
         sanitized_iri = key[len(root):]
         #key -> set of distribution iris
@@ -329,7 +328,7 @@ def concept_usage():
 def concept_definition():
     count = 0
     _, mongo_db = get_mongo()
-    dsdistr, distrds = ds_distr()
+    dsdistr, _ = ds_distr()
     log = logging.getLogger(__name__)
     log.info('Find datasets with information about concepts (codelists)')
     red = redis.Redis(connection_pool=redis_pool)

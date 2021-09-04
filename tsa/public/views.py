@@ -11,7 +11,6 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 
 from tsa.cache import cached
 from tsa.extensions import mongo_db, redis_pool, sameAsIndex
-from tsa.monitor import Monitor
 from tsa.query import query
 from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
                         list_datasets, query_dataset)

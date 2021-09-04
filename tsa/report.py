@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import redis
 from bson.json_util import dumps as dumps_bson
+from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.enricher import AbstractEnricher, NoEnrichment
 from tsa.extensions import mongo_db, redis_pool, sameAsIndex
