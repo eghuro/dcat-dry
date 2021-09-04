@@ -4,8 +4,9 @@ import logging
 import rdflib
 import rfc3987
 from celery import group
-from rdflib import Namespace
+from rdflib import Graph, Namespace
 from rdflib.namespace import RDF
+from rdflib.term import URIRef
 from requests.exceptions import HTTPError
 
 from tsa.analyzer import GenericAnalyzer
@@ -20,7 +21,22 @@ from tsa.tasks.process import filter, process, process_priority
 def on_error(x):
     pass
 
-def _dcat_extractor(g, red, log, force, graph_iri):
+
+def query_parent(ds, inspector, log):
+    opts = [ f'<{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent',
+             f'?parent <http://purl.org/dc/terms/hasPart> <{ds!s}> ',
+             f'<{ds!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
+           ]
+    opt = ' '.join([f'OPTIONAL {{ {opt} }}' for opt in opts])
+    query = f'SELECT ?parent WHERE {{ {opt} }}'
+    g = Graph(store=inspector.store)
+    for parent in g.query(query):
+        if isinstance(parent, URIRef):
+            log.info(f'{parent!s} is a series containing {ds!s}')
+            yield str(parent)
+
+
+def _dcat_extractor(g, red, log, force, graph_iri, inspector):
     distributions, distributions_priority = [], []
     dcat = Namespace('http://www.w3.org/ns/dcat#')
     dcterms = Namespace('http://purl.org/dc/terms/')
@@ -57,10 +73,7 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                 log.debug(f'DS: {ds!s}')
                 effective_ds = ds
 
-                opt1 = f'OPTIONAL {{ <{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent }}'
-                opt2 = f'OPTIONAL {{ ?parent <http://purl.org/dc/terms/hasPart> <{ds!s}>  }}'
-                query = f'SELECT ?parent WHERE {{ {opt1} {opt2} }}'
-                for parent in g.query(query):
+                for parent in query_parent(ds, inspector, log):
                     log.info(f'{parent!s} is a series containing {ds!s}')
                     effective_ds = parent
 
@@ -83,13 +96,13 @@ def _dcat_extractor(g, red, log, force, graph_iri):
 
                     # download URL to files
                     downloads = []
-                    endpoint = None
+                    endpoints = set()
                     for download_url in g.objects(d, dcat.downloadURL):
                         #log.debug(f'Down: {download_url!s}')
                         if rfc3987.match(str(download_url)) and not filter(str(download_url)):
                             if download_url.endswith('/sparql'):
                                 log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
-                                endpoint = download_url
+                                endpoints.add(download_url)
                             else:
                                 downloads.append(download_url)
                                 distribution = True
@@ -99,16 +112,20 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                                 pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_ds))
                         else:
                             log.debug(f'{download_url!s} is not a valid download URL')
-                    if endpoint is not None:
-                        pipe.sadd(dataset_endpoint(str(effective_ds), endpoint))
 
                     # scan for DCAT2 data services here as well
-                    #for access in g.objects(d, dcat.accessURL):
-                    #    log.debug(f'Access: {access!s}')
-                    #    for endpoint in g.objects(access, dcat.endpointURL):
-                    #        if rfc3987.match(str(endpoint)):
-                    #            log.debug(f'Endpoint {endpoint!s} from DCAT dataset {ds!s}')
-                    #            endpoints.append(endpoint)
+                    for access in g.objects(d, dcat.accessService):
+                        log.debug(f'Service: {access!s}')
+                        for endpoint in g.objects(access, dcat.endpointURL):
+                            if rfc3987.match(str(endpoint)):
+                                log.debug(f'Endpoint {endpoint!s} from DCAT dataset {ds!s}')
+                                endpoints.add(endpoint)
+
+                    for endpoint in endpoints:
+                        pipe.sadd(dataset_endpoint(str(effective_ds), endpoint))
+
+                    if not downloads and endpoints:
+                        log.warning(f'Only endpoint without distribution for {ds!s}')
 
                     #            pipe.hset(dsdistr, str(ds), str(endpoint))
                     #            pipe.hset(distrds, str(endpoint), str(ds))
@@ -153,7 +170,7 @@ def do_inspect_graph(graph_iri, force, batch_id, red, inspector):
     log = logging.getLogger(__name__)
     result = None
     try:
-        result = _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri)
+        result = _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, inspector)
     except (rdflib.query.ResultException, HTTPError):
         log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
     monitor.log_inspected()

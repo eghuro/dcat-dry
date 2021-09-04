@@ -15,7 +15,7 @@ class Config(object):
     DEBUG_TB_INTERCEPT_REDIRECTS = True
     CACHE_TYPE = 'redis'  # Can be "memcached", "redis", etc.
     CACHE_KEY_PREFIX = 'fcache'
-    CACHE_REDIS_URL = os.environ['REDIS']
+    CACHE_REDIS_URL = os.environ.get('REDIS', None)
     LOOKUP_ENDPOINTS = [os.environ.get('ENDPOINT', None), 'https://linked.cuzk.cz.opendata.cz/sparql']
     ANALYZE_IMMEDIATELY = True
 
