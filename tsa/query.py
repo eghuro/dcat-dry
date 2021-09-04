@@ -1,25 +1,24 @@
+import logging
+
 from celery import chain
 
-from tsa.tasks.query import *
-
-def _graph_iris(red):
-    root = 'graphs:'
-    for k in red.scan_iter(f'graphs:*'):
-        yield k[len(root):]
-
-
-def _get_known_distributions(red):
-    distr_endpoints = red.smembers('distributions').union(frozenset(_graph_iris(red)))
-    failed_skipped = red.smembers('stat:failed').union(red.smembers('stat:skipped'))
-    return distr_endpoints.difference(failed_skipped)
+from tsa.tasks.query import (cache_labels, compile_analyses, concept_definition, concept_usage,
+                             data_driven_relationships, finalize_sameas, gen_related_ds, ruian_reference,
+                             store_to_mongo)
 
 
 def query(result_id, red):
-    iris = list(_get_known_distributions(red))
+    log = logging.getLogger(__name__)
+    log.info(f'query: build celery canvas')
     return chain([
-        compile_analyses.si(iris),
-        split_analyses_by_iri.s(result_id),
-        merge_analyses_by_distribution_iri_and_store.s(result_id),
-        extract_codelists_objects.s(),
+        finalize_sameas.si(),  # no dependecies
+        compile_analyses.si(result_id), store_to_mongo.s(result_id),
+
+        ruian_reference.si(), # mongo + sameas
+        data_driven_relationships.si(),  # sameas, ruian
+
+        concept_usage.si(),  # mongo + sameas + ddr (related concept)
+        concept_definition.si(),
+        cache_labels.si(),
         gen_related_ds.si(),
     ]).apply_async(queue='query')

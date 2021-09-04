@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 """The app module, containing the app factory function."""
 
-import logging
 import sentry_sdk
-
 from atenvironment import environment
-from flask import Flask, g, render_template
+from flask import Flask, render_template
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from tsa import commands, public
 from tsa.extensions import cache, cors
-from tsa.settings import ProdConfig
+from tsa.log import logging_setup
 
 
 def on_error(x):
@@ -23,6 +21,7 @@ def create_app(config_object, dsn_str):
     :param config_object: The configuration object to use.
     """
 
+    logging_setup()
     if dsn_str:
         sentry_sdk.init(
             dsn=dsn_str,

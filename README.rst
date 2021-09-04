@@ -19,6 +19,7 @@ Features:
  - extract a DCAT catalog from SPARQL endpoint and index distributions from it
  - generate a dataset profile
  - show related datasets based mainly on DataCube and SKOS vocabularies
+ - indexing sameAs identities and related concepts
 
 
 Build & run with Docker

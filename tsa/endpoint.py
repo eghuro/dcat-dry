@@ -1,18 +1,21 @@
 """SPARQL endpoint utilities."""
 import logging
 
-import redis
 import rfc3987
 from rdflib import Graph
+from rdflib.parser import Parser
+from rdflib.plugin import register as register_plugin
+from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
+from rdflib.query import ResultException
 
-from tsa.extensions import redis_pool
-from tsa.redis import data as data_key, expiration, KeyRoot
+from tsa.monitor import TimedBlock
+from tsa.robots import user_agent
 
 
 class SparqlEndpointAnalyzer(object):
     """Extract DCAT datasets from a SPARQL endpoint."""
 
-    def __query(self, endpoint, named=None):
+    def __query(self, named=None):
         str1 = """
         construct {
           ?ds a <http://www.w3.org/ns/dcat#Dataset>;
@@ -54,27 +57,39 @@ class SparqlEndpointAnalyzer(object):
         if named is not None:
             return f'{str1} from <{named}> {str3}'
         else:
-            logging.getLogger(__name__).warn('No named graph when constructing catalog from {endpoint!s}')
+            logging.getLogger(__name__).warn('No named graph when constructing catalog from {self.__endpoint!s}')
             return f'{str1} {str3}'
 
-    def process_graph(self, endpoint, graph_iri):
-        """Extract DCAT datasets from the given named graph of an endpoint."""
-        log = logging.getLogger(__name__)
+    def __init__(self, endpoint):
         if not rfc3987.match(endpoint):
-            log.warn(f'{endpoint!s} is not a valid endpoint URL')
-            return None
+            logging.getLogger(__name__).warn(f'{endpoint!s} is not a valid endpoint URL')
+            raise ValueError(endpoint)
+        self.__endpoint = endpoint
+        #workaround for https://github.com/RDFLib/rdflib/issues/1195
+        register_plugin('application/rdf+xml; charset=UTF-8', Parser, 'rdflib.plugins.parsers.rdfxml', 'RDFXMLParser')
+        self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
+                                'application/rdf+xml',
+                                headers={'User-Agent': user_agent})
+
+    def process_graph(self, graph_iri):
+        """Extract DCAT datasets from the given named graph of an endpoint."""
         if not rfc3987.match(graph_iri):
-            log.warn(f'{graph_iri!s} is not a valid graph URL')
+            logging.getLogger(__name__).warn(f'{graph_iri!s} is not a valid graph URL')
             return None
 
-        g = Graph(store='SPARQLStore', identifier=graph_iri)
-        g.open(endpoint)
+        g = Graph(store=self.store, identifier=graph_iri)
+        g.open(self.__endpoint)
 
-        result = Graph()
-        for s, p, o in g.query(self.__query(endpoint, graph_iri)):
-            result.add( (s, p, o) )
+        query = self.__query(graph_iri)
+        # log.debug(query)
 
-        return result
+        try:
+            with TimedBlock('process_graph'):
+                return g.query(query).graph  #implementation detail for CONSTRUCT!
+        except ResultException as e:
+            logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(e)}')
+
+        return None
 
     def get_graphs_from_endpoint(self, endpoint):
         """Extract named graphs from the given endpoint."""

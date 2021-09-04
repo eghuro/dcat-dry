@@ -1,21 +1,26 @@
 """Module for handling compressed distribution files."""
+import gzip
 import logging
 import uuid
-
+from io import BytesIO
 from sys import platform
+
+import libarchive
+
+from tsa.monitor import monitor
+from tsa.redis import MAX_CONTENT_LENGTH, KeyRoot
+from tsa.redis import data as data_key
+from tsa.redis import expiration as expire_table
+
 if platform == 'darwin':
     import os
     os.environ['LIBARCHIVE'] = '/usr/local/Cellar/libarchive/3.3.3/lib/libarchive.13.dylib'
 
-import libarchive
-import gzip
-from io import BytesIO
-
-from tsa.monitor import monitor
-from tsa.redis import data as data_key, MAX_CONTENT_LENGTH, expiration as expire_table, KeyRoot
 
 
-class SizeException(BaseException):
+
+
+class SizeException(Exception):
     """Indicating a subfile is too large."""
 
     def __init__(self, name):
@@ -35,7 +40,6 @@ def load_data(iri, r):
 def decompress_gzip(iri, r, red):
     data = load_data(iri, r)
 
-    expiration = expire_table[KeyRoot.DATA]
     if iri.endswith('.gz'):
         iri = iri[:-3]
     else:
@@ -43,10 +47,10 @@ def decompress_gzip(iri, r, red):
     key = data_key(iri)
     decompressed = gzip.decompress(data)
     if len(decompressed) > MAX_CONTENT_LENGTH:
-        raise SizeException(name)
+        raise SizeException(iri)
 
     deco_size_total = red.set(key, decompressed)
-    red.expire(key, expiration)
+    #red.expire(key, expiration)
     monitor.log_size(deco_size_total)
     log = logging.getLogger(__name__)
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')
@@ -58,7 +62,6 @@ def decompress_7z(iri, r, red):
     data = load_data(iri, r)
     log = logging.getLogger(__name__)
 
-    expiration = expire_table[KeyRoot.DATA]
     deco_size_total = 0
     with libarchive.memory_reader(data) as archive:
         for entry in archive:
@@ -78,7 +81,7 @@ def decompress_7z(iri, r, red):
             log.debug(f'Store {name} into {sub_key}')
             conlen = 0
             if not red.exists(sub_key):
-                red.sadd('purgeable', sub_key)
+                #red.sadd('purgeable', sub_key)
                 for block in entry.get_blocks():
                     if len(block) + conlen > MAX_CONTENT_LENGTH:
                         # Will fail due to redis limitation
@@ -87,7 +90,7 @@ def decompress_7z(iri, r, red):
 
                     red.append(sub_key, block)
                     conlen = conlen + len(block)
-                red.expire(sub_key, expiration)
+                #red.expire(sub_key, expiration)
                 monitor.log_size(conlen)
                 log.debug(f'Subfile has size {conlen}')
                 deco_size_total = deco_size_total + conlen
