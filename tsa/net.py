@@ -28,7 +28,6 @@ class RobotsRetry(Exception):
 
 def fetch(iri, log, red):
     """Fetch the distribution. Mind robots.txt."""
-    delay = None
     is_allowed, delay, robots_url = robots_allowed(iri)
     key = delay_key(robots_url)
     if not is_allowed:

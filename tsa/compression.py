@@ -44,17 +44,18 @@ def decompress_gzip(iri, r, red):
         iri = iri[:-3]
     else:
         iri = iri + '/data'
-    key = data_key(iri)
-    decompressed = gzip.decompress(data)
-    if len(decompressed) > MAX_CONTENT_LENGTH:
-        raise SizeException(iri)
+    # key = data_key(iri)
+    decompressed = BytesIO()
+    decompressed.write(gzip.decompress(data))
+    # if len(decompressed) > MAX_CONTENT_LENGTH:
+    #    raise SizeException(iri)
 
-    deco_size_total = red.set(key, decompressed)
+    deco_size_total = len(decompressed)
     #red.expire(key, expiration)
     monitor.log_size(deco_size_total)
     log = logging.getLogger(__name__)
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')
-    return f'{iri}'
+    return f'{iri}', data.getvalue().decode('utf-8')
 
 
 def decompress_7z(iri, r, red):
@@ -77,25 +78,26 @@ def decompress_7z(iri, r, red):
                     log.error(f'Empty name, iri: {iri!s}')
             else:
                 sub_iri = f'{iri}/{name}'
-            sub_key = data_key(sub_iri)
+            # sub_key = data_key(sub_iri)
             log.debug(f'Store {name} into {sub_key}')
             conlen = 0
-            if not red.exists(sub_key):
+            # if not red.exists(sub_key):
                 #red.sadd('purgeable', sub_key)
-                for block in entry.get_blocks():
-                    if len(block) + conlen > MAX_CONTENT_LENGTH:
+            data = BytesIO()
+            for block in entry.get_blocks():
+            #        if len(block) + conlen > MAX_CONTENT_LENGTH:
                         # Will fail due to redis limitation
-                        red.expire(sub_key, 0)
-                        raise SizeException(name)
-
-                    red.append(sub_key, block)
-                    conlen = conlen + len(block)
+            #            red.expire(sub_key, 0)
+            #            raise SizeException(name)
+                data.write(block)
+            #        red.append(sub_key, block)
+                conlen = conlen + len(block)
                 #red.expire(sub_key, expiration)
-                monitor.log_size(conlen)
-                log.debug(f'Subfile has size {conlen}')
-                deco_size_total = deco_size_total + conlen
-            else:
-                log.warn(f'Data already exists for {sub_iri}')
+            monitor.log_size(conlen)
+            log.debug(f'Subfile has size {conlen}')
+            deco_size_total = deco_size_total + conlen
+            # else:
+            #    log.warn(f'Data already exists for {sub_iri}')
             if conlen > 0:
-                yield sub_iri
+                yield sub_iri, data.getvalue().decode('utf-8')
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')

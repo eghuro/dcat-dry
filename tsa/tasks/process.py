@@ -8,11 +8,10 @@ import redis
 import requests
 import rfc3987
 import SPARQLWrapper
-from celery import group
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 
 from tsa.celery import celery
-from tsa.compression import SizeException, decompress_7z, decompress_gzip
+from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
@@ -20,7 +19,7 @@ from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
 from tsa.redis import dereference as dereference_key
-from tsa.redis import ds_distr, expiration, graph, root_name
+from tsa.redis import ds_distr, root_name
 from tsa.robots import user_agent
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
@@ -161,7 +160,6 @@ def dereference_one_impl(iri_to_dereference, iri_distr):
 
 
 def dereference_one(iri_to_dereference, iri_distr):
-    log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     key = dereference_key(iri_to_dereference)
     if red.exists(key):
@@ -184,6 +182,26 @@ def expand_graph_with_dereferences(graph, iri_distr):
         except FailedDereference:
             pass
     return graph
+
+
+def process_content(content, iri, guess, red, log):
+    if content is None:
+        log.warn(f'No content for {iri}')
+        return
+    else:
+        content.encode('utf-8')
+    with TimedBlock("process.load"):
+        graph = load_graph(iri, content, guess)
+    with TimedBlock("process.dereference"):
+        try:
+            graph = expand_graph_with_dereferences(graph, iri)
+        except ValueError:
+            log.exception(f'Failed to expand dereferenes: {iri}')
+    with TimedBlock("process.analyze_and_index"):
+        do_analyze_and_index(graph, iri, red)
+    log.debug(f'Done analyze and index {iri} (immediate)')
+    monitor.log_processed()
+
 
 def do_process(iri, task, is_prio, force):
     """Analyze an RDF distribution under given IRI."""
@@ -242,41 +260,22 @@ def do_process(iri, task, is_prio, force):
             monitor.log_processed()
             return
 
-        decompress_task = decompress
-        if is_prio:
-            decompress_task = decompress_prio
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
             #delegate this into low_priority task
             #return decompress_task.si(iri, 'zip').apply_async(queue='low_priority')
+            with TimedBlock("process.decompress"):
+                do_decompress(task, iri, 'zip', True)
             return
         elif guess in ['application/gzip', 'application/x-gzip']:
             #return decompress_task.si(iri, 'gzip').apply_async(queue='low_priority')
-            return
+            with TimedBlock("process.decompress"):
+                do_decompress(task, iri, 'gzip', True)
 
         try:
-            log.debug(f'Analyze and index {iri} immediately')
+            log.debug(f'Analyze and index {iri}')
             content = get_content(iri, r, red)
-            if content is None:
-                log.warn(f'No content for {iri}')
-                return
-            else:
-                content.encode('utf-8')
-            graph = None
-            with TimedBlock("process.load"):
-                graph = load_graph(iri, content, guess)
-            with TimedBlock("process.dereference"):
-                try:
-                    graph = expand_graph_with_dereferences(graph, iri)
-                except ValueError:
-                    log.exception(f'Failed to expand dereferenes: {iri}')
-            with TimedBlock("process.analyze_and_index"):
-                do_analyze_and_index(graph, iri, red)
-            log.debug(f'Done analyze and index {iri} (immediate)')
-            monitor.log_processed()
-        except SizeException:
-            log.warn(f'File is too large: {iri}')
-            monitor.log_processed()
-            raise
+            process_content(content, iri, guess, red, log)
+
         except requests.exceptions.ChunkedEncodingError as e:
             task.retry(exc=e)
     except rdflib.exceptions.ParserError as e:
@@ -291,16 +290,16 @@ def do_process(iri, task, is_prio, force):
 # these 2 tasks do the same in low priority queue, however, non-priority one is time constrained AND the processing
 # tasks after decompression will be scheduled into priority queue
 @celery.task(bind=True, time_limit=60, base=TrackableTask)
-def decompress(self, iri, type):
+def decompress(self, iri, archive_type):
     with TimedBlock("process.decompress"):
-        do_decompress(self, iri, type)
+        do_decompress(self, iri, archive_type)
 
 @celery.task(bind=True, base=TrackableTask)
-def decompress_prio(self, iri, type):
+def decompress_prio(self, iri, archive_type):
     with TimedBlock("process.decompress"):
-        do_decompress(self, iri, type, True)
+        do_decompress(self, iri, archive_type, True)
 
-def do_decompress(task, iri, type, is_prio=False):
+def do_decompress(task, iri, archive_type, is_prio=False):
     #we cannot pass request here, so we have to make a new one
     log = logging.getLogger(__name__)
     red = task.redis
@@ -313,21 +312,18 @@ def do_decompress(task, iri, type, is_prio=False):
     except requests.exceptions.RequestException as e:
         task.retry(exc=e)
 
-    def gen_iri_guess(iri, r):
+    try:
         deco = {
             'zip': decompress_7z,
             'gzip': decompress_gzip
         }
-        for sub_iri in deco[type](iri, r, red):
+        for sub_iri, data in deco[archive_type](iri, r, red):
             if red.pfadd(key, sub_iri) == 0:
                 log.debug(f'Skipping distribution as it was recently analyzed: {sub_iri!s}')
                 continue
 
-            sub_key = data_key(sub_iri)
-            red.expire(sub_key, expiration[KeyRoot.DATA])
-
             if sub_iri.endswith('/data'):  # extracted a file without a filename
-                yield sub_iri, 'text/plain'  # this will allow for analysis to happen
+                process_content(data, sub_iri, 'text/plain', red, log)  # this will allow for analysis to happen
                 continue
 
             try:
@@ -338,26 +334,6 @@ def do_decompress(task, iri, type, is_prio=False):
                 log.warn(f'Unknown format after decompression: {sub_iri}')
                 red.expire(data_key(sub_iri), 1)
             else:
-                yield sub_iri, guess
-
-    def gen_tasks(iri, r):
-        lst = []
-        try:
-            for x in gen_iri_guess(iri, r): #this does the decompression
-                lst.append(x)
-        except SizeException as e:
-            log.warn(f'One of the files in archive {iri} is too large ({e.name})')
-            for sub_iri, _ in lst:
-                log.debug(f'Expire {sub_iri}')
-                red.expire(data_key(sub_iri), 1)
-        except TypeError:
-            log.exception(f'iri: {iri!s}, type: {type!s}')
-        else:
-            for sub_iri, guess in lst:
-                yield analyze_and_index.si(sub_iri, guess)
-
-    g = group([t for t in gen_tasks(iri, r)])
-    if is_prio:
-        return g.apply_async(queue='high_priority')
-    else:
-        return g.apply_async()
+                process_content(data, sub_iri, guess, red, log)
+    except TypeError:
+        log.exception(f'iri: {iri!s}, archive_type: {archive_type!s}')
