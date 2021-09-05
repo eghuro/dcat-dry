@@ -35,7 +35,7 @@ def query_parent(ds, endpoint, log):
         # log.debug(query)
         for parent in g.query(query):
             parent_iri = str(parent['parent'])
-            log.info(f'{parent_iri!s} is a series containing {ds!s}')
+            # log.info(f'{parent_iri!s} is a series containing {ds!s}')
             yield str(parent_iri)
 
 

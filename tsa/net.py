@@ -122,13 +122,13 @@ def guess_format(iri, r, log, red):
 
     priority = set(['hturtle', 'n3', 'nquads', 'nt',
                     'trix', 'trig', 'turtle', 'xml', 'json-ld',
-                    #'application/x-7z-compressed',
+                    'application/x-7z-compressed',
                     'application/rdf+xml',
                     'application/ld+json', 'application/rss+xml',
                     'text/turtle'])
     regular = set(['text/xml',  'application/json', 'text/plain',
-                   #'application/gzip', 'application/x-zip-compressed',
-                   #'application/zip', 'application/x-gzip',
+                   'application/gzip', 'application/x-zip-compressed',
+                   'application/zip', 'application/x-gzip',
                    'html', 'text/html'
                    ])
     if guess not in priority.union(regular):
