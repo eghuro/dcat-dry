@@ -18,13 +18,6 @@ from tsa.ruian import RuianInspector
 
 ### ANALYSIS (PROFILE) ###
 
-# unused
-def _graph_iris(red):
-    root = 'graphs:'
-    for k in red.scan_iter(f'graphs:*'):
-        yield k[len(root):]
-
-
 def _gen_iris(red, log):
     root = 'analyze:'
     for key in red.scan_iter(match=f'distrds:*'):
@@ -86,31 +79,6 @@ def compile_analyses(batch_id):
     return list(ds)
 
 
-# unused
-@celery.task
-def extract_codelists_objects(ds_list):
-    log =  logging.getLogger(__name__)
-    log.info("Extract codelists objects")
-    red = redis.Redis(connection_pool=redis_pool)
-    log = logging.getLogger(__name__)
-    for ds in ds_list:
-        if red.hexists(root_name[KeyRoot.CODELISTS], ds):  # this is a codelist
-            try:
-                analysis = json.loads(red.get(f'dsanalyses:{ds}'))
-                # hash: object -> ds (lookup: object -> codelist)
-                if "generic" in analysis:
-                    try:
-                        for subject in analysis["generic"]["subjects"]:  # index subjects (they will be referenced)
-                            red.sadd(codelist(subject), ds)
-                            red.sadd(codelist(ds), subject)
-                    except KeyError:
-                        pass
-                        #log.exception(f'DS: {ds}')
-            except TypeError:
-                pass
-                #log.exception(f'DS: {ds}')
-
-
 def gen_analyses(batch_id, ds, red):
     log =  logging.getLogger(__name__)
     log.info(f'Generate analyzes ({len(ds)})')
@@ -125,12 +93,6 @@ def gen_analyses(batch_id, ds, red):
                         analysis[key] = b[key]  # merge dicts
                         yield analysis
 
-# Yield successive n-sized
-# chunks from lst.
-#def divide_chunks(lst, n):
-#    # looping till length lst
-#    for i in range(0, len(lst), n):
-#        yield lst[i:i + n]
 
 @celery.task(ignore_result=True)
 def store_to_mongo(ds, batch_id):
@@ -161,10 +123,6 @@ def store_to_mongo(ds, batch_id):
 #reltypes.extend(['skosqb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension'])
 reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension']
 
-# unused
-def relevant_ds(red):
-    for ds in red.sscan_iter('relevant_distr'):
-        yield ds
 
 @celery.task
 def gen_related_ds():
@@ -201,6 +159,7 @@ def gen_related_ds():
     del related_ds['_id']
     return related_ds
 
+
 @celery.task
 def finalize_sameas():
     log =  logging.getLogger(__name__)
@@ -208,6 +167,7 @@ def finalize_sameas():
     sameAsIndex.finalize()
     #skos not needed - not transitive
     log.info("Successfully finalized sameAs index")
+
 
 @celery.task
 def cache_labels():
@@ -226,40 +186,16 @@ def cache_labels():
         log.exception('Failed to cache labels')
 
 
-# unused - DDR
-@celery.task
-def skos_concept_is_resource_on_dimension():
-    log =  logging.getLogger(__name__)
-    log.info("Generate relations when SKOS Concept is a resource on dimension")
-    red = redis.Redis(connection_pool=redis_pool)
-    root = 'related:qb:'
-    _, mongo_db = get_mongo()
-    for key in red.scan_iter(match=f'{root}*'):
-        sanitized_iri = key[len(root):]
-        #key -> set of distribution iris
-        #we need distributions of datasets containing sanitized_iri as skos:Concept
-        #mongo -> dsanalyses -> key: 'ds_iri', key: skos -> 'concept' -> sanitize(iri) == sanitized_iri
-        with red.pipeline() as pipe:
-            for doc in mongo_db.dsanalyses.find({'skos': '$exists'}):
-                for concept_iri in doc['skos']['concept'].keys():  # concept_count
-                    sanitized_concept_iri = sanitize_key(concept_iri)
-                    if sanitized_iri == sanitized_concept_iri:
-                        ds_iri = doc['ds_iri']
-                        distr_iris = pipe.smembers(f'dsdistr:{ds_iri}')
-                        key2 = related_key('skosqb', concept_iri)
-                        # add: all in key (all datasets containing sanitized iri on dimension)
-                        # add all in
-                        pipe.sadd(key2, *distr_iris)
-                        pipe.sadd(key2, *red.smembers(key))
-
 def iter_subjects_objects(generic_analysis):
     for initial_iri in set(iri for iri in generic_analysis['generic']['subjects']).union(set(iri for iri in generic_analysis['generic']['objects'])):
         for iri in sameAsIndex.lookup(initial_iri):
             yield iri
 
+
 def iter_generic(mongo_db):
     for doc in mongo_db.dsanalyses.find({'generic': {'$exists': True}}):
         yield doc
+
 
 @celery.task
 def ruian_reference():
@@ -280,9 +216,11 @@ def ruian_reference():
     inspector = RuianInspector()
     inspector.process_references(ruian_references)
 
+
 def report_relationship(red, rel_type, resource_iri, distr_iri):
     key = related_key(rel_type, resource_iri)
     red.sadd(key, distr_iri)
+
 
 @celery.task
 def concept_usage():
@@ -323,6 +261,7 @@ def concept_usage():
             pipe.execute()
 
     log.info(f'Found relationships: {counter}')
+
 
 @celery.task
 def concept_definition():
@@ -377,6 +316,7 @@ def data_driven_relationships():
         for (rel_type, resource_iri, distr_iri) in report:
             report_relationship(pipe, rel_type, resource_iri, distr_iri)
         pipe.execute()
+
 ### MISC ###
 
 @celery.task
