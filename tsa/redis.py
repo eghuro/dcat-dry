@@ -17,6 +17,7 @@ class KeyRoot(Enum):
     SAME_AS = 12
     SKOS_RELATION = 13
     CONCEPT = 14
+    DEREFERENCE = 15
 
 
 root_name = {
@@ -34,7 +35,8 @@ root_name = {
     KeyRoot.DESCRIPTION: 'description',
     KeyRoot.SAME_AS: 'same_as',
     KeyRoot.SKOS_RELATION: 'skos',
-    KeyRoot.CONCEPT: 'concept'
+    KeyRoot.CONCEPT: 'concept',
+    KeyRoot.DEREFERENCE: 'deref'
 }
 
 
@@ -128,4 +130,9 @@ def skos_relation(iri):
 
 def dataset_endpoint(iri_distribution):
     iri = sanitize_key(iri_distribution)
-    return f'{root_name[KeyRoot.DISTRIBUTION]}:{iri}'
+    return f'{root_name[KeyRoot.ENDPOINTS]}:{iri}'
+
+
+def dereference(iri):
+    iri = sanitize_key(iri)
+    return f'{root_name[KeyRoot.DEREFERENCE]}:{iri}'

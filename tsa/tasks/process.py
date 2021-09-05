@@ -1,5 +1,6 @@
 """Celery tasks for running analyses."""
 import logging
+import sys
 
 import gevent
 import rdflib
@@ -17,7 +18,9 @@ from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
-from tsa.redis import dataset_endpoint, ds_distr, expiration, graph, root_name
+from tsa.redis import dataset_endpoint
+from tsa.redis import dereference as dereference_key
+from tsa.redis import ds_distr, expiration, graph, root_name
 from tsa.robots import user_agent
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
@@ -96,7 +99,7 @@ def dereference_from_endpoints(iri, iri_distr, red):
 
     _, distrds = ds_distr()
     for ds_iri in red.smembers(f'{distrds}:{str(iri_distr)}'):
-        log.debug('For {iri_distr} we have the dataset {ds_iri}')
+        log.debug(f'For {iri_distr} we have the dataset {ds_iri}')
         local_endpoints = red.smembers(dataset_endpoint(str(ds_iri)))
         endpoints = Config.LOOKUP_ENDPOINTS + local_endpoints
         for endpoint_iri in endpoints:
@@ -108,7 +111,7 @@ class FailedDereference(ValueError):
     pass
 
 
-def dereference_one(iri_to_dereference, iri_distr):
+def dereference_one_impl(iri_to_dereference, iri_distr):
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.debug(f'Dereference: {iri_to_dereference}')
@@ -155,6 +158,18 @@ def dereference_one(iri_to_dereference, iri_distr):
     except:
         log.exception(f'Failed to dereference: {iri_to_dereference}')
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+
+
+def dereference_one(iri_to_dereference, iri_distr):
+    log = logging.getLogger(__name__)
+    red = redis.Redis(connection_pool=redis_pool)
+    key = dereference_key(iri_to_dereference)
+    if red.exists(key):
+        g = load_graph(iri_to_dereference, red.get(key), 'n3')
+    else:
+        g = dereference_one_impl(iri_to_dereference, iri_distr)
+        red.set(key, g.serialize(format='n3'))
+    return g
 
 
 def expand_graph_with_dereferences(graph, iri_distr):
@@ -268,7 +283,8 @@ def do_process(iri, task, is_prio, force):
         log.warning(f'Failed to parse {iri!s} - likely not an RDF: {e!s}')
         monitor.log_processed()
     except:
-        log.exception(f'Failed to get {iri!s}')
+        e = sys.exc_info()[1]
+        log.exception(f'Failed to get {iri!s}: {e!s}')
         #red.sadd('stat:failed', str(iri))
         monitor.log_processed()
 
