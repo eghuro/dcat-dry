@@ -160,14 +160,18 @@ def dereference_one_impl(iri_to_dereference, iri_distr):
 
 
 def dereference_one(iri_to_dereference, iri_distr):
-    red = redis.Redis(connection_pool=redis_pool)
-    key = dereference_key(iri_to_dereference)
-    if red.exists(key):
-        g = load_graph(iri_to_dereference, red.get(key), 'n3')
-    else:
-        g = dereference_one_impl(iri_to_dereference, iri_distr)
-        red.set(key, g.serialize(format='n3'))
-    return g
+    try:
+        red = redis.Redis(connection_pool=redis_pool)
+        key = dereference_key(iri_to_dereference)
+        if red.exists(key):
+            g = load_graph(iri_to_dereference, red.get(key), 'n3')
+        else:
+            g = dereference_one_impl(iri_to_dereference, iri_distr)
+            red.set(key, g.serialize(format='n3'))
+        return g
+    except:
+        logging.getLogger(__name__).exception(f'All attempts to dereference failed: {iri_to_dereference}')
+        raise FailedDereference() from sys.exc_info()[1]
 
 
 def expand_graph_with_dereferences(graph, iri_distr):
@@ -223,12 +227,6 @@ def do_process(iri, task, is_prio, force):
         log.debug(f'Skipping distribution as it was recently processed: {iri!s}')
         monitor.log_processed()
         return
-
-    # if iri.endswith('sparql'):
-    #    log.info(f'Guessing it is a SPARQL endpoint: {iri!s}')
-    #    monitor.log_processed()
-    #    return
-    #    #return process_endpoint.si(iri).apply_async(queue='low_priority')
 
     log.info(f'Processing {iri!s}')
 
@@ -287,17 +285,6 @@ def do_process(iri, task, is_prio, force):
         #red.sadd('stat:failed', str(iri))
         monitor.log_processed()
 
-# these 2 tasks do the same in low priority queue, however, non-priority one is time constrained AND the processing
-# tasks after decompression will be scheduled into priority queue
-@celery.task(bind=True, time_limit=60, base=TrackableTask)
-def decompress(self, iri, archive_type):
-    with TimedBlock("process.decompress"):
-        do_decompress(self, iri, archive_type)
-
-@celery.task(bind=True, base=TrackableTask)
-def decompress_prio(self, iri, archive_type):
-    with TimedBlock("process.decompress"):
-        do_decompress(self, iri, archive_type, True)
 
 def do_decompress(task, iri, archive_type, is_prio=False):
     #we cannot pass request here, so we have to make a new one
