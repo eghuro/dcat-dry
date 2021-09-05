@@ -1,3 +1,5 @@
+import logging
+
 import redis as redis_lib
 from celery import Task
 
@@ -15,4 +17,14 @@ class TrackableTask(Task):
 
 
     def __call__(self, *args, **kwargs):
-        return super(TrackableTask, self).__call__(*args, **kwargs)
+        res = super(TrackableTask, self).__call__(*args, **kwargs)
+        self.__check_queue()
+        return res
+
+    def __check_queue(self):
+        enqueued = self.__red.llen('default') + self.__red.llen('high_priority') + self.__red.llen('low_priority')
+        log = logging.getLogger(__name__)
+        if enqueued > 0:
+            log.info(f'Enqueued: {enqueued}')
+        else:
+            log.warning(f'Enqueued 0, we are done')
