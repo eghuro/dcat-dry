@@ -14,7 +14,7 @@ def load_graph(iri, data, format_guess):
     try:
         log.debug('Parsing')
         g = rdflib.ConjunctiveGraph()
-        g.parse(data=data, format=format_guess)
+        g.parse(data=data, format=format_guess.lower())
         log.debug('Done parsing')
         return g
     except TypeError:

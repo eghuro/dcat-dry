@@ -6,6 +6,7 @@ import rfc3987
 from celery import group
 from rdflib import Graph, Namespace
 from rdflib.namespace import RDF
+from rdflib.plugins.stores.sparqlstore import SPARQLStore
 from rdflib.term import URIRef
 from requests.exceptions import HTTPError
 
@@ -14,6 +15,7 @@ from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
 from tsa.redis import dataset_endpoint, ds_distr
+from tsa.robots import user_agent
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter, process, process_priority
 
@@ -22,21 +24,22 @@ def on_error(x):
     pass
 
 
-def query_parent(ds, inspector, log):
+def query_parent(ds, endpoint, log):
     opts = [ f'<{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent',
              f'?parent <http://purl.org/dc/terms/hasPart> <{ds!s}> ',
              f'<{ds!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
            ]
-    opt = ' '.join([f'OPTIONAL {{ {opt} }}' for opt in opts])
-    query = f'SELECT ?parent WHERE {{ {opt} }}'
-    g = Graph(store=inspector.store)
-    for parent in g.query(query):
-        if isinstance(parent, URIRef):
-            log.info(f'{parent!s} is a series containing {ds!s}')
-            yield str(parent)
+    g = Graph(SPARQLStore(endpoint, headers={'User-Agent': user_agent}))
+    for opt in opts:
+        query = f'SELECT ?parent WHERE {{ {opt} }}'
+        # log.debug(query)
+        for parent in g.query(query):
+            parent_iri = str(parent['parent'])
+            log.info(f'{parent_iri!s} is a series containing {ds!s}')
+            yield str(parent_iri)
 
 
-def _dcat_extractor(g, red, log, force, graph_iri, inspector):
+def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
     distributions, distributions_priority = [], []
     dcat = Namespace('http://www.w3.org/ns/dcat#')
     dcterms = Namespace('http://purl.org/dc/terms/')
@@ -73,9 +76,12 @@ def _dcat_extractor(g, red, log, force, graph_iri, inspector):
                 log.debug(f'DS: {ds!s}')
                 effective_ds = ds
 
-                for parent in query_parent(ds, inspector, log):
-                    log.info(f'{parent!s} is a series containing {ds!s}')
-                    effective_ds = parent
+                try:
+                    for parent in query_parent(ds, endpoint, log):
+                        log.info(f'{parent!s} is a series containing {ds!s}')
+                        effective_ds = parent
+                except:
+                    log.exception(f'Query for parent dataset failed: {ds!s}')
 
                 #DCAT Distribution
                 for d in g.objects(ds, dcat.distribution):
@@ -161,29 +167,30 @@ def inspect_catalog(key):
 
 
 @celery.task(base=TrackableTask)
-def inspect_graph(endpoint_iri, graph_iri, force, batch_id):
-    inspector = SparqlEndpointAnalyzer(endpoint_iri)
+def inspect_graph(endpoint_iri, graph_iri, force):
     red = inspect_graph.redis
-    return do_inspect_graph(graph_iri, force, batch_id, red, inspector)
+    return do_inspect_graph(graph_iri, force, red, endpoint_iri)
 
-def do_inspect_graph(graph_iri, force, batch_id, red, inspector):
+
+def do_inspect_graph(graph_iri, force, red, endpoint_iri):
     log = logging.getLogger(__name__)
     result = None
     try:
-        result = _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, inspector)
+        inspector = SparqlEndpointAnalyzer(endpoint_iri)
+        result = _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
     except (rdflib.query.ResultException, HTTPError):
         log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
     monitor.log_inspected()
     return result
 
 @celery.task
-def inspect_graphs(graphs, endpoint_iri, force, batch_id):
+def inspect_graphs(graphs, endpoint_iri, force):
     red = inspect_graphs.redis
-    do_inspect_graphs(graphs, endpoint_iri, force, batch_id, red)
+    do_inspect_graphs(graphs, endpoint_iri, force, red)
 
-def do_inspect_graphs(graphs, endpoint_iri, force, batch_id, red):
-    inspector = SparqlEndpointAnalyzer(endpoint_iri)
-    return [do_inspect_graph(g, force, batch_id, red, inspector) for g in graphs]
+
+def do_inspect_graphs(graphs, endpoint_iri, force, red):
+    return [do_inspect_graph(g, force, red, endpoint_iri) for g in graphs]
 
 
 def multiply(item, times):
@@ -200,4 +207,4 @@ def batch_inspect(endpoint_iri, graphs, force, batch_id, chunks):
     items = len(graphs)
     monitor.log_graph_count(items)
     logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
-    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(force, items), multiply(batch_id, items)), chunks).apply_async()
+    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(force, items)), chunks).apply_async()

@@ -67,6 +67,7 @@ class SparqlEndpointAnalyzer(object):
         self.__endpoint = endpoint
         #workaround for https://github.com/RDFLib/rdflib/issues/1195
         register_plugin('application/rdf+xml; charset=UTF-8', Parser, 'rdflib.plugins.parsers.rdfxml', 'RDFXMLParser')
+
         self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
                                 'application/rdf+xml',
                                 headers={'User-Agent': user_agent})
