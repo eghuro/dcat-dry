@@ -10,9 +10,9 @@ from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.celery import celery
 from tsa.extensions import conceptIndex, ddrIndex, dsdIndex, get_mongo, redis_pool, sameAsIndex
-from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, KeyRoot, codelist, ds_distr
+from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, ds_distr, pure_subject
 from tsa.redis import related as related_key
-from tsa.redis import root_name, sanitize_key
+from tsa.redis import sanitize_key
 from tsa.report import export_labels
 from tsa.ruian import RuianInspector
 
@@ -23,7 +23,7 @@ def _gen_iris(red, log):
     for key in red.scan_iter(match=f'distrds:*'):
         distr_iri = key[len('distrds:'):]
         key1 = f'{root}{sanitize_key(distr_iri)}'
-        log.debug(key1)
+        # log.debug(key1)
         try:
             x = red.get(key1)
         except:
@@ -31,7 +31,7 @@ def _gen_iris(red, log):
         if x is None:
             continue
         analysis = json.loads(x)
-        log.debug(str(analysis))
+        # log.debug(str(analysis))
         if 'analysis' in analysis.keys():
             content = analysis['analysis']
             if 'iri' in analysis.keys():
@@ -121,7 +121,7 @@ def store_to_mongo(ds, batch_id):
 ### INDEX ###
 #reltypes = sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
 #reltypes.extend(['skosqb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension'])
-reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension']
+reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension', 'crossSameas']
 
 
 @celery.task
@@ -143,7 +143,7 @@ def gen_related_ds():
             all_related = set()
             for distr_iri in related_dist:
                 all_related.update(red.smembers(f'distrds:{distr_iri}'))
-            if len(all_related) > 0:
+            if len(all_related) > 1:  # do not consider sets on one candidate for conciseness
                 related_ds[rel_type].append({'iri': token, 'related': list(all_related)})
 
     try:
@@ -282,6 +282,19 @@ def concept_definition():
                         count = count + 1
         pipe.execute()
     log.info(f'Found {count} relationship candidates')
+
+
+@celery.task
+def cross_dataset_sameas():
+    _, mongo_db = get_mongo()
+    dsdistr, _ = ds_distr()
+    red = redis.Redis(connection_pool=redis_pool)
+    for generic in iter_generic(mongo_db):
+        ds_iri = generic['ds_iri']
+        for distr_iri in red.sscan_iter(f'{dsdistr}:{ds_iri}'):
+            for resource in red.lrange(pure_subject(distr_iri), 0, -1):
+                for iri in sameAsIndex.lookup(resource):
+                    report_relationship(red, 'crossSameas', iri, distr_iri)
 
 
 @celery.task

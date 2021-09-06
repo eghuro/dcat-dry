@@ -30,18 +30,10 @@ class Index(object):
             pipe.sadd(self.__key(iri1), iri2)
             if self.__symmetric:
                 pipe.sadd(self.__key(iri2), iri1)
-
-            #for iri in pipe.sscan_iter(index_key(iri1)):  # transitivity + symmetry
-            #    pipe.sadd(index_key(iri2), iri)
-            #    pipe.sadd(index_key(iri), iri2)
-            #for iri in pipe.sscan_iter(index_key(iri2)):
-            #    pipe.sadd(index_key(iri1), iri)
-            #    pipe.sadd(index_key(iri), iri1)
-
             pipe.execute()
 
     def finalize(self):
-        graph = {}  # this can get big! - TODO: use redis for all DS here and in __bfs
+        graph = {}
         for key in self.__red.scan_iter(match=self.__key('*')):
             iri = key[len(self.__key('')):].replace('_', ':', 1)
             neighbours = [x for x in self.__red.sscan_iter(key)]

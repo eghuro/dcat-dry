@@ -2,7 +2,7 @@ import logging
 
 from celery import chain
 
-from tsa.tasks.query import (cache_labels, compile_analyses, concept_definition, concept_usage,
+from tsa.tasks.query import (cache_labels, compile_analyses, concept_definition, concept_usage, cross_dataset_sameas,
                              data_driven_relationships, finalize_sameas, gen_related_ds, ruian_reference,
                              store_to_mongo)
 
@@ -14,7 +14,8 @@ def query(result_id, red):
         finalize_sameas.si(),  # no dependecies
         compile_analyses.si(result_id), store_to_mongo.s(result_id),
 
-        ruian_reference.si(), # mongo + sameas
+        cross_dataset_sameas.si(),
+        ruian_reference.si(),  # mongo + sameas
         data_driven_relationships.si(),  # sameas, ruian
 
         concept_usage.si(),  # mongo + sameas + ddr (related concept)

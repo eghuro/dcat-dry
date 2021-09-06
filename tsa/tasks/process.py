@@ -19,7 +19,7 @@ from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
 from tsa.redis import dereference as dereference_key
-from tsa.redis import ds_distr, root_name
+from tsa.redis import ds_distr, pure_subject, root_name
 from tsa.robots import user_agent
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
@@ -188,6 +188,13 @@ def expand_graph_with_dereferences(graph, iri_distr):
     return graph
 
 
+def store_pure_subjects(iri, graph, red):
+    subjects_pure = set()
+    for s, _, _ in graph:
+        subjects_pure.add(str(s))
+    red.lpush(pure_subject(iri), *list(subjects_pure))
+
+
 def process_content(content, iri, guess, red, log):
     if content is None:
         log.warn(f'No content for {iri}')
@@ -196,6 +203,9 @@ def process_content(content, iri, guess, red, log):
         content.encode('utf-8')
     with TimedBlock("process.load"):
         graph = load_graph(iri, content, guess)
+
+    store_pure_subjects(iri, graph, red)
+
     with TimedBlock("process.dereference"):
         try:
             graph = expand_graph_with_dereferences(graph, iri)
@@ -260,22 +270,19 @@ def do_process(iri, task, is_prio, force):
 
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
             #delegate this into low_priority task
-            #return decompress_task.si(iri, 'zip').apply_async(queue='low_priority')
             with TimedBlock("process.decompress"):
                 do_decompress(task, iri, 'zip', True)
-            return
         elif guess in ['application/gzip', 'application/x-gzip']:
-            #return decompress_task.si(iri, 'gzip').apply_async(queue='low_priority')
             with TimedBlock("process.decompress"):
                 do_decompress(task, iri, 'gzip', True)
+        else:
+            try:
+                log.debug(f'Analyze and index {iri}')
+                content = get_content(iri, r, red)
+                process_content(content, iri, guess, red, log)
 
-        try:
-            log.debug(f'Analyze and index {iri}')
-            content = get_content(iri, r, red)
-            process_content(content, iri, guess, red, log)
-
-        except requests.exceptions.ChunkedEncodingError as e:
-            task.retry(exc=e)
+            except requests.exceptions.ChunkedEncodingError as e:
+                task.retry(exc=e)
     except rdflib.exceptions.ParserError as e:
         log.warning(f'Failed to parse {iri!s} - likely not an RDF: {e!s}')
         monitor.log_processed()

@@ -18,6 +18,7 @@ class KeyRoot(Enum):
     SKOS_RELATION = 13
     CONCEPT = 14
     DEREFERENCE = 15
+    SUBJECT = 16
 
 
 root_name = {
@@ -36,7 +37,8 @@ root_name = {
     KeyRoot.SAME_AS: 'same_as',
     KeyRoot.SKOS_RELATION: 'skos',
     KeyRoot.CONCEPT: 'concept',
-    KeyRoot.DEREFERENCE: 'deref'
+    KeyRoot.DEREFERENCE: 'deref',
+    KeyRoot.SUBJECT: 'subpure'
 }
 
 
@@ -136,3 +138,8 @@ def dataset_endpoint(iri_distribution):
 def dereference(iri):
     iri = sanitize_key(iri)
     return f'{root_name[KeyRoot.DEREFERENCE]}:{iri}'
+
+
+def pure_subject(iri):
+    iri = sanitize_key(iri)
+    return f'{root_name[KeyRoot.SUBJECT]}:{iri}'
