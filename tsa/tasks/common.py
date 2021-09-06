@@ -1,10 +1,13 @@
 import logging
 import os
+import uuid
 
 import redis as redis_lib
 from celery import Task
 
+from tsa.celery import celery
 from tsa.extensions import redis_pool
+from tsa.query import query
 
 
 class TrackableTask(Task):
@@ -18,18 +21,31 @@ class TrackableTask(Task):
 
 
     def __call__(self, *args, **kwargs):
-        res = super(TrackableTask, self).__call__(*args, **kwargs)
-        self.__check_queue()
-        return res
+        self._red.set('shouldQuery', 1)
+        return super(TrackableTask, self).__call__(*args, **kwargs)
 
-    def __check_queue(self):
-        # need to query redis used for celery - that's where the queues are!
-        redis_cfg = os.environ.get('REDIS_CELERY', None)
-        pool = redis_lib.ConnectionPool().from_url(redis_cfg, charset='utf-8', decode_responses=True)
-        red = redis_lib.Redis(connection_pool=pool)
-        enqueued = red.llen('default') + red.llen('high_priority') + red.llen('low_priority')
-        log = logging.getLogger(__name__)
-        if enqueued > 0:
-            log.info(f'Enqueued: {enqueued}')
-        else:
-            log.warning(f'Enqueued 0, we are done')
+
+@celery.task
+def monitor(*args):
+    log = logging.getLogger(__name__)
+    log.info('Periodic queue monitoring task')
+    redis_cfg = os.environ.get('REDIS_CELERY', None)
+    pool = redis_lib.ConnectionPool().from_url(redis_cfg, charset='utf-8', decode_responses=True)
+    red = redis_lib.Redis(connection_pool=pool)
+    enqueued = red.llen('default') + red.llen('high_priority') + red.llen('low_priority')
+    if enqueued > 0:
+        log.info(f'Enqueued: {enqueued}')
+    else:
+        with red.pipeline() as pipe:
+            if pipe.get('shouldQuery') == 1:
+                log.info('Should query')
+                pipe.set('shouldQuery', 0)
+                pipe.execute()
+
+                log.warning(f'Enqueued 0, we are done and we should query')
+            else:
+                return
+
+        result_id = str(uuid.uuid4())
+        query(result_id, red)
+        log.info(f'Query result id: {result_id}')

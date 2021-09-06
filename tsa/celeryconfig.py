@@ -29,4 +29,13 @@ task_routes = {
     'tsa.tasks.batch.*': {
         'queue': 'low_priority'
     },
+    'tsa.tasks.commonn.monitor': {
+        'queue': 'default'
+    }
+}
+beat_schedule = {
+    'check-queue-every-minute': {
+        'task': 'tsa.tasks.common.monitor',
+        'schedule': 60.0,
+    },
 }
