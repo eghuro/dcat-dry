@@ -199,8 +199,9 @@ def process_content(content, iri, guess, red, log):
     if content is None:
         log.warn(f'No content for {iri}')
         return
-    else:
-        content.encode('utf-8')
+
+    log.debug(f'Analyze and index {iri}')
+    content.encode('utf-8')
     with TimedBlock("process.load"):
         graph = load_graph(iri, content, guess)
 
@@ -269,18 +270,16 @@ def do_process(iri, task, is_prio, force):
             return
 
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
-            #delegate this into low_priority task
             with TimedBlock("process.decompress"):
-                do_decompress(task, iri, 'zip', True)
+                do_decompress(red, iri, 'zip', r)
         elif guess in ['application/gzip', 'application/x-gzip']:
             with TimedBlock("process.decompress"):
-                do_decompress(task, iri, 'gzip', True)
+                do_decompress(red, iri, 'gzip', r)
         else:
             try:
-                log.debug(f'Analyze and index {iri}')
+                log.debug(f'Get content of {iri}')
                 content = get_content(iri, r, red)
                 process_content(content, iri, guess, red, log)
-
             except requests.exceptions.ChunkedEncodingError as e:
                 task.retry(exc=e)
     except rdflib.exceptions.ParserError as e:
@@ -293,25 +292,18 @@ def do_process(iri, task, is_prio, force):
         monitor.log_processed()
 
 
-def do_decompress(task, iri, archive_type, is_prio=False):
-    #we cannot pass request here, so we have to make a new one
+def do_decompress(red, iri, archive_type, r):
     log = logging.getLogger(__name__)
-    red = task.redis
 
     key = root_name[KeyRoot.DISTRIBUTIONS]
-    try:
-        r = fetch(iri, log, red)
-    except RobotsRetry as e:
-        task.retry(countdown=e.delay)
-    except requests.exceptions.RequestException as e:
-        task.retry(exc=e)
+    log.debug(f'Decompress {iri}')
 
     try:
         deco = {
             'zip': decompress_7z,
             'gzip': decompress_gzip
         }
-        for sub_iri, data in deco[archive_type](iri, r, red):
+        for sub_iri, data in deco[archive_type](iri, r):
             if red.pfadd(key, sub_iri) == 0:
                 log.debug(f'Skipping distribution as it was recently analyzed: {sub_iri!s}')
                 continue
