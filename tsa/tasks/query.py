@@ -157,6 +157,7 @@ def gen_related_ds():
         logging.getLogger(__name__).exception('Failed to store related datasets')
 
     del related_ds['_id']
+    red.set('shouldQuery', 0)
     return related_ds
 
 

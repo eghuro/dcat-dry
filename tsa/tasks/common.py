@@ -21,7 +21,7 @@ class TrackableTask(Task):
 
 
     def __call__(self, *args, **kwargs):
-        self._red.set('shouldQuery', 1)
+        self.redis.set('shouldQuery', 1)
         return super(TrackableTask, self).__call__(*args, **kwargs)
 
 
@@ -35,16 +35,15 @@ def monitor(*args):
     enqueued = red.llen('default') + red.llen('high_priority') + red.llen('low_priority')
     if enqueued > 0:
         log.info(f'Enqueued: {enqueued}')
+        red.set('shouldQuery', 1)
     else:
-        with red.pipeline() as pipe:
-            if pipe.get('shouldQuery') == 1:
-                log.info('Should query')
-                pipe.set('shouldQuery', 0)
-                pipe.execute()
+        if int(red.get('shouldQuery')) == 1:
+            log.info('Should query')
+            red.set('shouldQuery', 2)
 
-                log.warning(f'Enqueued 0, we are done and we should query')
-            else:
-                return
+            log.warning(f'Enqueued 0, we are done and we should query')
+        else:
+            return
 
         result_id = str(uuid.uuid4())
         query(result_id, red)
