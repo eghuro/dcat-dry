@@ -18,6 +18,7 @@ class Config(object):
     CACHE_REDIS_URL = os.environ.get('REDIS', None)
     LOOKUP_ENDPOINTS = [os.environ.get('ENDPOINT', None), 'https://linked.cuzk.cz.opendata.cz/sparql']
     ANALYZE_IMMEDIATELY = True
+    SD_BASE_IRI = 'https://data.eghuro.cz/resource/'
 
 
 class ProdConfig(Config):

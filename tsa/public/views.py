@@ -9,11 +9,13 @@ import rfc3987
 from bson.json_util import dumps as dumps_bson
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 
+from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
 from tsa.extensions import mongo_db, redis_pool, sameAsIndex
 from tsa.query import query
 from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
                         list_datasets, query_dataset)
+from tsa.sd import create_sd_iri, generate_service_description
 
 blueprint = Blueprint('public', __name__, static_folder='../static')
 
@@ -150,3 +152,12 @@ def view_detail():
     iri = request.args.get('iri', None)
     profile = query_dataset(iri)
     return render_template('detail.html', dataset=profile)
+
+
+@blueprint.route('/sd')
+@returns_rdf
+def service_description():
+    endpoint_iri = request.args.get('endpoint', None)
+    graph_iri = request.args.get('graph', None)
+    query_string = request.query_string.decode("utf-8")
+    return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
