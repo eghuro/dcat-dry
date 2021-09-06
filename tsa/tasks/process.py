@@ -205,6 +205,10 @@ def process_content(content, iri, guess, red, log):
     with TimedBlock("process.load"):
         graph = load_graph(iri, content, guess)
 
+    if graph is None:
+        log.warning(f'Graph is none')
+        return
+
     store_pure_subjects(iri, graph, red)
 
     with TimedBlock("process.dereference"):
@@ -249,7 +253,7 @@ def do_process(iri, task, is_prio, force):
         except requests.exceptions.HTTPError:
             log.exception('HTTP Error') # this is a 404 or similar, not worth retrying
             monitor.log_processed()
-            raise
+            return
         except requests.exceptions.RequestException as e:
             task.retry(exc=e)
         except requests.exceptions.ChunkedEncodingError as e:

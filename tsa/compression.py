@@ -48,7 +48,7 @@ def decompress_gzip(iri, r):
     monitor.log_size(deco_size_total)
     log = logging.getLogger(__name__)
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')
-    return f'{iri}', data.getvalue().decode('utf-8')
+    return f'{iri}', decompressed.getvalue().decode('utf-8')
 
 
 def decompress_7z(iri, r):
