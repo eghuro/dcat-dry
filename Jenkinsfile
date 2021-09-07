@@ -29,7 +29,7 @@ node {
   }
 
   stage('Build Docker image') {
-  	agent { label 'master' }
+  	node { label 'master' }
 	sh 'docker build -t eghuro/dcat-dry .'
   }
 }
