@@ -29,9 +29,8 @@ class RuianEnricher(AbstractEnricher):
                 if payload is None:
                     raise NoEnrichment()
                 for a in json.loads(payload)['analysis']:
-                    if 'ruian' in a.keys():
-                        if ruian_iri in a['ruian'].keys():
-                            return a['ruian'][ruian_iri]
+                    if 'ruian' in a.keys() and ruian_iri in a['ruian'].keys():
+                        return a['ruian'][ruian_iri]
                 raise NoEnrichment()
             except:
                 logging.getLogger(__name__).exception(f'Missing ruian analysis for {ruian_iri}')
@@ -56,9 +55,8 @@ class TimeEnricher(AbstractEnricher):
             key = analysis_dataset(time_iri)
             try:
                 for a in json.loads(self.__redis.get(key))['analysis']:
-                    if 'time' in a.keys():
-                        if time_iri in a['time'].keys():
-                            return a['time'][time_iri]
+                    if 'time' in a.keys() and time_iri in a['time'].keys():
+                        return a['time'][time_iri]
                 raise NoEnrichment()
             except:
                 logging.getLogger(__name__).exception(f'Missing time analysis for {time_iri}')

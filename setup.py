@@ -83,7 +83,7 @@ setup(
         'Development Status :: 3 - Alpha',
         'Framework :: Flask',
         'Intended Audience :: Science/Research',
-        'Topic :: Scientific/Engineering :: Information Analysis'
+        'Topic :: Scientific/Engineering :: Information Analysis',
         'Topic :: Internet :: WWW/HTTP :: Indexing/Search',
         'Natural Language :: English'
     ]

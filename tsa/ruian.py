@@ -9,8 +9,6 @@ from tsa.robots import user_agent
 
 
 class RuianInspector(object):
-    def __init__(self):
-        pass
 
     def process_references(self, iris):
         # query SPARQL endpoint at https://linked.cuzk.cz.opendata.cz/sparql

@@ -393,12 +393,9 @@ class GenericAnalyzer(AbstractAnalyzer):
             label = row['label']
             with red.pipeline() as pipe:
                 if label is not None:
-                    #print(f'Extracted label: {label}')
-                    #print(type(label))
                     if isinstance(label, URIRef):
                         continue
                     value, language = label.value, label.language
-                    #print(f'Value: {value}, language: {language}')
                     key = label_query(iri, language)
                     pipe.set(key, value)
 

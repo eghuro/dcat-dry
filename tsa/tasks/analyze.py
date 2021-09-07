@@ -87,8 +87,6 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
 
                     key = related_key(rel_type, key)
                     pipe.sadd(key, *iris)
-                    #pipe.expire(key, exp)
-                    # pipe.sadd('purgeable', key)
                     pipe.execute()
         except TypeError:
             log.debug(f'Skip {analyzer_class.token} for {iri}')
