@@ -30,6 +30,6 @@ node {
 
   stage('Build Docker image') {
   	node { label 'app' }
-	sh 'docker build -t eghuro/dcat-dry .'
+  	def customImage = docker.build("eghuro/dcat-dry")
   }
 }
