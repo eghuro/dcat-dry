@@ -4,8 +4,8 @@ from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
 from tsa.extensions import conceptIndex, ddrIndex
-from tsa.net import test_iri
 from tsa.robots import user_agent
+from tsa.util import test_iri
 
 
 class RuianInspector(object):

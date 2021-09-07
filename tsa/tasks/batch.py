@@ -12,11 +12,11 @@ from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
-from tsa.net import test_iri
 from tsa.redis import dataset_endpoint, ds_distr
 from tsa.robots import user_agent
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter, process, process_priority
+from tsa.util import test_iri
 
 
 def query_parent(ds, endpoint, log):

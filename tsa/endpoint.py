@@ -8,8 +8,8 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
 from tsa.monitor import TimedBlock
-from tsa.net import test_iri
 from tsa.robots import user_agent
+from tsa.util import test_iri
 
 
 class SparqlEndpointAnalyzer(object):

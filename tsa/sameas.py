@@ -2,7 +2,7 @@ import logging
 
 import redis
 
-from tsa.net import test_iri
+from tsa.util import test_iri
 
 
 class Index(object):

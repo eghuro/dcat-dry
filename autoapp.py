@@ -2,14 +2,14 @@
 """Create an application instance."""
 import logging
 
-from flask.helpers import get_debug_flag
-
 from tsa.app import create_app
-from tsa.settings import DevConfig, ProdConfig
+from tsa.settings import ProdConfig
 
-CONFIG = DevConfig if get_debug_flag() else ProdConfig
+# from flask.helpers import get_debug_flag
 
-app = create_app(CONFIG)
+# CONFIG = DevConfig if get_debug_flag() else ProdConfig
+
+app = create_app(ProdConfig)
 
 
 @app.before_first_request

@@ -3,9 +3,7 @@ from io import BytesIO
 
 import rdflib
 import redis
-import rfc3987
 
-from tsa.compression import SizeException
 from tsa.monitor import monitor
 from tsa.redis import MAX_CONTENT_LENGTH, KeyRoot
 from tsa.redis import data as data_key
@@ -17,6 +15,14 @@ from tsa.robots import session, user_agent
 
 class Skip(Exception):
     """Exception indicating we have to skip this distribution."""
+
+
+class SizeException(Exception):
+    """Indicating a subfile is too large."""
+
+    def __init__(self, name):
+        """Record the file name."""
+        self.name = name
 
 
 class RobotsRetry(Exception):
@@ -98,7 +104,6 @@ def get_content(iri, r, red):
     with red.pipeline() as pipe:
         pipe.set(key, 'MEMORY')
         pipe.expire(key, expiration[KeyRoot.DATA])
-        # pipe.sadd('purgeable', key)
         pipe.execute()
     monitor.log_size(conlen)
     try:
@@ -148,7 +153,3 @@ def test_content_length(iri, r, log):
             # Due to redis limitation
             log.warn(f'Skipping {iri} as it is too large: {conlen!s}')
             raise Skip()
-
-
-def test_iri(iri):
-    return iri is not None and rfc3987.match(iri) and (iri.startswith('http://') or iri.startswith('https://'))

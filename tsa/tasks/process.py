@@ -14,7 +14,7 @@ from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
-from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length, test_iri
+from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
@@ -24,6 +24,7 @@ from tsa.robots import user_agent
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.common import TrackableTask
+from tsa.util import test_iri
 
 
 # Following 2 tasks are doing the same thing but with different priorities

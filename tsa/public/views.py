@@ -11,11 +11,11 @@ from flask_rdf.flask import returns_rdf
 
 from tsa.cache import cached
 from tsa.extensions import csrf, mongo_db, redis_pool, sameAsIndex
-from tsa.net import test_iri
 from tsa.query import query
 from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
                         list_datasets, query_dataset)
 from tsa.sd import create_sd_iri, generate_service_description
+from tsa.util import test_iri
 
 blueprint = Blueprint('public', __name__, static_folder='../static')
 

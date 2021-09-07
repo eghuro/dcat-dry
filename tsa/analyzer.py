@@ -8,10 +8,10 @@ import redis
 from rdflib import RDF, Literal
 
 from tsa.extensions import conceptIndex, ddrIndex, dsdIndex, redis_pool, sameAsIndex
-from tsa.net import test_iri
 from tsa.redis import description as desc_query
 from tsa.redis import label as label_query
 from tsa.redis import resource_type
+from tsa.util import test_iri
 
 
 class AbstractAnalyzer(ABC):

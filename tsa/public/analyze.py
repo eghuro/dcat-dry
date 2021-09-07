@@ -5,10 +5,10 @@ import redis
 from flask import Blueprint, abort, current_app, request, session
 
 from tsa.extensions import csrf, redis_pool
-from tsa.net import test_iri
 from tsa.redis import ds_distr, ds_title
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one, process_priority
+from tsa.util import test_iri
 
 blueprint = Blueprint('analyze', __name__, static_folder='../static')
 

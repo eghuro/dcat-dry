@@ -6,10 +6,11 @@ import redis
 from flask import Blueprint, abort, current_app, make_response, request
 
 from tsa.extensions import redis_pool
-from tsa.net import fetch, get_content, guess_format, test_iri
+from tsa.net import fetch, get_content, guess_format
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.process import dereference_one, expand_graph_with_dereferences, get_iris_to_dereference
 from tsa.tasks.system import hello, system_check
+from tsa.util import test_iri
 
 blueprint = Blueprint('test', __name__, static_folder='../static')
 

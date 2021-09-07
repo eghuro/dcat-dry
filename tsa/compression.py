@@ -7,18 +7,12 @@ from sys import platform
 import libarchive
 
 from tsa.monitor import monitor
+from tsa.net import SizeException
 
 if platform == 'darwin':
     import os
     os.environ['LIBARCHIVE'] = '/usr/local/Cellar/libarchive/3.3.3/lib/libarchive.13.dylib'
 
-
-class SizeException(Exception):
-    """Indicating a subfile is too large."""
-
-    def __init__(self, name):
-        """Record the file name."""
-        self.name = name
 
 
 def load_data(iri, r):
