@@ -27,20 +27,3 @@ class ProdConfig(Config):
     ENV = 'prod'
     DEBUG = False
     DEBUG_TB_ENABLED = False  # Disable Debug toolbar
-
-
-class DevConfig(Config):
-    """Development configuration."""
-
-    ENV = 'dev'
-    DEBUG = True
-    DEBUG_TB_ENABLED = True
-    CACHE_TYPE = 'simple'  # Can be "memcached", "redis", etc.
-
-
-class TestConfig(Config):
-    """Test configuration."""
-
-    ENV = 'test'
-    TESTING = True
-    DEBUG = True
