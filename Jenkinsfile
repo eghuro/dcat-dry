@@ -53,7 +53,7 @@ pipeline {
 					    }
 					    stage('Build docker') {
 					    	steps {
-								def customImage = docker.build("eghuro/dcat-dry")
+								docker.build("eghuro/dcat-dry")
 							}
 						}
 					}
