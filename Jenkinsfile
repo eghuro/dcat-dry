@@ -9,6 +9,16 @@ node {
 		sh 'pip check'
 	}
   }
+  stage('Code quality') {
+	withPythonEnv('python3') {
+	    sh 'pip install radon'
+		sh 'radon raw --json tsa/ > raw_report.json'
+		sh 'radon cc --json tsa/ > cc_report.json'
+		sh 'radon mi --json tsa/ > mi_report.json'
+		sh 'flake8 tsa || true'
+	}
+  }
+
   stage('SonarQube analysis') {
     def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
     withSonarQubeEnv('sonar') {
