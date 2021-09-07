@@ -3,7 +3,7 @@ pipeline {
 	stages {
 		stage('Checkout') {
 			agent { label 'use' }
-			node {
+			steps {
 				checkout scm
 				stash 'source'
 			}
