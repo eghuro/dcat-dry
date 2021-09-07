@@ -1,11 +1,16 @@
 pipeline {
 	agent { label 'use' }
 	stages {
-		stage('Build') {
+		stage('Build docker') {
 			steps {
-				script { 
-					git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
-					def customImage = docker.build("eghuro/dcat-dry")
+				script { 	 
+					dockerImage = docker.build "eghuro/dcat-dry"
+				}
+			}
+		}
+		stage ('QA') {
+			steps {
+				script {
 					withPythonEnv('python3') {
 					    sh 'python3 -m pip install --upgrade pip'
 						sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
@@ -22,7 +27,6 @@ pipeline {
 					}
 				}
 			}
-		} 
-	} 
-	
+		}
+	}
 }
