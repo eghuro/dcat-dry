@@ -1,14 +1,6 @@
 pipeline {
 	agent none
 	stages {
-		stage('Build docker') {
-			agent { label 'docker' }
-			steps {
-				script { 	 
-					dockerImage = docker.build "eghuro/dcat-dry"
-				}
-			}
-		}
 		stage ('QA') {
 			agent { label 'use' }
 			steps {
@@ -27,6 +19,29 @@ pipeline {
 					withSonarQubeEnv('sonar') {
 						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY"
 					}
+				}
+			}
+		}
+		
+		stage('Build docker') {
+			agent { label 'docker' }
+			steps {
+				script { 	 
+					dockerImage = docker.build "eghuro/dcat-dry"
+				}
+			}
+		}
+		
+		stage ('Push docker') {
+			agent { label 'docker' }
+			steps {
+				script {
+					GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
+					docker.withRegistry('https://registry.hub.docker.com', '') {
+						dockerImage.push("${env.BUILD_NUMBER}")
+						dockerImage.push("${GIT_COMMIT_HASH}")
+						dockerImage.push("latest")
+					}	 
 				}
 			}
 		}
