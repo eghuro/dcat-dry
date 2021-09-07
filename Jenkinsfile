@@ -4,8 +4,8 @@ node {
   }
   stage('Build environment') {
 	withPythonEnv('python3') {
-		sh 'pip list --outdated'
 		sh 'pip install -r requirements.txt'
+		sh 'pip check'
 	}
   }
   stage('SonarQube analysis') {
