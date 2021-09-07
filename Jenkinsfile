@@ -1,21 +1,21 @@
 pipeline {
 	agent none
 	stages {
+		stage('Checkout on QA node') {
+			agent { label 'use' }
+			steps {
+				git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
+				withPythonEnv('python3') {
+				    sh 'python3 -m pip install --upgrade pip'
+					sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
+					sh 'pip check'
+				}
+			}
+		}
+
 		parallel {
 			stage('QA') {
-				node { label 'use' }
-				stage('SCM') {
-				    git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
-				}
-	
-		  		stage('Build environment') {
-					withPythonEnv('python3') {
-					    sh 'python3 -m pip install --upgrade pip'
-						sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
-						sh 'pip check'
-					}
-			  	}
-		  	
+				agent { label 'use' }
 			  	parallel {
 					stage('Code quality') {
 						withPythonEnv('python3') {
@@ -38,10 +38,8 @@ pipeline {
 	
 			stage('Docker image') {
 				node { label 'app' }
-				stage('SCM') {
+				steps {
 				    git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
-				}
-				stage('Build') {
 					def customImage = docker.build("eghuro/dcat-dry")
 				}
 			}
