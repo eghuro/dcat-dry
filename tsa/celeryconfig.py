@@ -1,9 +1,9 @@
 """Celery configuration."""
 import os
 
-broker_url = os.environ['REDIS_CELERY']
+broker_url = os.environ.get('REDIS_CELERY', None)
 broker_pool_limit = 100
-result_backend = os.environ['REDIS_CELERY']
+result_backend = os.environ.get('REDIS_CELERY', None)
 task_serializer = 'json'
 result_serializer = 'json'
 accept_content = ['json']
