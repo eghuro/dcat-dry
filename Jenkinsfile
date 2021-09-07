@@ -4,6 +4,7 @@ node {
   }
   stage('Build environment') {
 	withPythonEnv('python3') {
+	    sh 'python3 -m pip install --upgrade pip'
 		sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
 		sh 'pip check'
 	}
