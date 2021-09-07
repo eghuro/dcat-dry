@@ -5,15 +5,13 @@ pipeline {
 			agent { label 'use' }
 			steps {
 				checkout scm
-				stash 'source'
 			}
 		}
 		
 		stage('Docker') {
-			agent { label 'app' }
+			agent { label 'use' }
 			steps {
 	    		script {
-	    			unstash 'source'
 					def customImage = docker.build("eghuro/dcat-dry")
 				}
 			}
