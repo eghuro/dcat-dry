@@ -35,7 +35,6 @@ def _gen_iris(red, log):
                 iri = analysis['iri']
                 yield iri, content
             elif 'endpoint' in analysis.keys() and 'graph' in analysis.keys():
-                iri = f'{analysis["endpoint"]}'  # /{analysis["graph"]}'
                 yield analysis['endpoint'], content  # this is because named graph is not extracted from DCAT
             else:
                 log.error('Missing iri and endpoint/graph')
