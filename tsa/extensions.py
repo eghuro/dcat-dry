@@ -7,9 +7,9 @@ import statsd
 from atenvironment import environment
 from flask_caching import Cache
 from flask_cors import CORS
+from flask_wtf.csrf import CSRFProtect
 from pymongo import MongoClient
 
-from flask_wtf.csrf import CSRFProtect
 from tsa.ddr import ConceptIndex
 from tsa.ddr import DataCubeDefinitionIndex as DSD
 from tsa.ddr import DataDrivenRelationshipIndex as DDR
@@ -23,7 +23,8 @@ csrf = CSRFProtect()
 
 
 def on_error(x):
-    pass
+    logging.getLogger(__name__).debug(f'Using default value for environment variable: {x}')
+
 
 @environment('REDIS', default=['redis://localhost:6379/0'], onerror=on_error)
 def get_redis(redis_cfg):

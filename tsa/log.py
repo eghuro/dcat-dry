@@ -2,9 +2,8 @@ import logging.config
 
 from atenvironment import environment
 
+from tsa.extensions import on_error
 
-def on_error(x):
-    pass
 
 @environment('LOGZIO_TOKEN', 'LOGZIO_URL',
              default=[None, 'https://listener-eu.logz.io:8071'],

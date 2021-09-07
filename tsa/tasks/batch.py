@@ -2,7 +2,6 @@
 import logging
 
 import rdflib
-import rfc3987
 from celery import group
 from rdflib import Graph, Namespace
 from rdflib.namespace import RDF
@@ -18,10 +17,6 @@ from tsa.redis import dataset_endpoint, ds_distr
 from tsa.robots import user_agent
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter, process, process_priority
-
-
-def on_error(x):
-    pass
 
 
 def query_parent(ds, endpoint, log):

@@ -5,8 +5,7 @@ from abc import ABC
 from collections import defaultdict
 
 import redis
-import rfc3987
-from rdflib import RDF, URIRef
+from rdflib import RDF, Literal
 
 from tsa.extensions import conceptIndex, ddrIndex, dsdIndex, redis_pool, sameAsIndex
 from tsa.net import test_iri
@@ -22,6 +21,11 @@ class AbstractAnalyzer(ABC):
     def find_relation(self, graph):
         #yield common, significant, type
     '''
+
+    def find_relation(self, grapg):
+        '''Empty default implementation.'''
+        pass
+
 
 class CubeAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on DataCube."""
@@ -297,10 +301,7 @@ class GenericAnalyzer(AbstractAnalyzer):
     token = 'generic'
     relations = ['sameAs', 'seeAlso']
 
-    def analyze(self, graph, iri):
-        """Basic graph analysis."""
-
-        log = logging.getLogger(__name__)
+    def _count(self, graph):
         triples = 0
         predicates_count, classes_count = defaultdict(int), defaultdict(int)
         objects, subjects, locally_typed = [], [], []
@@ -313,21 +314,24 @@ class GenericAnalyzer(AbstractAnalyzer):
 
             if test_iri(pred):
                 predicates_count[pred] += 1
-            else:
-                log.warning(f'Predicate non-resource: {pred}')
 
             if test_iri(obj):
                 if p == RDF.type:
                     if test_iri(sub):
                         classes_count[obj] += 1
                         locally_typed.append(sub)
-                    else:
-                        log.warning(f'Typed non-resource: {sub}')
                 else:
                     objects.append(obj)
 
             if test_iri(sub):
                 subjects.append(sub)
+
+        return triples, predicates_count, classes_count, objects, subjects, locally_typed
+
+    def analyze(self, graph, iri):
+        """Basic graph analysis."""
+
+        triples, predicates_count, classes_count, objects, subjects, locally_typed = self._count(graph)
 
         preds = []
         for p in predicates_count.keys():
@@ -351,10 +355,7 @@ class GenericAnalyzer(AbstractAnalyzer):
         external_2 = objects.difference(locally_typed)
         # toto muze byt SKOS Concept definovany jinde
 
-        try:
-            self.get_details(graph)
-        except:
-            log.exception(f'Failed to get details for {iri}')
+        self.get_details(graph)
 
         summary = {
             'triples': triples,
@@ -384,36 +385,28 @@ class GenericAnalyzer(AbstractAnalyzer):
         }
         '''
         red = redis.Redis(connection_pool=redis_pool)
-        #print(q)
 
         for row in graph.query(q):
             iri = row['x']
-            if not test_iri(iri):
-                continue
-            label = row['label']
-            with red.pipeline() as pipe:
-                if label is not None:
-                    if isinstance(label, URIRef):
-                        continue
-                    value, language = label.value, label.language
-                    key = label_query(iri, language)
-                    pipe.set(key, value)
+            if test_iri(iri):
+                self._extract_detail(row, iri, red)
 
-                type_of_iri = row['type']
-                if type_of_iri is not None:
-                    key = resource_type(iri)
-                    pipe.sadd(key, type_of_iri)
+    def _extract_detail(self, row, iri, red):
+        with red.pipeline() as pipe:
+            self.extract_label(row['label'], iri, pipe, label_query)
+            self.extract_label(row['description'], iri, pipe, desc_query)
 
-                description = row['description']
-                if description is not None:
-                    if '@' in description:
-                        value, language = description.split('@')
-                    else:
-                        value, language = description, None
-                    key = desc_query(iri, language)
-                    pipe.set(key, value)
+            type_of_iri = row['type']
+            if type_of_iri is not None:
+                key = resource_type(iri)
+                pipe.sadd(key, type_of_iri)
+            pipe.execute()
 
-                pipe.execute()
+    def extract_label(self, literal, iri, pipe, query):
+        if literal is not None and isinstance(literal, Literal):
+            value, language = literal.value, literal.language
+            key = query(iri, language)
+            pipe.set(key, value)
 
     def find_relation(self, graph):
         """Two distributions are related if they share resources that are owl:sameAs."""
@@ -452,9 +445,6 @@ class TimeAnalyzer(AbstractAnalyzer):
     token = 'time'
     relations = []
 
-    def find_relation(self, graph):
-        pass
-
     def analyze(self, graph, distr_iri):
         q = '''
         PREFIX interval: <http://reference.data.gov.uk/def/intervals/>
@@ -479,9 +469,6 @@ class TimeAnalyzer(AbstractAnalyzer):
 class RuianAnalyzer(AbstractAnalyzer):
     token = 'ruian'
     relations = []
-
-    def find_relation(self, graph):
-        pass
 
     def analyze(self, graph, distr_iri):
         query = '''

@@ -1,9 +1,10 @@
 """Celery tasks for running analyses."""
 import json
+import logging
 
 import rdflib
 
-from tsa.analyzer import *
+from tsa.analyzer import AbstractAnalyzer
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key

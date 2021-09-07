@@ -7,12 +7,9 @@ from flask import Flask, render_template
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from tsa import commands, public
-from tsa.extensions import cache, cors, csrf
+from tsa.extensions import cache, cors, csrf, on_error
 from tsa.log import logging_setup
 
-
-def on_error(x):
-    pass
 
 @environment('DSN', default=[None], onerror=on_error)
 def create_app(config_object, dsn_str):

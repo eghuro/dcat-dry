@@ -5,7 +5,8 @@ import sentry_sdk
 from atenvironment import environment
 from sentry_sdk.integrations.celery import CeleryIntegration
 
-from tsa.log import logging_setup, on_error
+from tsa.extensions import on_error
+from tsa.log import logging_setup
 
 
 @environment('DSN', default=[None], onerror=on_error)
