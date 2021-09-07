@@ -3,11 +3,8 @@ pipeline {
 	stages {
 		stage('SonarQube analysis') {
 		    steps{
-		        script {
-		            scannerHome = tool 'SonarQube';
-		        }
-		        withSonarQubeEnv('SonarQubeScanner') {
-		            sh "${scannerHome}/bin/sonar-scanner"
+		        withSonarQubeEnv('SonarQubeScanner', envOnly: true) {
+		            println ${env.SONAR_HOST_URL}
 		        }
 		    }
 		}
