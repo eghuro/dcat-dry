@@ -56,16 +56,10 @@ def do_analyze_and_index(g, iri, red):
 
 def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
     log.debug(f'Analyzing {iri} with {analyzer_class.token}')
-    # try:
-    # try:
-    res = None
     with TimedBlock(f'analyze.{analyzer_class.token}'):
         res = analyzer.analyze(g, iri)
     log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
     analyses.append({analyzer_class.token: res})
-    # except:
-    #    log.exception(f'Failed to analyze {iri} with {analyzer_class.token}')
-    #    return
 
     log.debug(f'Find relations of {analyzer_class.token} in {iri}')
     try:
@@ -89,45 +83,6 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
                 pipe.execute()
     except TypeError:
         log.debug(f'Skip {analyzer_class.token} for {iri}')
-        # except:
-        #    log.exception(f'Failed to find relations in {iri} with {analyzer_class.token}')
-    # except:
-    #    log.exception(f'Unexpected exception while processing {iri} with {analyzer_class.token}')
-
-# @celery.task(base=TrackableTask)
-# def analyze_named(endpoint_iri, named_graph):
-#    """Analyze triples in a named graph of an endpoint."""
-#    tokens = [it.token for it in AbstractAnalyzer.__subclasses__()]
-#    tasks = [run_one_named_analyzer.si(token, endpoint_iri, named_graph) for token in tokens]
-#    return chord(tasks)(store_named_analysis.s(endpoint_iri, named_graph))
-
-# @celery.task(base=TrackableTask, bind=True)
-# def run_one_named_analyzer(self, token, endpoint_iri, named_graph, dereference=True):
-#    """Run an analyzer identified by its token on a triples in a named graph of an endpoint."""
-#    g = rdflib.Graph(store='SPARQLStore', identifier=named_graph)
-#    g.open(endpoint_iri)
-#    a = get_analyzer(token)
-#    res = a.analyze(g)
-#    if dereference:
-#        do_dereference(token, res, g, self)
-#    return json.dumps({token: res})
-
-# @celery.task(base=TrackableTask)
-# def store_named_analysis(results, endpoint_iri, named_graph):
-#    """Store results of the analysis in redis."""
-#    red = store_named_analysis.redis
-#    key = analysis_endpoint(endpoint_iri, named_graph)
-#    if len(results) > 0:
-#        store = json.dumps({
-#            'analysis': [json.loads(x) for x in results if ((x is not None) and (len(x) > 0))],
-#            'endpoint': endpoint_iri,
-#            'graph': named_graph
-#        })
-#        with red.pipeline() as pipe:
-#            #pipe.sadd('purgeable', key)
-#            pipe.set(key, store)
-#            # pipe.expire(key, expiration[KeyRoot.ANALYSIS])
-#            pipe.execute()
 
 
 def store_analysis_result(iri, analyses, red):

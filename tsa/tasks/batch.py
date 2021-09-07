@@ -125,16 +125,11 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                     if not downloads and endpoints:
                         log.warning(f'Only endpoint without distribution for {ds!s}')
 
-                    #            pipe.hset(dsdistr, str(ds), str(endpoint))
-                    #            pipe.hset(distrds, str(endpoint), str(ds))
-                    #        else:
-                    #            log.warn(f'{endpoint!s} is not a valid endpoint URL')
             pipe.execute()
     # TODO: possibly scan for service description as well
         if distribution:
             GenericAnalyzer().get_details(g)  # extrakce labelu - heavy!
     tasks = [process_priority.si(a, force) for a in distributions_priority]
-    # tasks.extend(process_endpoint.si(e, force) for e in endpoints)
     tasks.extend(process.si(a, force) for a in distributions)
     monitor.log_tasks(len(tasks))
     group(tasks).apply_async()

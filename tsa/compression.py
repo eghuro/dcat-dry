@@ -7,7 +7,6 @@ from sys import platform
 import libarchive
 
 from tsa.monitor import monitor
-from tsa.net import SizeException
 
 if platform == 'darwin':
     import os
