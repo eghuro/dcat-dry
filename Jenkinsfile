@@ -37,7 +37,7 @@ pipeline {
 			steps {
 				script {
 					GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
-					docker.withRegistry('https://registry.hub.docker.com', '') {
+					docker.withRegistry('https://registry.hub.docker.com', '166025e7-79f5-41bf-825f-7d94c37af5cf') {
 						dockerImage.push("${env.BUILD_NUMBER}")
 						dockerImage.push("${GIT_COMMIT_HASH}")
 						dockerImage.push("latest")
