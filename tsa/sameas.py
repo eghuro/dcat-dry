@@ -1,7 +1,8 @@
 import logging
 
 import redis
-import rfc3987
+
+from tsa.net import test_iri
 
 
 class Index(object):
@@ -12,10 +13,10 @@ class Index(object):
 
     def lookup(self, base_iri):
         try:
-            if rfc3987.match(base_iri) and base_iri.startswith('http'):
+            if test_iri(base_iri):
                 yielded_base = False
                 for iri in self.__red.sscan_iter(self.__key(base_iri)):
-                    if rfc3987.match(iri) and iri.startswith('http'):
+                    if test_iri(iri):
                         yield iri
                         if iri == base_iri:
                             yielded_base = True

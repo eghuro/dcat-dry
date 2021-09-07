@@ -3,11 +3,10 @@ import logging
 
 import rdflib
 import redis
-import rfc3987
 from flask import Blueprint, abort, make_response
 
 from tsa.extensions import redis_pool
-from tsa.net import fetch, get_content, guess_format
+from tsa.net import fetch, get_content, guess_format, test_iri
 from tsa.tasks.analyze import load_graph
 from tsa.tasks.process import dereference_one, expand_graph_with_dereferences, get_iris_to_dereference
 from tsa.tasks.system import hello, system_check
@@ -61,7 +60,7 @@ def test_dereference1():
         iri_of_interest = 'https://data.cssz.cz/resource/ruian/vusc/27'
         if iri_of_interest not in to_dereference:
             log.error('Missing IRI of interest in a set to dereference')
-        if not (rfc3987.match(iri_of_interest) and iri_of_interest.startswith("http")):
+        if not test_iri(iri_of_interest):
             log.error('Condition failed')
         r = fetch(iri_of_interest, log, red)
         guess, _ = guess_format(iri_of_interest, r, log, red)

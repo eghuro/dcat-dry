@@ -1,10 +1,10 @@
 import logging
 
-import rfc3987
 from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
 from tsa.extensions import conceptIndex, ddrIndex
+from tsa.net import test_iri
 from tsa.robots import user_agent
 
 
@@ -27,7 +27,7 @@ class RuianInspector(object):
         log.info(f'In queue initially: {len(queue)}')
         while len(queue) > 0:
             iri = queue.pop(0)
-            if not rfc3987.match(iri):
+            if not test_iri(iri):
                 continue
             if iri in processed:
                 continue

@@ -2,13 +2,11 @@
 import uuid
 
 import redis
-import rfc3987
 from flask import Blueprint, abort, current_app, request, session
 
 from tsa.extensions import csrf, redis_pool
-from tsa.net import fetch, get_content, guess_format
+from tsa.net import test_iri
 from tsa.redis import ds_distr, ds_title
-from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one, process_priority
 
@@ -28,12 +26,12 @@ def api_analyze_catalog():
 
     iri = request.args.get('sparql', None)
     graph = request.args.get('graph', None)
-    if iri is not None and rfc3987.match(iri):
+    if test_iri(iri):
         if graph is None:
             iris = request.get_json()
-            graphs = [iri.strip() for iri in iris if rfc3987.match(iri)]
+            graphs = [iri.strip() for iri in iris if test_iri(iri)]
         else:
-            if rfc3987.match(graph):
+            if test_iri(graph):
                 graphs = [graph]
             else:
                 graphs = []
@@ -90,17 +88,3 @@ def api_analyze_resource():
         abort(400)
     iri = request.args['iri']
     dereference_one(iri)
-
-
-@blueprint.route('/api/v1/test/analyze')
-@csrf.exempt
-def api_test():
-    iri = request.args['iri']
-    log = current_app.logger
-    red = redis.Redis(connection_pool=redis_pool)
-    r = fetch(iri, log, red)
-    guess, _ = guess_format(iri, r, log, red)
-    content = get_content(iri, r, red).encode('utf-8')
-    graph = load_graph(iri, content, guess)
-    do_analyze_and_index(graph, iri, red)
-    return ''

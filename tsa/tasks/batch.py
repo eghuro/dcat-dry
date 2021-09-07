@@ -7,13 +7,13 @@ from celery import group
 from rdflib import Graph, Namespace
 from rdflib.namespace import RDF
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
-from rdflib.term import URIRef
 from requests.exceptions import HTTPError
 
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
+from tsa.net import test_iri
 from tsa.redis import dataset_endpoint, ds_distr
 from tsa.robots import user_agent
 from tsa.tasks.common import TrackableTask
@@ -105,7 +105,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                     endpoints = set()
                     for download_url in g.objects(d, dcat.downloadURL):
                         #log.debug(f'Down: {download_url!s}')
-                        if rfc3987.match(str(download_url)) and not filter(str(download_url)):
+                        if test_iri(str(download_url)) and not filter(str(download_url)):
                             if download_url.endswith('/sparql'):
                                 log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
                                 endpoints.add(download_url)
@@ -123,7 +123,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                     for access in g.objects(d, dcat.accessService):
                         log.debug(f'Service: {access!s}')
                         for endpoint in g.objects(access, dcat.endpointURL):
-                            if rfc3987.match(str(endpoint)):
+                            if test_iri(str(endpoint)):
                                 log.debug(f'Endpoint {endpoint!s} from DCAT dataset {ds!s}')
                                 endpoints.add(endpoint)
 

@@ -9,6 +9,7 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
 from tsa.monitor import TimedBlock
+from tsa.net import test_iri
 from tsa.robots import user_agent
 
 
@@ -61,7 +62,7 @@ class SparqlEndpointAnalyzer(object):
             return f'{str1} {str3}'
 
     def __init__(self, endpoint):
-        if not rfc3987.match(endpoint):
+        if not test_iri(endpoint):
             logging.getLogger(__name__).warn(f'{endpoint!s} is not a valid endpoint URL')
             raise ValueError(endpoint)
         self.__endpoint = endpoint
@@ -74,7 +75,7 @@ class SparqlEndpointAnalyzer(object):
 
     def process_graph(self, graph_iri):
         """Extract DCAT datasets from the given named graph of an endpoint."""
-        if not rfc3987.match(graph_iri):
+        if not test_iri(graph_iri):
             logging.getLogger(__name__).warn(f'{graph_iri!s} is not a valid graph URL')
             return None
 

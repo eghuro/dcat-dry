@@ -12,6 +12,7 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
 from tsa.extensions import csrf, mongo_db, redis_pool, sameAsIndex
+from tsa.net import test_iri
 from tsa.query import query
 from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
                         list_datasets, query_dataset)
@@ -24,7 +25,7 @@ blueprint = Blueprint('public', __name__, static_folder='../static')
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def dcat_viewer_index_query():
     iri = request.args.get('iri', None)
-    if iri is not None and rfc3987.match(iri):
+    if test_iri(iri):
         current_app.logger.info(f'Valid dataset request for {iri}')
         #LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
 
@@ -42,7 +43,7 @@ def dcat_viewer_index_query():
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def same_as():
     iri = request.args.get('iri', None)
-    if iri is not None and rfc3987.match(iri):
+    if test_iri(iri):
         return jsonify([token for token in sameAsIndex.lookup(iri)])
     abort(400)
 

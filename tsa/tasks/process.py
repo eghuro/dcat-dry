@@ -14,7 +14,7 @@ from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
-from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
+from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length, test_iri
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
@@ -57,11 +57,11 @@ def get_iris_to_dereference(g, iri):
         obj = str(o)
         sub = str(s)
 
-        if rfc3987.match(pred) and (pred.startswith('http://') or pred.startswith('https://')):
+        if test_iri(pred):
             yield pred
-        if rfc3987.match(obj) and (obj.startswith('http://') or obj.startswith('https://')):
+        if test_iri(obj):
             yield obj
-        if rfc3987.match(sub) and (sub.startswith('http://') or sub.startswith('https://')):
+        if test_iri(sub):
             yield sub
 
 
@@ -90,7 +90,7 @@ def dereference_from_endpoint(iri, endpoint_iri):
 
 
 def dereference_from_endpoints(iri, iri_distr, red):
-    if not (rfc3987.match(iri) and (iri.startswith('http://') or iri.startswith('https://'))):
+    if not test_iri(iri):
         return None
     monitor.log_dereference_processed()
     g = rdflib.ConjunctiveGraph()
@@ -114,7 +114,7 @@ def dereference_one_impl(iri_to_dereference, iri_distr):
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.debug(f'Dereference: {iri_to_dereference}')
-    if not (rfc3987.match(iri_to_dereference) and iri_to_dereference.startswith("http")):
+    if not test_iri(iri_to_dereference):
         raise FailedDereference()
     monitor.log_dereference_request()
     try:

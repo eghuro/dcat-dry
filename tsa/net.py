@@ -3,6 +3,7 @@ from io import BytesIO
 
 import rdflib
 import redis
+import rfc3987
 
 from tsa.compression import SizeException
 from tsa.monitor import monitor
@@ -146,3 +147,7 @@ def test_content_length(iri, r, log):
             # Due to redis limitation
             log.warn(f'Skipping {iri} as it is too large: {conlen!s}')
             raise Skip()
+
+
+def test_iri(iri):
+    return iri is not None and rfc3987.match(iri) and (iri.startswith('http://') or iri.startswith('https://'))

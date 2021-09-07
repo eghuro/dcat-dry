@@ -9,6 +9,7 @@ import rfc3987
 from rdflib import RDF, URIRef
 
 from tsa.extensions import conceptIndex, ddrIndex, dsdIndex, redis_pool, sameAsIndex
+from tsa.net import test_iri
 from tsa.redis import description as desc_query
 from tsa.redis import label as label_query
 from tsa.redis import resource_type
@@ -178,7 +179,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         concept_count = []
         for c in concepts:
-            if not rfc3987.match(c):
+            if not test_iri(c):
                 log.debug(f'{c} is not a valid IRI')
                 continue
             for row in graph.query(SkosAnalyzer._count_query(c)):
@@ -193,7 +194,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         schemes_count, top_concept = [], []
         for schema in schemes:
-            if not rfc3987.match(schema):
+            if not test_iri(schema):
                 log.debug(f'{schema} is a not valid IRI')
                 continue
             for row in graph.query(SkosAnalyzer._scheme_count_query(str(schema))):
@@ -238,7 +239,7 @@ class SkosAnalyzer(AbstractAnalyzer):
         """)]
 
         for c in concepts:
-            if rfc3987.match(c):
+            if test_iri(c):
                 #yield c, 'skosqb'
                 conceptIndex.index(c)
 
@@ -310,22 +311,22 @@ class GenericAnalyzer(AbstractAnalyzer):
             obj = str(o)
             sub = str(s)
 
-            if rfc3987.match(pred):
+            if test_iri(pred):
                 predicates_count[pred] += 1
             else:
                 log.warning(f'Predicate non-resource: {pred}')
 
-            if rfc3987.match(obj):
+            if test_iri(obj):
                 if p == RDF.type:
-                    if rfc3987.match(sub):
+                    if test_iri(sub):
                         classes_count[obj] += 1
                         locally_typed.append(sub)
                     else:
                         log.warning(f'Typed non-resource: {sub}')
-                elif obj.startswith('http://') or obj.startswith('https://'):
+                else:
                     objects.append(obj)
 
-            if rfc3987.match(sub) and (sub.startswith('http://') or sub.startswith('https://')):
+            if test_iri(sub):
                 subjects.append(sub)
 
         preds = []
@@ -387,7 +388,7 @@ class GenericAnalyzer(AbstractAnalyzer):
 
         for row in graph.query(q):
             iri = row['x']
-            if not rfc3987.match(iri):
+            if not test_iri(iri):
                 continue
             label = row['label']
             with red.pipeline() as pipe:
