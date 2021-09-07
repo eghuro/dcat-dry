@@ -30,8 +30,11 @@ pipeline {
 							}
 						}
 						stage('SonarQube') {
+							environment {
+								scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
+
+							}
 							steps {
-								def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 								withSonarQubeEnv('sonar') {
 									sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY"
 								}
