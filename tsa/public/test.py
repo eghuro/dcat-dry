@@ -36,6 +36,20 @@ def test_system():
     log.info(f'System check result: {x!s}')
     return str(x)
 
+
+@blueprint.route('/api/v1/test/analyze')
+def api_test():
+    iri = request.args['iri']
+    log = current_app.logger
+    red = redis.Redis(connection_pool=redis_pool)
+    r = fetch(iri, log, red)
+    guess, _ = guess_format(iri, r, log, red)
+    content = get_content(iri, r, red).encode('utf-8')
+    graph = load_graph(iri, content, guess)
+    do_analyze_and_index(graph, iri, red)
+    return ''
+
+
 @blueprint.route('/api/v1/test/dereference/1')
 def test_dereference1():
     iri = 'https://data.cssz.cz/dump/ukazatel-pracovni-neschopnosti-podle-delky-trvani-dpn-a-kraju.trig'

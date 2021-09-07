@@ -9,6 +9,7 @@ from flask_caching import Cache
 from flask_cors import CORS
 from pymongo import MongoClient
 
+from flask_wtf.csrf import CSRFProtect
 from tsa.ddr import ConceptIndex
 from tsa.ddr import DataCubeDefinitionIndex as DSD
 from tsa.ddr import DataDrivenRelationshipIndex as DDR
@@ -18,6 +19,8 @@ from tsa.sameas import Index
 
 cache = Cache()
 cors = CORS()
+csrf = CSRFProtect()
+
 
 def on_error(x):
     pass

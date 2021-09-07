@@ -5,7 +5,7 @@ import redis
 import rfc3987
 from flask import Blueprint, abort, current_app, request, session
 
-from tsa.extensions import redis_pool
+from tsa.extensions import csrf, redis_pool
 from tsa.net import fetch, get_content, guess_format
 from tsa.redis import ds_distr, ds_title
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
@@ -16,6 +16,7 @@ blueprint = Blueprint('analyze', __name__, static_folder='../static')
 
 
 @blueprint.route('/api/v1/analyze/catalog', methods=['POST'])
+@csrf.exempt
 def api_analyze_catalog():
     """Analyze a catalog.
 
@@ -53,6 +54,7 @@ def api_analyze_catalog():
 
 
 @blueprint.route('/api/v1/analyze/distributions', methods=['POST'])
+@csrf.exempt
 def api_analyze_list():
     print('analyze list')
     #JSON object in body: {distribution_iri -> dataset_iri}
@@ -82,6 +84,7 @@ def api_analyze_list():
 
 
 @blueprint.route('/api/v1/analyze/resource', methods=['POST'])
+@csrf.exempt
 def api_analyze_resource():
     if 'iri' not in request.args:
         abort(400)
@@ -90,6 +93,7 @@ def api_analyze_resource():
 
 
 @blueprint.route('/api/v1/test/analyze')
+@csrf.exempt
 def api_test():
     iri = request.args['iri']
     log = current_app.logger

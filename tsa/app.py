@@ -7,7 +7,7 @@ from flask import Flask, render_template
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from tsa import commands, public
-from tsa.extensions import cache, cors
+from tsa.extensions import cache, cors, csrf
 from tsa.log import logging_setup
 
 
@@ -43,6 +43,7 @@ def register_extensions(app):
     """Register Flask extensions."""
     cache.init_app(app)
     cors.init_app(app)
+    csrf.init_app(app)
     return None
 
 

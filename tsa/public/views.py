@@ -11,7 +11,7 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 
 from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
-from tsa.extensions import mongo_db, redis_pool, sameAsIndex
+from tsa.extensions import csrf, mongo_db, redis_pool, sameAsIndex
 from tsa.query import query
 from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
                         list_datasets, query_dataset)
@@ -48,6 +48,7 @@ def same_as():
 
 
 @blueprint.route('/api/v1/query/analysis', methods=['POST'])
+@csrf.exempt
 def batch_analysis():
     """
     Get a big report for all required distributions.
@@ -92,6 +93,7 @@ def export_labels_endpoint():
     return jsonify(export_labels())
 
 @blueprint.route('/api/v1/import/labels', methods=['PUT'])
+@csrf.exempt
 def import_labels_endpoint():
     labels = request.get_json()
     import_labels(labels)
@@ -121,18 +123,21 @@ def export_sameas_endpoint():
 
 
 @blueprint.route('/api/v1/import/sameas', methods=['PUT'])
+@csrf.exempt
 def import_sameas_endpoint():
     index = request.get_json()
     sameAsIndex.import_index(index)
     return 'OK'
 
 @blueprint.route('/api/v1/import/related', methods=['PUT'])
+@csrf.exempt
 def import_related_endpoint():
     related = request.get_json()
     import_related(related)
     return 'OK'
 
 @blueprint.route('/api/v1/import/profile', methods=['PUT'])
+@csrf.exempt
 def import_profile_endpoint():
     profiles = request.get_json()
     import_profiles(profiles)
