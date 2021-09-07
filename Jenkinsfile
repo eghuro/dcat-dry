@@ -29,9 +29,7 @@ node {
   }
 
   stage('Build Docker image') {
-  	docker.withTool('docker') {
-		app = docker.build('eghuro/dcat-dry')
-	}
+	app = docker.build('eghuro/dcat-dry')
   }
 
   stage('Publish Docker image') {
