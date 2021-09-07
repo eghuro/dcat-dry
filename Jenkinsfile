@@ -4,7 +4,7 @@ pipeline {
 		stage('Checkout on QA node') {
 			agent { label 'use' }
 			steps {
-				git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
+				checkout scm
 				withPythonEnv('python3') {
 				    sh 'python3 -m pip install --upgrade pip'
 					sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
@@ -14,6 +14,7 @@ pipeline {
 		}
 
 		stage('Parallel QA and Docker build') {
+			agent none
 			parallel {
 				stage('QA') {
 					agent { label 'use' }
@@ -46,7 +47,7 @@ pipeline {
 				stage('Docker') {
 					agent { label 'app' }
 					steps {
-			    		git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
+						checkout scm
 			    		script {
 							def customImage = docker.build("eghuro/dcat-dry")
 						}
