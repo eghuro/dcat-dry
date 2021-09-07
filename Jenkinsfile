@@ -2,7 +2,7 @@ pipeline {
 	agent none
 	stages {
 		stage('Docker') {
-			agent { label 'app' }
+			agent { label 'use' }
 			steps {
 	    		git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
 	    		script {
