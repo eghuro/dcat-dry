@@ -15,7 +15,7 @@ pipeline {
 
 		stage('Parallel QA and Docker build') {
 			parallel {
-				stage('QA') {
+				stages {
 					agent { label 'use' }
 				  	stage('Code quality') {
 						steps {
@@ -38,14 +38,14 @@ pipeline {
 					}
 				}
 		
-				stage('Docker image') {
+				stages {
 					agent { label 'app' }
-					stage('Checkout') { 
+					stage('Checkout on Docker node') { 
 						steps {
 					    	git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
 				    	}
 				    }
-				    stage('Build') {
+				    stage('Build docker') {
 				    	steps {
 							def customImage = docker.build("eghuro/dcat-dry")
 						}
