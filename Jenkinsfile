@@ -2,11 +2,20 @@ pipeline {
 	agent any
 	stages {
 		stage('SonarQube analysis') {
-			def scannerHome = tool 'SonarScanner 4.0';
+			environment {
+			    SCANNER_HOME = tool 'SonarQubeScanner'
+    			PROJECT_NAME = "DCAT-DRY"
+		  	}
+			tools {
+				sonarQube 'SonarQube Scanner'
+			}
 			steps { 
-				withSonarQubeEnv('sonar') {
-					sh "${scannerHome}/bin/sonar-scanner"
-	    		}
+				withSonarQubeEnv('SonarQubeScanner') {
+			        sh '''$SCANNER_HOME/bin/sonar-scanner 
+			        -Dsonar.java.binaries=build/classes/java/ \
+			        -Dsonar.projectKey=$PROJECT_NAME \
+			        -Dsonar.sources=.'''
+			    }
     		}
   		}
 	}
