@@ -10,7 +10,7 @@ pipeline {
 		}
 		
 		stage('Docker') {
-			agent { label 'master' }
+			agent { label 'app' }
 			steps {
 	    		script {
 	    			unstash 'source'
