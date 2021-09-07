@@ -6,9 +6,9 @@ import gevent
 import rdflib
 import redis
 import requests
-import rfc3987
 import SPARQLWrapper
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
+from requests import RequestException
 
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
@@ -154,7 +154,7 @@ def dereference_one_impl(iri_to_dereference, iri_distr):
         except requests.exceptions.ChunkedEncodingError:
             log.warning(f'Failed to dereference (ChunkedEncodingError getting content): {iri_to_dereference}')
             return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-    except:
+    except RequestException:
         log.exception(f'Failed to dereference: {iri_to_dereference}')
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 

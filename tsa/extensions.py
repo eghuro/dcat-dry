@@ -48,10 +48,8 @@ def get_mongo(mongo_cfg, mongo_db):
 
 @environment("STATSD_HOST", "STATSD_PORT", default=[None, 8125], onerror=on_error)
 def get_statsd(host, port):
-    try:
-        return statsd.StatsClient(host=host, port=port)
-    except:
-        return None
+    return statsd.StatsClient(host=host, port=port)
+
 
 redis_pool = get_redis()
 sameAsIndex = Index(redis_pool, sameas_key, True)

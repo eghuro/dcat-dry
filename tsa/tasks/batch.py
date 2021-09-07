@@ -71,12 +71,9 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                 log.debug(f'DS: {ds!s}')
                 effective_ds = ds
 
-                try:
-                    for parent in query_parent(ds, endpoint, log):
-                        log.info(f'{parent!s} is a series containing {ds!s}')
-                        effective_ds = parent
-                except:
-                    log.exception(f'Query for parent dataset failed: {ds!s}')
+                for parent in query_parent(ds, endpoint, log):
+                    log.info(f'{parent!s} is a series containing {ds!s}')
+                    effective_ds = parent
 
                 #DCAT Distribution
                 for d in g.objects(ds, dcat.distribution):

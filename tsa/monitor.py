@@ -22,7 +22,7 @@ class Monitor(object):
                 size = int(size)
                 self.__increment('size', 'sum', size)
                 self.__increment('size', 'count')
-            except:
+            except ValueError:
                 log = logging.getLogger(__name__)
                 log.exception("Failed to log size")
 

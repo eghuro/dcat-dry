@@ -24,10 +24,7 @@ def _gen_iris(red, log):
         distr_iri = key[len('distrds:'):]
         key1 = f'{root}{sanitize_key(distr_iri)}'
         # log.debug(key1)
-        try:
-            x = red.get(key1)
-        except:
-            continue
+        x = red.get(key1)
         if x is None:
             continue
         analysis = json.loads(x)

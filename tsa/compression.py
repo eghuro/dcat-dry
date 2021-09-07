@@ -1,7 +1,6 @@
 """Module for handling compressed distribution files."""
 import gzip
 import logging
-import uuid
 from io import BytesIO
 from sys import platform
 
@@ -59,10 +58,8 @@ def decompress_7z(iri, r):
     deco_size_total = 0
     with libarchive.memory_reader(data) as archive:
         for entry in archive:
-            try:
-                name = str(entry)
-            except:
-                name = str(uuid.uuid4())
+            name = str(entry)
+
             if len(name) == 0:
                 if iri.endswith('.zip'):
                     sub_iri = iri[:-4]

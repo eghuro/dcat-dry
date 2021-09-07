@@ -1,6 +1,7 @@
 """Celery tasks for running analyses."""
 import json
 import logging
+from collections import defaultdict
 
 import rdflib
 
@@ -49,53 +50,49 @@ def do_analyze_and_index(g, iri, red):
         log.debug(f'Done analyze and index {iri} with {analyzer_token}')
 
     log.debug(f'Done processing {iri}, now storing')
-    try:
-        store_analysis_result(iri, analyses, red)
-    except:
-        log.exception(f'Failed to store analysis for {iri}')
+    store_analysis_result(iri, analyses, red)
     log.debug(f'Done storing {iri}')
 
 
 def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
     log.debug(f'Analyzing {iri} with {analyzer_class.token}')
+    # try:
+    # try:
+    res = None
+    with TimedBlock(f'analyze.{analyzer_class.token}'):
+        res = analyzer.analyze(g, iri)
+    log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
+    analyses.append({analyzer_class.token: res})
+    # except:
+    #    log.exception(f'Failed to analyze {iri} with {analyzer_class.token}')
+    #    return
+
+    log.debug(f'Find relations of {analyzer_class.token} in {iri}')
     try:
-        try:
-            res = None
-            with TimedBlock(f'analyze.{analyzer_class.token}'):
-                res = analyzer.analyze(g, iri)
-            log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
-            analyses.append({analyzer_class.token: res})
-        except:
-            log.exception(f'Failed to analyze {iri} with {analyzer_class.token}')
-            return
+        iris_found = defaultdict(list)
+        with TimedBlock(f'index.{analyzer_class.token}'):
+            for common_iri, significant_iri, rel_type in analyzer.find_relation(g):
+                log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, common resource: {common_iri!s}, significant resource: {significant_iri!s}')
+                # FIXME: significant IRI not used
+                iris_found[(rel_type, common_iri)].append(iri)  # this is so that we sadd whole list in one call
 
-        log.debug(f'Find relations of {analyzer_class.token} in {iri}')
-        try:
-            iris_found = defaultdict(list)
-            with TimedBlock(f'index.{analyzer_class.token}'):
-                for common_iri, significant_iri, rel_type in analyzer.find_relation(g):
-                    log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, common resource: {common_iri!s}, significant resource: {significant_iri!s}')
-                    #FIXME: significant IRI not used
-                    iris_found[(rel_type, common_iri)].append(iri)  # this is so that we sadd whole list in one call
+        log.debug('Storing relations in redis')
 
-            log.debug('Storing relations in redis')
+        for item in iris_found.items():
+            with red.pipeline() as pipe:
+                (rel_type, key) = item[0]
+                iris = item[1]
+                log.debug(f'Addding {len(iris)} items into set')
 
-            for item in iris_found.items():
-                with red.pipeline() as pipe:
-                    (rel_type, key) = item[0]
-                    iris = item[1]
-                    log.debug(f'Addding {len(iris)} items into set')
-
-                    key = related_key(rel_type, key)
-                    pipe.sadd(key, *iris)
-                    pipe.execute()
-        except TypeError:
-            log.debug(f'Skip {analyzer_class.token} for {iri}')
-        except:
-            log.exception(f'Failed to find relations in {iri} with {analyzer_class.token}')
-    except:
-        log.exception(f'Unexpected exception while processing {iri} with {analyzer_class.token}')
-
+                key = related_key(rel_type, key)
+                pipe.sadd(key, *iris)
+                pipe.execute()
+    except TypeError:
+        log.debug(f'Skip {analyzer_class.token} for {iri}')
+        # except:
+        #    log.exception(f'Failed to find relations in {iri} with {analyzer_class.token}')
+    # except:
+    #    log.exception(f'Unexpected exception while processing {iri} with {analyzer_class.token}')
 
 #@celery.task(base=TrackableTask)
 #def analyze_named(endpoint_iri, named_graph):

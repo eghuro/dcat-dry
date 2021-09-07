@@ -3,6 +3,7 @@ import logging
 from abc import ABC
 
 import redis
+from redis.exceptions import RedisError
 
 from tsa.extensions import redis_pool
 from tsa.redis import analysis_dataset
@@ -32,9 +33,12 @@ class RuianEnricher(AbstractEnricher):
                     if 'ruian' in a.keys() and ruian_iri in a['ruian'].keys():
                         return a['ruian'][ruian_iri]
                 raise NoEnrichment()
-            except:
-                logging.getLogger(__name__).exception(f'Missing ruian analysis for {ruian_iri}')
-                raise NoEnrichment()
+            except RedisError as e:
+                logging.getLogger(__name__).exception(f'Redis error loading ruian analysis for {ruian_iri}')
+                raise NoEnrichment() from e
+            except ValueError as e:
+                logging.getLogger(__name__).exception(f'Value error loading ruian analysis for {ruian_iri}')
+                raise NoEnrichment() from e
 
             #return {
             #    'vusc': ruian_iri[len(root):].split('/')[0],
@@ -58,6 +62,12 @@ class TimeEnricher(AbstractEnricher):
                     if 'time' in a.keys() and time_iri in a['time'].keys():
                         return a['time'][time_iri]
                 raise NoEnrichment()
+            except RedisError as e:
+                logging.getLogger(__name__).exception(f'Redis error loading time analysis for {ruian_iri}')
+                raise NoEnrichment() from e
+            except ValueError as e:
+                logging.getLogger(__name__).exception(f'Value error loading time analysis for {ruian_iri}')
+                raise NoEnrichment() from e
             except:
                 logging.getLogger(__name__).exception(f'Missing time analysis for {time_iri}')
                 raise NoEnrichment()
