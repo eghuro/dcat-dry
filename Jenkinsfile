@@ -29,14 +29,6 @@ node {
   }
 
   stage('Build Docker image') {
-	app = docker.build('eghuro/dcat-dry')
-  }
-
-  stage('Publish Docker image') {
-	GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
-	docker.withRegistry('https://registry.hub.docker.com', '166025e7-79f5-41bf-825f-7d94c37af5cf') {
-        app.push("${GIT_COMMIT_HASH}")
-        app.push("latest")
-    }
+	sh 'docker build -t eghuro/dcat-dry .'
   }
 }
