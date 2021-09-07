@@ -2,6 +2,14 @@ node {
   stage('SCM') {
     git credentialsId: 'fd96f917-d9f2-404d-8797-2078859754ef', url: 'ssh://git@code.eghuro.com:222/alex/dcat-dry.git'
   }
+  stage('Build environment') {
+  	steps {
+  		sh '''conda create --yes -n ${BUILD_TAG} python
+  			  source activate ${BUILD_TAG}
+  			  pip install -r requirements.txt
+		   '''
+	}
+  }
   stage('SonarQube analysis') {
     def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
     withSonarQubeEnv('sonar') {
