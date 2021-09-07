@@ -1,12 +1,11 @@
-pipeline {
-	agent any
-	stages {
-		stage('SonarQube analysis') {
-		    steps{
-		        withSonarQubeEnv('SonarQubeScanner', envOnly: true) {
-		            println ${env.SONAR_HOST_URL}
-		        }
-		    }
-		}
-	}
+node {
+  stage('SCM') {
+    checkout scm
+  }
+  stage('SonarQubeScanner') {
+    def scannerHome = tool 'SonarScanner';
+    withSonarQubeEnv() {
+      sh "${scannerHome}/bin/sonar-scanner"
+    }
+  }
 }
