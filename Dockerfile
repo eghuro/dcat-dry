@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.8.7
+ARG PYTHON_VERSION=3.9
 FROM python:${PYTHON_VERSION}-alpine
 WORKDIR /tmp
 RUN apk add libstdc++ libarchive-dev binutils libxml2-dev libxslt-dev #do not remove, as it's needed on runtime
