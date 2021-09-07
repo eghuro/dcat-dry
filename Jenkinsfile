@@ -14,7 +14,6 @@ pipeline {
 		}
 
 		stage('Parallel QA and Docker build') {
-			agent none
 			parallel {
 				stage('QA') {
 					agent { label 'use' }
