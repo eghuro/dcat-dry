@@ -16,11 +16,12 @@ from tsa.redis import sanitize_key
 from tsa.report import export_labels
 from tsa.ruian import RuianInspector
 
-### ANALYSIS (PROFILE) ###
+# === ANALYSIS (PROFILE) ===
+
 
 def _gen_iris(red, log):
     root = 'analyze:'
-    for key in red.scan_iter(match=f'distrds:*'):
+    for key in red.scan_iter(match='distrds:*'):
         distr_iri = key[len('distrds:'):]
         key1 = f'{root}{sanitize_key(distr_iri)}'
         # log.debug(key1)
@@ -44,8 +45,8 @@ def _gen_iris(red, log):
 
 @celery.task
 def compile_analyses(batch_id):
-    log =  logging.getLogger(__name__)
-    log.info("Compile analyzes")
+    log = logging.getLogger(__name__)
+    log.info('Compile analyzes')
     red = redis.Redis(connection_pool=redis_pool)
 
     ds = set()
@@ -53,7 +54,7 @@ def compile_analyses(batch_id):
         log.debug(distr_iri)
         ds_iris = red.smembers(f'distrds:{distr_iri}')
         key = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
-        #log.debug(key)
+        # log.debug(key)
         for ds_iri in ds_iris:
             if ds_iri is None:
                 with red.pipeline() as pipe:
@@ -76,12 +77,12 @@ def compile_analyses(batch_id):
 
 
 def gen_analyses(batch_id, ds, red):
-    log =  logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
     log.info(f'Generate analyzes ({len(ds)})')
     for ds_iri in ds:
         for distr_iri in red.smembers(f'dsdistr:{ds_iri}'):
             key_in = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
-            #logging.getLogger(__name__).info(key_in)
+            # logging.getLogger(__name__).info(key_in)
             for a in [json.loads(a) for a in red.lrange(key_in, 0, -1)]:
                 for b in a:  # flatten
                     for key in b.keys():  # 1 element
@@ -106,7 +107,7 @@ def store_to_mongo(ds, batch_id):
             iri = analysis['ds_iri']
             log.exception(f'Failed to store analysis for {batch_id} (ds: {iri})')
         except OperationFailure:
-            log.exception(f'Operation failure')
+            log.exception('Operation failure')
         else:
             insert_count = insert_count + 1
     log.info(f'Stored analyses ({insert_count}/{gen_count})')
@@ -114,16 +115,16 @@ def store_to_mongo(ds, batch_id):
     return ds
 
 
-### INDEX ###
-#reltypes = sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
-#reltypes.extend(['skosqb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension'])
+# == INDEX ==
+# reltypes = sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
+# reltypes.extend(['skosqb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension'])
 reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension', 'crossSameas']
 
 
 @celery.task
 def gen_related_ds():
-    log =  logging.getLogger(__name__)
-    log.info("Generate related datasets")
+    log = logging.getLogger(__name__)
+    log.info('Generate related datasets')
     red = redis.Redis(connection_pool=redis_pool)
     related_ds = {}
 
@@ -132,7 +133,7 @@ def gen_related_ds():
         root = f'related:{rel_type!s}:'
         for key in red.scan_iter(match=f'related:{rel_type!s}:*'):
             token = key[len(root):].replace('_', ':', 1)  # common element
-            #log.info(f'{rel_type} - {key} - {token}')
+            # log.info(f'{rel_type} - {key} - {token}')
             related_dist = set()
             for sameas_iri in sameAsIndex.lookup(token):
                 related_dist.update(red.smembers(related_key(rel_type, sameas_iri)))  # these are related by sameAs of token
@@ -147,7 +148,7 @@ def gen_related_ds():
         mongo_db.related.delete_many({})
         mongo_db.related.insert(related_ds)
         log = logging.getLogger(__name__)
-        log.info(f'Successfully stored related datasets')
+        log.info('Successfully stored related datasets')
         log.debug(related_ds)
     except DocumentTooLarge:
         logging.getLogger(__name__).exception('Failed to store related datasets')
@@ -159,17 +160,17 @@ def gen_related_ds():
 
 @celery.task
 def finalize_sameas():
-    log =  logging.getLogger(__name__)
-    log.info("Finalize sameAs index")
+    log = logging.getLogger(__name__)
+    log.info('Finalize sameAs index')
     sameAsIndex.finalize()
     #skos not needed - not transitive
-    log.info("Successfully finalized sameAs index")
+    log.info('Successfully finalized sameAs index')
 
 
 @celery.task
 def cache_labels():
-    log =  logging.getLogger(__name__)
-    log.info("Cache labels in mongo")
+    log = logging.getLogger(__name__)
+    log.info('Cache labels in mongo')
     labels = export_labels()
     _, mongo_db = get_mongo()
     mongo_db.labels.delete_many({})
@@ -178,7 +179,7 @@ def cache_labels():
             entry = labels[iri]
             entry['_id'] = iri
             mongo_db.labels.insert(entry)
-        log.info("Successfully stored labels")
+        log.info('Successfully stored labels')
     except DocumentTooLarge:
         log.exception('Failed to cache labels')
 
@@ -197,7 +198,7 @@ def iter_generic(mongo_db):
 @celery.task
 def ruian_reference():
     log = logging.getLogger(__name__)
-    log.info("Look for RUIAN references")
+    log.info('Look for RUIAN references')
     _, mongo_db = get_mongo()
     ruian_references = set()
     for doc in iter_generic(mongo_db):
@@ -222,7 +223,7 @@ def report_relationship(red, rel_type, resource_iri, distr_iri):
 @celery.task
 def concept_usage():
     log = logging.getLogger(__name__)
-    log.info("Concept usage")
+    log.info('Concept usage')
     _, mongo_db = get_mongo()
     dsdistr, _ = ds_distr()
     counter = 0
@@ -231,7 +232,7 @@ def concept_usage():
     for doc in iter_generic(mongo_db):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         ds_iri = doc['ds_iri']
-        #log.info(ds_iri)
+        # log.info(ds_iri)
         distr_iri = red.srandmember(f'{dsdistr}:{ds_iri}')
 
         resource_iri_cache = set()
@@ -327,7 +328,8 @@ def data_driven_relationships():
             report_relationship(pipe, rel_type, resource_iri, distr_iri)
         pipe.execute()
 
-### MISC ###
+# ## MISC ###
+
 
 @celery.task
 def add_stats(analyses, stats):
@@ -336,7 +338,7 @@ def add_stats(analyses, stats):
         red = redis.Redis(connection_pool=redis_pool)
         analyses.append({
             'format': list(red.hgetall('stat:format')),
-            'size': retrieve_size_stats(red) #check
+            'size': retrieve_size_stats(red)  # check
         })
     return analyses
 

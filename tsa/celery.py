@@ -14,6 +14,7 @@ def init_sentry(dsn_str):
     if dsn_str is not None:
         sentry_sdk.init(dsn_str, integrations=[CeleryIntegration()])
 
+
 logging_setup()
 init_sentry()
 celery = celery.Celery()

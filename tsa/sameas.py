@@ -63,7 +63,6 @@ class Index(object):
                     logging.getLogger(__name__).warning(f'Key error in BFS: {node}, key: {self.__key("")}')
         return visited
 
-
     def export_index(self):
         result = {}
         for key in self.__red.scan_iter(match=self.__key('*')):
@@ -71,7 +70,6 @@ class Index(object):
             values = [x for x in self.__red.sscan_iter(key)]
             result[iri] = values
         return result
-
 
     def import_index(self, index):
         for key in self.__red.scan_iter(self.__key('*')):

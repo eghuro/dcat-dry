@@ -24,22 +24,22 @@ class Monitor(object):
                 self.__increment('size', 'count')
             except ValueError:
                 log = logging.getLogger(__name__)
-                log.exception("Failed to log size")
+                log.exception('Failed to log size')
 
     def log_inspected(self):
-        self.__increment('graphs','inspected')
+        self.__increment('graphs', 'inspected')
 
     def log_processed(self):
-        self.__increment('distributions','processed')
+        self.__increment('distributions', 'processed')
 
     def log_tasks(self, tasks):
         self.__increment('distributions', 'discovered', tasks)
 
     def log_dereference_request(self):
-        self.__increment('dereference','requested')
+        self.__increment('dereference', 'requested')
 
     def log_dereference_processed(self):
-        self.__increment('dereference','processsed')
+        self.__increment('dereference', 'processsed')
 
     def log_graph_count(self, items):
         statsd_client.gauge('graphs.count', int(items))

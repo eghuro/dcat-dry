@@ -1,7 +1,6 @@
 """SPARQL endpoint utilities."""
 import logging
 
-import rfc3987
 from rdflib import Graph
 from rdflib.parser import Parser
 from rdflib.plugin import register as register_plugin
@@ -66,12 +65,12 @@ class SparqlEndpointAnalyzer(object):
             logging.getLogger(__name__).warn(f'{endpoint!s} is not a valid endpoint URL')
             raise ValueError(endpoint)
         self.__endpoint = endpoint
-        #workaround for https://github.com/RDFLib/rdflib/issues/1195
+        # workaround for https://github.com/RDFLib/rdflib/issues/1195
         register_plugin('application/rdf+xml; charset=UTF-8', Parser, 'rdflib.plugins.parsers.rdfxml', 'RDFXMLParser')
 
         self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
-                                'application/rdf+xml',
-                                headers={'User-Agent': user_agent})
+                                 'application/rdf+xml',
+                                 headers={'User-Agent': user_agent})
 
     def process_graph(self, graph_iri):
         """Extract DCAT datasets from the given named graph of an endpoint."""
@@ -87,7 +86,7 @@ class SparqlEndpointAnalyzer(object):
 
         try:
             with TimedBlock('process_graph'):
-                return g.query(query).graph  #implementation detail for CONSTRUCT!
+                return g.query(query).graph  # implementation detail for CONSTRUCT!
         except ResultException as e:
             logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(e)}')
 
@@ -115,7 +114,7 @@ class SparqlEndpointAnalyzer(object):
             # certain SPARQL endpoints (aka Virtuoso) do not support queries above, so we have to use the one below
             # however, it's very inefficient and will likely timeout
             log = logging.getLogger(__name__)
-            #log.warn(f'Endpoint {endpoint} does not support the preferred SPARQL query, falling back, this will likely timeout though')
+            # log.warn(f'Endpoint {endpoint} does not support the preferred SPARQL query, falling back, this will likely timeout though')
             while True:
                 local_cnt = 0
                 log.debug(f'Peek graphs in {endpoint}, offset: {offset}')
@@ -133,6 +132,5 @@ class SparqlEndpointAnalyzer(object):
     # -> service description
     # and VOID
 
-
-    #if we have SD of ?endpoint then use query '?x sd:endpoint ?endpoint; sd:namedGraph/sd:name ?name.' on SD to
-    #get named graphs (taken from LPA)
+    # if we have SD of ?endpoint then use query '?x sd:endpoint ?endpoint; sd:namedGraph/sd:name ?name.' on SD to
+    # get named graphs (taken from LPA)

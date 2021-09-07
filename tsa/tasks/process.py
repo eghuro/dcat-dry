@@ -32,19 +32,21 @@ from tsa.tasks.common import TrackableTask
 def process_priority(self, iri, force):
     do_process(iri, self, True, force)
 
+
 @celery.task(bind=True, time_limit=600, base=TrackableTask)
 def process(self, iri, force):
     do_process(iri, self, False, force)
 
 
 def filter(iri):
-    return iri.endswith('csv.zip') or iri.endswith('csv') or  iri.endswith('csv.gz') or iri.endswith('xls') or \
+    return iri.endswith('csv.zip') or iri.endswith('csv') or iri.endswith('csv.gz') or iri.endswith('xls') or \
             iri.endswith('docx') or iri.endswith('xlsx') or iri.endswith('pdf') or \
             ((iri.startswith('http://vdp.cuzk.cz') or iri.startswith('https://vdp.cuzk.cz')) and (iri.endswith('xml.zip') or iri.endswith('xml'))) or \
             ((iri.startswith('http://dataor.justice.cz') or iri.startswith('https://dataor.justice.cz')) and (iri.endswith('xml') or iri.endswith('xml.gz'))) or \
             iri.startswith('https://apl.czso.cz/iSMS/cisexp.jsp') or iri.startswith('https://eagri.cz') or \
             iri.startswith('https://volby.cz/pls/ps2017/vysledky_okres') or \
-            iri.startswith('http://services.cuzk.cz/')  or iri.startswith('https://services.cuzk.cz/')
+            iri.startswith('http://services.cuzk.cz/') or iri.startswith('https://services.cuzk.cz/')
+
 
 def get_iris_to_dereference(g, iri):
     log = logging.getLogger(__name__)
@@ -202,21 +204,21 @@ def process_content(content, iri, guess, red, log):
 
     log.debug(f'Analyze and index {iri}')
     content.encode('utf-8')
-    with TimedBlock("process.load"):
+    with TimedBlock('process.load'):
         graph = load_graph(iri, content, guess)
 
     if graph is None:
-        log.warning(f'Graph is none')
+        log.warning('Graph is none')
         return
 
     store_pure_subjects(iri, graph, red)
 
-    with TimedBlock("process.dereference"):
+    with TimedBlock('process.dereference'):
         try:
             graph = expand_graph_with_dereferences(graph, iri)
         except ValueError:
             log.exception(f'Failed to expand dereferenes: {iri}')
-    with TimedBlock("process.analyze_and_index"):
+    with TimedBlock('process.analyze_and_index'):
         do_analyze_and_index(graph, iri, red)
     log.debug(f'Done analyze and index {iri} (immediate)')
     monitor.log_processed()
@@ -251,7 +253,7 @@ def do_process(iri, task, is_prio, force):
         except RobotsRetry as e:
             task.retry(countdown=e.delay)
         except requests.exceptions.HTTPError:
-            log.exception('HTTP Error') # this is a 404 or similar, not worth retrying
+            log.exception('HTTP Error')  # this is a 404 or similar, not worth retrying
             monitor.log_processed()
             return
         except requests.exceptions.RequestException as e:
@@ -277,7 +279,7 @@ def do_process(iri, task, is_prio, force):
             with TimedBlock("process.decompress"):
                 do_decompress(red, iri, 'zip', r)
         elif guess in ['application/gzip', 'application/x-gzip']:
-            with TimedBlock("process.decompress"):
+            with TimedBlock('process.decompress'):
                 do_decompress(red, iri, 'gzip', r)
         else:
             try:
@@ -292,7 +294,6 @@ def do_process(iri, task, is_prio, force):
     except:
         e = sys.exc_info()[1]
         log.exception(f'Failed to get {iri!s}: {e!s}')
-        #red.sadd('stat:failed', str(iri))
         monitor.log_processed()
 
 

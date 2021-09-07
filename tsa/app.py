@@ -17,7 +17,6 @@ def create_app(config_object, dsn_str):
 
     :param config_object: The configuration object to use.
     """
-
     logging_setup()
     if dsn_str:
         sentry_sdk.init(

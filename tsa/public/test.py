@@ -3,11 +3,11 @@ import logging
 
 import rdflib
 import redis
-from flask import Blueprint, abort, make_response
+from flask import Blueprint, abort, current_app, make_response, request
 
 from tsa.extensions import redis_pool
 from tsa.net import fetch, get_content, guess_format, test_iri
-from tsa.tasks.analyze import load_graph
+from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.process import dereference_one, expand_graph_with_dereferences, get_iris_to_dereference
 from tsa.tasks.system import hello, system_check
 
@@ -72,6 +72,7 @@ def test_dereference1():
         log.exception('Fail')
     abort(500)
 
+
 @blueprint.route('/api/v1/test/dereference/2')
 def test_dereference2():
     iri = 'https://data.cssz.cz/dump/ukazatel-pracovni-neschopnosti-podle-delky-trvani-dpn-a-kraju.trig'
@@ -85,6 +86,7 @@ def test_dereference2():
     except:
         log.exception('Fail')
     abort(500)
+
 
 @blueprint.route('/api/v1/test/process')
 def test_process():
@@ -129,7 +131,7 @@ def test_process():
                 log.exception(f'Failed to dereference: {iri_to_dereference}')
 
         return graph.serialize(format='trig')
-        #do_analyze_and_index(graph, iri, red)
+        # do_analyze_and_index(graph, iri, red)
     except:
         log.exception(f'Failed to process: {iri_distr}')
         abort(500)

@@ -20,9 +20,9 @@ from tsa.tasks.process import filter, process, process_priority
 
 
 def query_parent(ds, endpoint, log):
-    opts = [ f'<{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent',
-             f'?parent <http://purl.org/dc/terms/hasPart> <{ds!s}> ',
-             f'<{ds!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
+    opts = [f'<{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent',
+            f'?parent <http://purl.org/dc/terms/hasPart> <{ds!s}> ',
+            f'<{ds!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
            ]
     g = Graph(SPARQLStore(endpoint, headers={'User-Agent': user_agent}))
     for opt in opts:
@@ -47,7 +47,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
         'https://www.iana.org/assignments/media-types/application/n-triples',
         'https://www.iana.org/assignments/media-types/application/n-quads',
         'https://www.iana.org/assignments/media-types/text/turtle'
-    ]) #IANA
+    ])  # IANA
     format_priority = set([
         'http://publications.europa.eu/resource/authority/file-type/RDF',
         'http://publications.europa.eu/resource/authority/file-type/RDFA',
@@ -58,12 +58,12 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
         'http://publications.europa.eu/resource/authority/file-type/RDF_XML',
         'http://publications.europa.eu/resource/authority/file-type/JSON_LD',
         'http://publications.europa.eu/resource/authority/file-type/N3'
-    ]) #EU
+    ])  # EU
     queue = distributions
 
     log.debug(f'Extracting distributions from {graph_iri}')
-    #DCAT dataset
-    with TimedBlock("dcat_extractor"):
+    # DCAT dataset
+    with TimedBlock('dcat_extractor'):
         dsdistr, distrds = ds_distr()
         distribution = False
         with red.pipeline() as pipe:
@@ -75,7 +75,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                     log.info(f'{parent!s} is a series containing {ds!s}')
                     effective_ds = parent
 
-                #DCAT Distribution
+                # DCAT Distribution
                 for d in g.objects(ds, dcat.distribution):
                     log.debug(f'Distr: {d!s}')
                     # put RDF distributions into a priority queue
@@ -96,7 +96,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                     downloads = []
                     endpoints = set()
                     for download_url in g.objects(d, dcat.downloadURL):
-                        #log.debug(f'Down: {download_url!s}')
+                        # log.debug(f'Down: {download_url!s}')
                         if test_iri(str(download_url)) and not filter(str(download_url)):
                             if download_url.endswith('/sparql'):
                                 log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
@@ -134,7 +134,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
         if distribution:
             GenericAnalyzer().get_details(g)  # extrakce labelu - heavy!
     tasks = [process_priority.si(a, force) for a in distributions_priority]
-    #tasks.extend(process_endpoint.si(e, force) for e in endpoints)
+    # tasks.extend(process_endpoint.si(e, force) for e in endpoints)
     tasks.extend(process.si(a, force) for a in distributions)
     monitor.log_tasks(len(tasks))
     group(tasks).apply_async()
@@ -173,6 +173,7 @@ def do_inspect_graph(graph_iri, force, red, endpoint_iri):
         log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
     monitor.log_inspected()
     return result
+
 
 @celery.task
 def inspect_graphs(graphs, endpoint_iri, force):

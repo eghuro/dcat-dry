@@ -12,8 +12,10 @@ from tsa.redis import analysis_dataset
 class AbstractEnricher(ABC):
     pass
 
+
 class NoEnrichment(Exception):
     pass
+
 
 class RuianEnricher(AbstractEnricher):
     token = 'ruian'
@@ -40,12 +42,13 @@ class RuianEnricher(AbstractEnricher):
                 logging.getLogger(__name__).exception(f'Value error loading ruian analysis for {ruian_iri}')
                 raise NoEnrichment() from e
 
-            #return {
+            # return {
             #    'vusc': ruian_iri[len(root):].split('/')[0],
             #    'iri': ruian_iri
-            #}
+            # }
         else:
             raise NoEnrichment()
+
 
 class TimeEnricher(AbstractEnricher):
     token = 'date'
@@ -63,14 +66,11 @@ class TimeEnricher(AbstractEnricher):
                         return a['time'][time_iri]
                 raise NoEnrichment()
             except RedisError as e:
-                logging.getLogger(__name__).exception(f'Redis error loading time analysis for {ruian_iri}')
+                logging.getLogger(__name__).exception(f'Redis error loading time analysis for {time_iri}')
                 raise NoEnrichment() from e
             except ValueError as e:
-                logging.getLogger(__name__).exception(f'Value error loading time analysis for {ruian_iri}')
+                logging.getLogger(__name__).exception(f'Value error loading time analysis for {time_iri}')
                 raise NoEnrichment() from e
-            except:
-                logging.getLogger(__name__).exception(f'Missing time analysis for {time_iri}')
-                raise NoEnrichment()
 
             # return {
             #    'date': time_iri[len(root):]

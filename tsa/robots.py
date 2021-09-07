@@ -38,11 +38,10 @@ def fetch_robots(robots_iri):
     if red.exists(key):
         return red.get(key)
     else:
-        #red.sadd('purgeable', key, f'delay_{robots_iri}')
         r = session.get(robots_iri, verify=False)
         with red.pipeline() as pipe:
             if r.status_code != 200:
-                pipe.set(key, "")
+                pipe.set(key, '')
                 pipe.expire(key, 30 * 24 * 60 * 60)
                 pipe.execute()
                 return None

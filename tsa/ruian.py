@@ -39,7 +39,7 @@ class RuianInspector(object):
                     next_iri = row['next']
                     queue.append(next_iri)
 
-                    #report: (IRI, next_iri) - type: token
+                    # report: (IRI, next_iri) - type: token
                     ddrIndex.index(token, iri, next_iri)
                     conceptIndex.index(iri)
                     relationship_count = relationship_count + 1

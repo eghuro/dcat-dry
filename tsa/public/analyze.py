@@ -37,15 +37,15 @@ def api_analyze_catalog():
                 graphs = []
         current_app.logger.info(f'Analyzing endpoint {iri}')
         if len(graphs) == 0:
-            current_app.logger.warning("No graphs given")
+            current_app.logger.warning('No graphs given')
         else:
             current_app.logger.info(f'Graphs: {len(graphs)}')
 
         red = redis.Redis(connection_pool=redis_pool)
 
-        t = batch_inspect.si(iri, graphs, force, session["token"], 10).apply_async()
+        t = batch_inspect.si(iri, graphs, force, session['token'], 10).apply_async()
         current_app.logger.info(f'Batch id: {session["token"]}, task id: {t.id}')
-        red.hset('taskBatchId', t.id, session["token"])
+        red.hset('taskBatchId', t.id, session['token'])
         return ''
     else:
         abort(400)
@@ -55,7 +55,7 @@ def api_analyze_catalog():
 @csrf.exempt
 def api_analyze_list():
     print('analyze list')
-    #JSON object in body: {distribution_iri -> dataset_iri}
+    # JSON object in body: {distribution_iri -> dataset_iri}
     force = 'force' in request.args
     if 'token' not in session:
         session['token'] = str(uuid.uuid4())

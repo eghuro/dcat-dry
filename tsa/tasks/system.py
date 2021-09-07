@@ -16,7 +16,7 @@ def system_check():
     log = logging.getLogger(__name__)
     log.info('System check started')
 
-    log.info(f'Testing redis')
+    log.info('Testing redis')
     red = redis.Redis(connection_pool=redis_pool)
     red.ping()
     log.info('System check successful')

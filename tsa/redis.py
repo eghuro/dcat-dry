@@ -55,10 +55,12 @@ expiration = {
     KeyRoot.GRAPHS: 24 * 60 * 60,
 }
 
+
 def sanitize_key(key):
     if key is None:
         return key
     return '_'.join(key.split(':'))
+
 
 def data(*args):
     if len(args) == 1:
@@ -76,54 +78,66 @@ def analysis_dataset(iri):
     iri = sanitize_key(iri)
     return f'{root_name[KeyRoot.ANALYSIS]}:{iri}'
 
+
 def analysis_endpoint(endpoint, graph_iri):
     endpoint = sanitize_key(endpoint)
     graph_iri = sanitize_key(graph_iri)
     return f'{root_name[KeyRoot.ANALYSIS]}:{endpoint}:{graph_iri}'
+
 
 def graph(endpoint, iri):
     endpoint = sanitize_key(endpoint)
     iri = sanitize_key(iri)
     return f'{root_name[KeyRoot.GRAPHS]}:{endpoint}:{iri}'
 
+
 def delay(robots_url):
     robots_url = sanitize_key(robots_url)
     return f'delay_{robots_url!s}'
+
 
 def ds_title(ds, language):
     ds = sanitize_key(ds)
     language = sanitize_key(language)
     return f'{root_name[KeyRoot.DS_TITLE]}:{ds!s}:{language}' if language is not None else f'{root_name[KeyRoot.DS_TITLE]}:{ds!s}'
 
+
 def label(ds, language):
     ds = sanitize_key(ds)
     language = sanitize_key(language)
     return f'{root_name[KeyRoot.LABEL]}:{ds!s}:{language}' if language is not None else f'{root_name[KeyRoot.LABEL]}:{ds!s}'
+
 
 def description(ds, language):
     ds = sanitize_key(ds)
     language = sanitize_key(language)
     return f'{root_name[KeyRoot.DESCRIPTION]}:{ds!s}:{language}' if language is not None else f'{root_name[KeyRoot.DESCRIPTION]}:{ds!s}'
 
+
 def resource_type(iri):
     iri = sanitize_key(iri)
     return f'{root_name[KeyRoot.TYPE]}:{iri!s}'
 
+
 def ds_distr():
     return 'dsdistr', 'distrds'
+
 
 def related(rel_type, key):
     rel_type = sanitize_key(rel_type)
     key = sanitize_key(key)
     return f'{root_name[KeyRoot.RELATED]}:{rel_type!s}:{key!s}'
 
+
 def codelist(obj):
     obj = sanitize_key(obj)
     return f'{root_name[KeyRoot.CODELISTS]}:{obj}'
 
+
 def same_as(iri):
     iri = sanitize_key(iri)
     return f'{root_name[KeyRoot.SAME_AS]}:{iri}'
+
 
 def skos_relation(iri):
     iri = sanitize_key(iri)

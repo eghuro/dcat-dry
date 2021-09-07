@@ -80,7 +80,6 @@ def store_content(iri, r, red):
                     pipe.append(key, chunk)
                     conlen = conlen + len(chunk)
             pipe.expire(key, expiration[KeyRoot.DATA])
-            #pipe.sadd('purgeable', key)
             pipe.execute()
         monitor.log_size(conlen)
 
@@ -107,6 +106,7 @@ def get_content(iri, r, red):
         logging.getLogger(__name__).warning(f'Failed to load content for {iri}: {e!s}')
     return None
 
+
 def guess_format(iri, r, log, red):
     """
     Guess format of the distribution.
@@ -127,7 +127,7 @@ def guess_format(iri, r, log, red):
                     'application/rdf+xml',
                     'application/ld+json', 'application/rss+xml',
                     'text/turtle'])
-    regular = set(['text/xml',  'application/json', 'text/plain',
+    regular = set(['text/xml', 'application/json', 'text/plain',
                    'application/gzip', 'application/x-zip-compressed',
                    'application/zip', 'application/x-gzip',
                    'html', 'text/html'

@@ -27,6 +27,3 @@ def stat_size():
     """List min, max and average distribution size."""
     red = redis.Redis(connection_pool=redis_pool)
     return jsonify(retrieve_size_stats(red))
-
-
-

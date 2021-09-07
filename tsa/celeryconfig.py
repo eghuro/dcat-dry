@@ -9,7 +9,7 @@ result_serializer = 'json'
 accept_content = ['json']
 timezone = 'Europe/Prague'
 enable_utc = False
-task_time_limit = 6000  #smaller limits applied on some tasks
+task_time_limit = 6000  # smaller limits applied on some tasks
 include = ['tsa.tasks.batch', 'tsa.tasks.process', 'tsa.tasks.query', 'tsa.tasks.system']
 broker_transport_options = {
     'fanout_prefix': True,

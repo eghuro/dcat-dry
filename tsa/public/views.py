@@ -5,11 +5,10 @@ import uuid
 from collections import defaultdict
 
 import redis
-import rfc3987
 from bson.json_util import dumps as dumps_bson
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
-
 from flask_rdf.flask import returns_rdf
+
 from tsa.cache import cached
 from tsa.extensions import csrf, mongo_db, redis_pool, sameAsIndex
 from tsa.net import test_iri
@@ -27,11 +26,11 @@ def dcat_viewer_index_query():
     iri = request.args.get('iri', None)
     if test_iri(iri):
         current_app.logger.info(f'Valid dataset request for {iri}')
-        #LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
+        # LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
 
         try:
             return jsonify({
-                "jsonld": query_dataset(iri)
+                'jsonld': query_dataset(iri)
             })
         except TypeError:
             current_app.logger.exception(f'Failed to query {iri}')
@@ -51,9 +50,7 @@ def same_as():
 @blueprint.route('/api/v1/query/analysis', methods=['POST'])
 @csrf.exempt
 def batch_analysis():
-    """
-    Get a big report for all required distributions.
-    """
+    """Get a big report for all required distributions."""
     red = redis.Redis(connection_pool=redis_pool)
     result_id = str(uuid.uuid4())
     query(result_id, red)
@@ -93,6 +90,7 @@ def fetch_analysis():
 def export_labels_endpoint():
     return jsonify(export_labels())
 
+
 @blueprint.route('/api/v1/import/labels', methods=['PUT'])
 @csrf.exempt
 def import_labels_endpoint():
@@ -100,12 +98,14 @@ def import_labels_endpoint():
     import_labels(labels)
     return 'OK'
 
+
 @blueprint.route('/api/v1/export/related', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_related_endpoint():
     obj = export_related()
     del obj['_id']
     return jsonify(obj)
+
 
 @blueprint.route('/api/v1/export/profile', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
@@ -137,6 +137,7 @@ def import_related_endpoint():
     import_related(related)
     return 'OK'
 
+
 @blueprint.route('/api/v1/import/profile', methods=['PUT'])
 @csrf.exempt
 def import_profile_endpoint():
@@ -152,6 +153,7 @@ def view_list():
     current_app.logger.debug(data)
     return render_template('list.html', datasets=data)
 
+
 @blueprint.route('/detail', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def view_detail():
@@ -165,5 +167,5 @@ def view_detail():
 def service_description():
     endpoint_iri = request.args.get('endpoint', None)
     graph_iri = request.args.get('graph', None)
-    query_string = request.query_string.decode("utf-8")
+    query_string = request.query_string.decode('utf-8')
     return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)

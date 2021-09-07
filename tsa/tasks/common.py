@@ -19,7 +19,6 @@ class TrackableTask(Task):
             self._red = redis_lib.Redis(connection_pool=redis_pool)
         return self._red
 
-
     def __call__(self, *args, **kwargs):
         self.redis.set('shouldQuery', 1)
         return super(TrackableTask, self).__call__(*args, **kwargs)
@@ -41,7 +40,7 @@ def monitor(*args):
             log.info('Should query')
             red.set('shouldQuery', 2)
 
-            log.warning(f'Enqueued 0, we are done and we should query')
+            log.warning('Enqueued 0, we are done and we should query')
         else:
             return
 

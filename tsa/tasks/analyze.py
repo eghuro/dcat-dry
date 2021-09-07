@@ -94,16 +94,15 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
     # except:
     #    log.exception(f'Unexpected exception while processing {iri} with {analyzer_class.token}')
 
-#@celery.task(base=TrackableTask)
-#def analyze_named(endpoint_iri, named_graph):
+# @celery.task(base=TrackableTask)
+# def analyze_named(endpoint_iri, named_graph):
 #    """Analyze triples in a named graph of an endpoint."""
 #    tokens = [it.token for it in AbstractAnalyzer.__subclasses__()]
 #    tasks = [run_one_named_analyzer.si(token, endpoint_iri, named_graph) for token in tokens]
 #    return chord(tasks)(store_named_analysis.s(endpoint_iri, named_graph))
 
-
-#@celery.task(base=TrackableTask, bind=True)
-#def run_one_named_analyzer(self, token, endpoint_iri, named_graph, dereference=True):
+# @celery.task(base=TrackableTask, bind=True)
+# def run_one_named_analyzer(self, token, endpoint_iri, named_graph, dereference=True):
 #    """Run an analyzer identified by its token on a triples in a named graph of an endpoint."""
 #    g = rdflib.Graph(store='SPARQLStore', identifier=named_graph)
 #    g.open(endpoint_iri)
@@ -113,9 +112,8 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
 #        do_dereference(token, res, g, self)
 #    return json.dumps({token: res})
 
-
-#@celery.task(base=TrackableTask)
-#def store_named_analysis(results, endpoint_iri, named_graph):
+# @celery.task(base=TrackableTask)
+# def store_named_analysis(results, endpoint_iri, named_graph):
 #    """Store results of the analysis in redis."""
 #    red = store_named_analysis.redis
 #    key = analysis_endpoint(endpoint_iri, named_graph)

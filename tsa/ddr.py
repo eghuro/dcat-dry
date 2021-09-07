@@ -26,7 +26,7 @@ class DataDrivenRelationshipIndex(object):
 
     def types(self):
         # ddr:<type>:<iri>
-        for key in self.__red.scan_iter(match=f'ddr:*'):
+        for key in self.__red.scan_iter(match='ddr:*'):
             yield key[4:].split(':')[0]
 
     def lookup(self, relationship_type, resource_iri):
@@ -36,8 +36,9 @@ class DataDrivenRelationshipIndex(object):
                     yield el
             elif isinstance(iri, str):
                 yield iri
-            #else:
+            # else:
             #    logging.getLogger(__name__).error(f'Bad iri type. iri: {iri!s}, type: {type(iri)!s}, rel type: {relationship_type}, resource: {resource_iri}')
+
 
 class ConceptIndex(object):
     def __init__(self, redis_pool):
@@ -53,6 +54,7 @@ class ConceptIndex(object):
         for iri in self.__red.sscan_iter(root_name[KeyRoot.CONCEPT]):
             yield iri
 
+
 class DataCubeDefinitionIndex(object):
     def __init__(self, redis_pool):
         self.__red = redis.Redis(connection_pool=redis_pool)
@@ -60,7 +62,7 @@ class DataCubeDefinitionIndex(object):
     def index(self, dsd, iri):
         # momentalne si jen ulozime resources na dimenzi
         with self.__red.pipeline() as pipe:
-            #pipe.sadd('dsd:rod', iri)
+            # pipe.sadd('dsd:rod', iri)
             for dataset in dsd:
                 for dimension in dataset['dimensions']:
                     pipe.sadd(f'dsd:rod:{iri}', *dimension['resources'])
@@ -68,7 +70,7 @@ class DataCubeDefinitionIndex(object):
 
     def resources_on_dimension(self):
         #         for key in self.__red.smembers(match=f'dsd:rod'):
-        for key in self.__red.scan_iter(match=f'dsd:rod:*'):
+        for key in self.__red.scan_iter(match='dsd:rod:*'):
             iri = key[8:]
             for rod in self.__red.sscan_iter(f'dsd:rod:{iri}'):
                 yield rod, iri

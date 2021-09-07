@@ -2,7 +2,10 @@
 
 import binascii
 import datetime
+import inspect
 import os
+import pickle
+from collections import namedtuple
 from functools import wraps
 
 from flask import make_response, request
@@ -81,13 +84,8 @@ def cached(cacheable=False,
         return decorated_function
     return decorator
 
+
 # source: https://gist.github.com/abulka/6ab5b2afc5d1adda6f08126a617dd02a
-
-import inspect
-import pickle
-from collections import namedtuple
-from functools import wraps
-
 ALLOW_NON_REDIS_CACHING = False
 
 _CacheInfo = namedtuple("CacheInfo", ["hits", "misses", "maxsize", "currsize"])
@@ -203,10 +201,10 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
         maxsize = 5000
 
     def decorator(func):
-        cache_keys = "lru:keys:%s" % (func.__name__,)
-        cache_vals = "lru:vals:%s" % (func.__name__,)
-        cache_hits = "lru:hits:%s" % (func.__name__,)
-        cache_miss = "lru:miss:%s" % (func.__name__,)
+        cache_keys = f'lru:keys:{func.__name__}'
+        cache_vals = f'lru:vals:{func.__name__}'
+        cache_hits = f'lru:hits:{func.__name__}'
+        cache_miss = f'lru:miss:{func.__name__}'
 
         lvars = [None]  # closure mutable
 
@@ -282,8 +280,8 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
                 if ALLOW_NON_REDIS_CACHING:
                     return func(*args, **kwargs)  # Original behaviour (deprecated)
                 else:
-                    raise RuntimeWarning(f"redis_lru - no redis connection has been supplied "
-                                         f"for caching calls to '{func.__name__}'")
+                    raise RuntimeWarning(f'redis_lru - no redis connection has been supplied '
+                                         f'for caching calls to {func.__name__}')
 
         def cache_info(verbose=False):
             conn = lvars[0]

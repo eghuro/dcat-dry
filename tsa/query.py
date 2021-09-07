@@ -9,7 +9,7 @@ from tsa.tasks.query import (cache_labels, compile_analyses, concept_definition,
 
 def query(result_id, red):
     log = logging.getLogger(__name__)
-    log.info(f'query: build celery canvas')
+    log.info('query: build celery canvas')
     return chain([
         finalize_sameas.si(),  # no dependecies
         compile_analyses.si(result_id), store_to_mongo.s(result_id),

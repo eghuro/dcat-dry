@@ -13,9 +13,6 @@ if platform == 'darwin':
     os.environ['LIBARCHIVE'] = '/usr/local/Cellar/libarchive/3.3.3/lib/libarchive.13.dylib'
 
 
-
-
-
 class SizeException(Exception):
     """Indicating a subfile is too large."""
 
@@ -23,11 +20,12 @@ class SizeException(Exception):
         """Record the file name."""
         self.name = name
 
+
 def load_data(iri, r):
     log = logging.getLogger(__name__)
     log.debug(f'Downloading {iri} into an in-memory buffer')
     fp = BytesIO(r.content)
-    log.debug(f'Read the buffer')
+    log.debug('Read the buffer')
     data = fp.read()
     log.debug(f'Size: {len(data)}')
     return data
