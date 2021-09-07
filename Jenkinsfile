@@ -1,7 +1,7 @@
 pipeline {
-	agent { label 'use' }
 	stages {
 		stage('Build docker') {
+			agent { label 'docker' }
 			steps {
 				script { 	 
 					dockerImage = docker.build "eghuro/dcat-dry"
@@ -9,6 +9,7 @@ pipeline {
 			}
 		}
 		stage ('QA') {
+			agent { label 'use' }
 			steps {
 				script {
 					withPythonEnv('python3') {
