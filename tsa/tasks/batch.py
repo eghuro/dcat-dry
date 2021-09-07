@@ -128,7 +128,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                                 endpoints.add(endpoint)
 
                     for endpoint in endpoints:
-                        pipe.sadd(dataset_endpoint(str(effective_ds), endpoint))
+                        pipe.sadd(dataset_endpoint(str(effective_ds)), endpoint)
 
                     if not downloads and endpoints:
                         log.warning(f'Only endpoint without distribution for {ds!s}')
@@ -147,23 +147,22 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
     monitor.log_tasks(len(tasks))
     group(tasks).apply_async()
 
-
-@celery.task(base=TrackableTask)
-def inspect_catalog(key):
-    """Analyze DCAT datasets listed in the catalog."""
-    log = logging.getLogger(__name__)
-    red = inspect_catalog.redis
-
-    log.debug('Parsing graph')
-    try:
-        g = rdflib.ConjunctiveGraph()
-        g.parse(data=red.get(key), format='n3')
-        red.delete(key)
-    except rdflib.plugin.PluginException:
-        log.debug('Failed to parse graph')
-        return None
-
-    return _dcat_extractor(g, red, log, False, key)
+# @celery.task(base=TrackableTask)
+# def inspect_catalog(key):
+#    """Analyze DCAT datasets listed in the catalog."""
+#   log = logging.getLogger(__name__)
+#    red = inspect_catalog.redis
+#
+#    log.debug('Parsing graph')
+#    try:
+#        g = rdflib.ConjunctiveGraph()
+#       g.parse(data=red.get(key), format='n3')
+#        red.delete(key)
+#    except rdflib.plugin.PluginException:
+#        log.debug('Failed to parse graph')
+#        return None
+#
+#    return _dcat_extractor(g, red, log, False, key, None)
 
 
 @celery.task(base=TrackableTask)
