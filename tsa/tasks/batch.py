@@ -23,7 +23,7 @@ def query_parent(ds, endpoint, log):
     opts = [f'<{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent',
             f'?parent <http://purl.org/dc/terms/hasPart> <{ds!s}> ',
             f'<{ds!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
-           ]
+            ]
     g = Graph(SPARQLStore(endpoint, headers={'User-Agent': user_agent}))
     for opt in opts:
         query = f'SELECT ?parent WHERE {{ {opt} }}'
@@ -188,6 +188,7 @@ def do_inspect_graphs(graphs, endpoint_iri, force, red):
 def multiply(item, times):
     for _ in range(times):
         yield item
+
 
 def split(a, n):
     k, m = divmod(len(a), n)

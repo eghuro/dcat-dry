@@ -163,7 +163,7 @@ def finalize_sameas():
     log = logging.getLogger(__name__)
     log.info('Finalize sameAs index')
     sameAsIndex.finalize()
-    #skos not needed - not transitive
+    # skos not needed - not transitive
     log.info('Successfully finalized sameAs index')
 
 
@@ -209,7 +209,7 @@ def ruian_reference():
                     ruian_references.add(iri)
                     ds_ruian_references.add(iri)
         doc['ruian'] = list(ds_ruian_references)
-        mongo_db.dsanalyses.update_one({"_id": doc['_id']}, {'$set': doc})
+        mongo_db.dsanalyses.update_one({'_id': doc['_id']}, {'$set': doc})
     log.info(f'RUIAN references: {len(list(ruian_references))}')
     inspector = RuianInspector()
     inspector.process_references(ruian_references)

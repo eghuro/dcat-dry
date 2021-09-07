@@ -47,7 +47,7 @@ def get_mongo(mongo_cfg, mongo_db):
     return client, db
 
 
-@environment("STATSD_HOST", "STATSD_PORT", default=[None, 8125], onerror=on_error)
+@environment('STATSD_HOST', 'STATSD_PORT', default=[None, 8125], onerror=on_error)
 def get_statsd(host, port):
     return statsd.StatsClient(host=host, port=port)
 

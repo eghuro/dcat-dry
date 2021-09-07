@@ -7,6 +7,7 @@ from tsa.extensions import statsd_client
 
 class Monitor(object):
     """Monitor is recording various runtime metrics into statsd."""
+
     def __increment(self, key, value, delta=1):
         name = f'tsa.{key}.{value}'
         statsd_client.gauge(name, delta, delta=True)
@@ -46,6 +47,7 @@ class Monitor(object):
 
 
 monitor = Monitor()
+
 
 class TimedBlock(object):
     def __init__(self, name):

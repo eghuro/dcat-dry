@@ -124,11 +124,10 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
 #            'graph': named_graph
 #        })
 #        with red.pipeline() as pipe:
-            #pipe.sadd('purgeable', key)
+#            #pipe.sadd('purgeable', key)
 #            pipe.set(key, store)
-            # pipe.expire(key, expiration[KeyRoot.ANALYSIS])
+#            # pipe.expire(key, expiration[KeyRoot.ANALYSIS])
 #            pipe.execute()
-
 
 
 def store_analysis_result(iri, analyses, red):

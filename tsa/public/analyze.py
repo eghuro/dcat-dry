@@ -75,8 +75,9 @@ def api_analyze_list():
             sig = process_priority.si(distribution_iri, force)
             t = sig.apply_async()
 
-            current_app.logger.info(f'Batch id: {session["token"]}, task id: {t.id}')
-            pipe.hset('taskBatchId', t.id, session["token"])
+            token = session['token']
+            current_app.logger.info(f'Batch id: {token}, task id: {t.id}')
+            pipe.hset('taskBatchId', t.id, token)
             pipe.execute()
     return ''
 

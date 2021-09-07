@@ -83,6 +83,7 @@ def store_content(iri, r, red):
             pipe.execute()
         monitor.log_size(conlen)
 
+
 def get_content(iri, r, red):
     """Load content in memory."""
     key = data_key(iri)
@@ -95,9 +96,9 @@ def get_content(iri, r, red):
             data.write(chunk)
             conlen = conlen + len(chunk)
     with red.pipeline() as pipe:
-        pipe.set(key, "MEMORY")
+        pipe.set(key, 'MEMORY')
         pipe.expire(key, expiration[KeyRoot.DATA])
-        #pipe.sadd('purgeable', key)
+        # pipe.sadd('purgeable', key)
         pipe.execute()
     monitor.log_size(conlen)
     try:

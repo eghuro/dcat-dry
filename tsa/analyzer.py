@@ -21,7 +21,7 @@ class AbstractAnalyzer(ABC):
     #    #yield common, significant, type
 
     def find_relation(self, grapg):
-        '''Empty default implementation.'''
+        """Empty default implementation."""
         pass
 
 
@@ -366,7 +366,7 @@ class GenericAnalyzer(AbstractAnalyzer):
         return summary
 
     def get_details(self, graph):
-        q = '''
+        q = """
         SELECT DISTINCT ?x ?label ?type ?description WHERE {
         OPTIONAL { ?x <http://www.w3.org/2000/01/rdf-schema#label> ?label }
         OPTIONAL { ?x <http://www.w3.org/2004/02/skos/core#prefLabel> ?label }
@@ -377,7 +377,7 @@ class GenericAnalyzer(AbstractAnalyzer):
         OPTIONAL { ?x a ?type. FILTER (isIRI(?type)) }
         OPTIONAL { ?x <http://www.w3.org/2000/01/rdf-schema#comment> ?description }
         }
-        '''
+        """
         red = redis.Redis(connection_pool=redis_pool)
 
         for row in graph.query(q):
@@ -421,12 +421,12 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
     relations = ['containedInPlace']
 
     def find_relation(self, graph):
-        q = '''
+        q = """
         PREFIX schema: <http://schema.org/>
         SELECT ?x ?place WHERE {
             ?x schema:containedInPlace ?place.
         }
-        '''
+        """
         for row in graph.query(q):
             x = str(row['x'])
             place = str(row['place'])
@@ -441,7 +441,7 @@ class TimeAnalyzer(AbstractAnalyzer):
     relations = []
 
     def analyze(self, graph, distr_iri):
-        q = '''
+        q = """
         PREFIX interval: <http://reference.data.gov.uk/def/intervals/>
         SELECT ?day_iri ?day ?month ?year
         WHERE {
@@ -450,7 +450,7 @@ class TimeAnalyzer(AbstractAnalyzer):
             interval:ordinalMonthOfYear ?month;
             interval:ordinalYear ?year
         }
-        '''
+        """
         result = {}
         for row in graph.query(q):
             iri = str(row['day_iri'])
@@ -466,7 +466,7 @@ class RuianAnalyzer(AbstractAnalyzer):
     relations = []
 
     def analyze(self, graph, distr_iri):
-        query = '''
+        query = """
         PREFIX schema: <http://schema.org/>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
         PREFIX geo: <http://www.opengis.net/ont/geosparql#>
@@ -477,7 +477,7 @@ class RuianAnalyzer(AbstractAnalyzer):
             ?geo schema:latitude ?latitude.
             ?type_iri skos:prefLabel ?type_label.
         }
-        '''
+        """
         result = {}
         ruian_prefix = 'https://linked.cuzk.cz/resource/ruian/'
         for row in graph.query(query):

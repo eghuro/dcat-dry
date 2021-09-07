@@ -130,6 +130,7 @@ def import_sameas_endpoint():
     sameAsIndex.import_index(index)
     return 'OK'
 
+
 @blueprint.route('/api/v1/import/related', methods=['PUT'])
 @csrf.exempt
 def import_related_endpoint():
