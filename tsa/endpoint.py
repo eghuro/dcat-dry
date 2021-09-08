@@ -8,14 +8,15 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
 from tsa.monitor import TimedBlock
-from tsa.robots import user_agent
+from tsa.robots import USER_AGENT
 from tsa.util import test_iri
 
 
-class SparqlEndpointAnalyzer(object):
+class SparqlEndpointAnalyzer:
     """Extract DCAT datasets from a SPARQL endpoint."""
 
-    def __query(self, named=None):
+    @staticmethod
+    def __query(named=None):
         str1 = """
         construct {
           ?ds a <http://www.w3.org/ns/dcat#Dataset>;
@@ -56,13 +57,12 @@ class SparqlEndpointAnalyzer(object):
 
         if named is not None:
             return f'{str1} from <{named}> {str3}'
-        else:
-            logging.getLogger(__name__).warn('No named graph when constructing catalog from {self.__endpoint!s}')
-            return f'{str1} {str3}'
+        logging.getLogger(__name__).warning('No named graph when constructing catalog from {self.__endpoint!s}')
+        return f'{str1} {str3}'
 
     def __init__(self, endpoint):
         if not test_iri(endpoint):
-            logging.getLogger(__name__).warn(f'{endpoint!s} is not a valid endpoint URL')
+            logging.getLogger(__name__).warning(f'{endpoint!s} is not a valid endpoint URL')
             raise ValueError(endpoint)
         self.__endpoint = endpoint
         # workaround for https://github.com/RDFLib/rdflib/issues/1195
@@ -70,24 +70,24 @@ class SparqlEndpointAnalyzer(object):
 
         self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
                                  'application/rdf+xml',
-                                 headers={'User-Agent': user_agent})
+                                 headers={'User-Agent': USER_AGENT})
 
     def process_graph(self, graph_iri):
         """Extract DCAT datasets from the given named graph of an endpoint."""
         if not test_iri(graph_iri):
-            logging.getLogger(__name__).warn(f'{graph_iri!s} is not a valid graph URL')
+            logging.getLogger(__name__).warning(f'{graph_iri!s} is not a valid graph URL')
             return None
 
-        g = Graph(store=self.store, identifier=graph_iri)
-        g.open(self.__endpoint)
+        graph = Graph(store=self.store, identifier=graph_iri)
+        graph.open(self.__endpoint)
 
         query = self.__query(graph_iri)
 
         try:
             with TimedBlock('process_graph'):
-                return g.query(query).graph  # implementation detail for CONSTRUCT!
-        except ResultException as e:
-            logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(e)}')
+                return graph.query(query).graph  # implementation detail for CONSTRUCT!
+        except ResultException as exc:
+            logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(exc)}')
 
         return None
 

@@ -24,17 +24,17 @@ def test_basic():
 @blueprint.route('/api/v1/test/job')
 def test_celery():
     """Hello world test using Celery task."""
-    r = hello.delay()
-    return r.get()
+    task = hello.delay()
+    return task.get()
 
 
 @blueprint.route('/api/v1/test/system')
 def test_system():
     """Test systems and provide a hello world."""
-    x = (system_check.s() | hello.si()).delay().get()
+    task = (system_check.s() | hello.si()).delay().get()
     log = logging.getLogger(__name__)
-    log.info(f'System check result: {x!s}')
-    return str(x)
+    log.info(f'System check result: {task!s}')
+    return str(task)
 
 
 @blueprint.route('/api/v1/test/analyze')
@@ -42,9 +42,9 @@ def api_test():
     iri = request.args['iri']
     log = current_app.logger
     red = redis.Redis(connection_pool=redis_pool)
-    r = fetch(iri, log, red)
-    guess, _ = guess_format(iri, r, log, red)
-    content = get_content(iri, r, red).encode('utf-8')
+    response = fetch(iri, log, red)
+    guess, _ = guess_format(iri, response, log)
+    content = get_content(iri, response, red).encode('utf-8')
     graph = load_graph(iri, content, guess)
     do_analyze_and_index(graph, iri, red)
     return ''
@@ -64,7 +64,7 @@ def test_dereference1():
         if not test_iri(iri_of_interest):
             log.error('Condition failed')
         r = fetch(iri_of_interest, log, red)
-        guess, _ = guess_format(iri_of_interest, r, log, red)
+        guess, _ = guess_format(iri_of_interest, r, log)
         content = get_content(iri_of_interest, r, red).encode('utf-8')
         sub_graph = load_graph(iri_of_interest, content, guess).serialize(format='trig')
         if sub_graph is not None:
@@ -98,15 +98,15 @@ def test_process():
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     try:
-        r = fetch(iri_distr, log, red)
+        response = fetch(iri_distr, log, red)
     except:
         log.exception(f'Failed to fetch: {iri_distr}')
         abort(500)
 
-    guess, _ = guess_format(iri_distr, r, log, red)
+    guess, _ = guess_format(iri_distr, response, log)
 
     try:
-        content = get_content(iri_distr, r, red)
+        content = get_content(iri_distr, response, red)
         if content is None:
             log.warning(f'No content: {iri_distr}')
             abort(500)
@@ -118,9 +118,9 @@ def test_process():
         for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
             log.info(f'Dereference: {iri_to_dereference}')
             try:
-                r = fetch(iri_to_dereference, log, red)
-                guess, _ = guess_format(iri_to_dereference, r, log, red)
-                content = get_content(iri_to_dereference, r, red)
+                response = fetch(iri_to_dereference, log, red)
+                guess, _ = guess_format(iri_to_dereference, response, log)
+                content = get_content(iri_to_dereference, response, red)
                 if content is None:
                     log.warning(f'No content: {iri_to_dereference}')
                     continue

@@ -10,7 +10,7 @@ from tsa.log import logging_setup
 
 
 @environment('DSN', default=[None], onerror=on_error)
-def init_sentry(dsn_str):
+def init_sentry(dsn_str=None):
     if dsn_str is not None:
         sentry_sdk.init(dsn_str, integrations=[CeleryIntegration()])
 

@@ -12,7 +12,7 @@ from tsa.log import logging_setup
 
 
 @environment('DSN', default=[None], onerror=on_error)
-def create_app(config_object, dsn_str):
+def create_app(config_object, dsn_str=None):
     """An application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
 
     :param config_object: The configuration object to use.
@@ -24,7 +24,7 @@ def create_app(config_object, dsn_str):
             integrations=[FlaskIntegration()]
         )
 
-    app = Flask(__name__.split('.')[0])
+    app = Flask(__name__.split('.', maxsplit=1)[0])
     app.config.from_object(config_object)
 
     register_extensions(app)
@@ -40,7 +40,6 @@ def register_extensions(app):
     cache.init_app(app)
     cors.init_app(app)
     csrf.init_app(app)
-    return None
 
 
 def register_blueprints(app):
@@ -49,7 +48,6 @@ def register_blueprints(app):
     app.register_blueprint(public.test.blueprint)
     app.register_blueprint(public.analyze.blueprint)
     app.register_blueprint(public.stat.blueprint)
-    return None
 
 
 def register_errorhandlers(app):
@@ -63,7 +61,6 @@ def register_errorhandlers(app):
         return render_template('{0}.html'.format(error_code)), error_code
     for errcode in []:
         app.errorhandler(errcode)(render_error)
-    return None
 
 
 def register_shellcontext(app):

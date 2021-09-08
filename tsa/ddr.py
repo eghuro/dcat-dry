@@ -6,7 +6,7 @@ import rfc3987
 from tsa.redis import KeyRoot, root_name
 
 
-class DataDrivenRelationshipIndex(object):
+class DataDrivenRelationshipIndex:
     def __init__(self, redis_pool):
         self.__red = redis.Redis(connection_pool=redis_pool)
 
@@ -32,13 +32,13 @@ class DataDrivenRelationshipIndex(object):
     def lookup(self, relationship_type, resource_iri):
         for iri in self.__red.sscan_iter(f'ddr:{relationship_type}:{resource_iri}'):
             if isinstance(iri, list):
-                for el in iri:
-                    yield el
+                for element in iri:
+                    yield element
             elif isinstance(iri, str):
                 yield iri
 
 
-class ConceptIndex(object):
+class ConceptIndex:
     def __init__(self, redis_pool):
         self.__red = redis.Redis(connection_pool=redis_pool)
 
@@ -53,7 +53,7 @@ class ConceptIndex(object):
             yield iri
 
 
-class DataCubeDefinitionIndex(object):
+class DataCubeDefinitionIndex:
     def __init__(self, redis_pool):
         self.__red = redis.Redis(connection_pool=redis_pool)
 

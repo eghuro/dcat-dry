@@ -1,15 +1,13 @@
 """Celery tasks for querying."""
 import json
 import logging
-import math
-import statistics
 from json import JSONEncoder
 
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.celery import celery
-from tsa.extensions import conceptIndex, ddrIndex, dsdIndex, get_mongo, redis_pool, sameAsIndex
+from tsa.extensions import concept_index, ddr_index, dsd_index, get_mongo, redis_pool, same_as_index
 from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, ds_distr, pure_subject
 from tsa.redis import related as related_key
 from tsa.redis import sanitize_key
@@ -24,12 +22,10 @@ def _gen_iris(red, log):
     for key in red.scan_iter(match='distrds:*'):
         distr_iri = key[len('distrds:'):]
         key1 = f'{root}{sanitize_key(distr_iri)}'
-        # log.debug(key1)
-        x = red.get(key1)
-        if x is None:
+        analysis_json_string = red.get(key1)
+        if analysis_json_string is None:
             continue
-        analysis = json.loads(x)
-        # log.debug(str(analysis))
+        analysis = json.loads(analysis_json_string)
         if 'analysis' in analysis.keys():
             content = analysis['analysis']
             if 'iri' in analysis.keys():
@@ -49,7 +45,7 @@ def compile_analyses(batch_id):
     log.info('Compile analyzes')
     red = redis.Redis(connection_pool=redis_pool)
 
-    ds = set()
+    dataset_iris = set()
     for distr_iri, content in _gen_iris(red, log):
         log.debug(distr_iri)
         ds_iris = red.smembers(f'distrds:{distr_iri}')
@@ -70,47 +66,47 @@ def compile_analyses(batch_id):
                 pipe.sadd('relevant_distr', distr_iri)
                 pipe.expire('relevant_distr', EXPIRATION_CACHED)
                 pipe.execute()
-            ds.add(ds_iri)
+            dataset_iris.add(ds_iri)
 
-    return list(ds)
+    return list(dataset_iris)
 
 
-def gen_analyses(batch_id, ds, red):
+def gen_analyses(batch_id, dataset_iris, red):
     log = logging.getLogger(__name__)
-    log.info(f'Generate analyzes ({len(ds)})')
-    for ds_iri in ds:
+    log.info(f'Generate analyzes ({len(dataset_iris)})')
+    for ds_iri in dataset_iris:
         for distr_iri in red.smembers(f'dsdistr:{ds_iri}'):
             key_in = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
-            for a in [json.loads(a) for a in red.lrange(key_in, 0, -1)]:
-                for b in a:  # flatten
-                    for key in b.keys():  # 1 element
+            for analyses_json in [json.loads(analysis_json_string) for analysis_json_string in red.lrange(key_in, 0, -1)]:
+                for analysis_json in analyses_json:  # flatten
+                    for key in analysis_json.keys():  # 1 element
                         analysis = {'ds_iri': ds_iri, 'batch_id': batch_id}
-                        analysis[key] = b[key]  # merge dicts
+                        analysis[key] = analysis_json[key]  # merge dicts
                         yield analysis
 
 
 @celery.task(ignore_result=True)
-def store_to_mongo(ds, batch_id):
+def store_to_mongo(dataset_iris, batch_id):
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     _, mongo_db = get_mongo()
     log.info('Cleaning mongo')
     mongo_db.dsanalyses.delete_many({})
     insert_count, gen_count = 0, 0
-    for analysis in gen_analyses(batch_id, ds, red):
+    for analysis in gen_analyses(batch_id, dataset_iris, red):
         gen_count = gen_count + 1
         try:
             mongo_db.dsanalyses.insert_one(analysis)
         except DocumentTooLarge:
             iri = analysis['ds_iri']
-            log.exception(f'Failed to store analysis for {batch_id} (ds: {iri})')
+            log.exception(f'Failed to store analysis for {batch_id} (dataset_iris: {iri})')
         except OperationFailure:
             log.exception('Operation failure')
         else:
             insert_count = insert_count + 1
     log.info(f'Stored analyses ({insert_count}/{gen_count})')
 
-    return ds
+    return dataset_iris
 
 
 # == INDEX ==
@@ -134,7 +130,7 @@ def gen_related_ds():
         for key in red.scan_iter(match=f'related:{rel_type!s}:*'):
             token = key[len(root):].replace('_', ':', 1)  # common element
             related_dist = set()
-            for sameas_iri in sameAsIndex.lookup(token):
+            for sameas_iri in same_as_index.lookup(token):
                 related_dist.update(red.smembers(related_key(rel_type, sameas_iri)))  # these are related by sameAs of token
             all_related = set()
             for distr_iri in related_dist:
@@ -166,7 +162,7 @@ def gen_related_ds():
 def finalize_sameas():
     log = logging.getLogger(__name__)
     log.info('Finalize sameAs index')
-    sameAsIndex.finalize()
+    same_as_index.finalize()
     # skos not needed - not transitive
     log.info('Successfully finalized sameAs index')
 
@@ -179,8 +175,7 @@ def cache_labels():
     _, mongo_db = get_mongo()
     mongo_db.labels.delete_many({})
     try:
-        for iri in labels.keys():
-            entry = labels[iri]
+        for (iri, entry) in labels.items():
             entry['_id'] = iri
             mongo_db.labels.insert(entry)
         log.info('Successfully stored labels')
@@ -190,7 +185,7 @@ def cache_labels():
 
 def iter_subjects_objects(generic_analysis):
     for initial_iri in set(iri for iri in generic_analysis['generic']['subjects']).union(set(iri for iri in generic_analysis['generic']['objects'])):
-        for iri in sameAsIndex.lookup(initial_iri):
+        for iri in same_as_index.lookup(initial_iri):
             yield iri
 
 
@@ -208,15 +203,14 @@ def ruian_reference():
     for doc in iter_generic(mongo_db):
         ds_ruian_references = set()
         for initial_iri in iter_subjects_objects(doc):
-            for iri in sameAsIndex.lookup(initial_iri):
+            for iri in same_as_index.lookup(initial_iri):
                 if iri.startswith('https://linked.cuzk.cz/resource/ruian/'):
                     ruian_references.add(iri)
                     ds_ruian_references.add(iri)
         doc['ruian'] = list(ds_ruian_references)
         mongo_db.dsanalyses.update_one({'_id': doc['_id']}, {'$set': doc})
     log.info(f'RUIAN references: {len(list(ruian_references))}')
-    inspector = RuianInspector()
-    inspector.process_references(ruian_references)
+    RuianInspector.process_references(ruian_references)
 
 
 def report_relationship(red, rel_type, resource_iri, distr_iri):
@@ -232,7 +226,7 @@ def concept_usage():
     dsdistr, _ = ds_distr()
     counter = 0
     red = redis.Redis(connection_pool=redis_pool)
-    ddr_types = ddrIndex.types()
+    ddr_types = ddr_index.types()
     for doc in iter_generic(mongo_db):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         ds_iri = doc['ds_iri']
@@ -243,18 +237,17 @@ def concept_usage():
             for resource_iri in iter_subjects_objects(doc):
                 if resource_iri in resource_iri_cache:
                     continue
-                else:
-                    resource_iri_cache.add(resource_iri)
+                resource_iri_cache.add(resource_iri)
                 # type (broad / narrow apod.)
                 # indexuji T -> (a, b); mam jedno z (a, b)
-                if conceptIndex.is_concept(resource_iri):
+                if concept_index.is_concept(resource_iri):
                     # pouzit koncept (polozka ciselniku)
                     report_relationship(pipe, 'conceptUsage', resource_iri, distr_iri)
                     counter = counter + 1
 
                     for token in ddr_types:
-                        for skos_resource_iri in ddrIndex.lookup(token, resource_iri):
-                            for final_resource_iri in sameAsIndex.lookup(skos_resource_iri):
+                        for skos_resource_iri in ddr_index.lookup(token, resource_iri):
+                            for final_resource_iri in same_as_index.lookup(skos_resource_iri):
                                 # pouzit related concept
                                 report_relationship(pipe, 'relatedConceptUsage', final_resource_iri, distr_iri)
                                 counter = counter + 1
@@ -272,8 +265,8 @@ def concept_definition():
     log.info('Find datasets with information about concepts (codelists)')
     red = redis.Redis(connection_pool=redis_pool)
     with red.pipeline() as pipe:
-        for concept in conceptIndex.iter_concepts():
-            for resource_iri in sameAsIndex.lookup(concept):
+        for concept in concept_index.iter_concepts():
+            for resource_iri in same_as_index.lookup(concept):
                 for doc in mongo_db.dsanalyses.find({'generic.subjects': resource_iri}):
                     ds_iri = doc['ds_iri']
                     distr_iri = red.srandmember(f'{dsdistr}:{ds_iri}')
@@ -293,7 +286,7 @@ def cross_dataset_sameas():
         ds_iri = generic['ds_iri']
         for distr_iri in red.sscan_iter(f'{dsdistr}:{ds_iri}'):
             for resource in red.lrange(pure_subject(distr_iri), 0, -1):
-                for iri in sameAsIndex.lookup(resource):
+                for iri in same_as_index.lookup(resource):
                     report_relationship(red, 'crossSameas', iri, distr_iri)
 
 
@@ -303,22 +296,22 @@ def data_driven_relationships():
     red = redis.Redis(connection_pool=redis_pool)
     log.info('Data driven relationships')
     # projet z DSD vsechny dimenze a miry, zda to neni concept
-    rel_types = ddrIndex.types()
+    rel_types = ddr_index.types()
     report = []
-    for resource, distr_iri in dsdIndex.resources_on_dimension():
-        for resource_iri in sameAsIndex.lookup(resource):
+    for resource, distr_iri in dsd_index.resources_on_dimension():
+        for resource_iri in same_as_index.lookup(resource):
             # report resource na dimenzi
-            if conceptIndex.is_concept(resource_iri):
+            if concept_index.is_concept(resource_iri):
                 # report concept na dimenzi
                 for token in rel_types:
-                    for skos_resource_iri in ddrIndex.lookup(token, resource_iri):
+                    for skos_resource_iri in ddr_index.lookup(token, resource_iri):
                         if isinstance(skos_resource_iri, int):
                             continue
                         if len(skos_resource_iri) == 0:
                             continue
                         if isinstance(skos_resource_iri, list):
                             skos_resource_iri = skos_resource_iri[0]
-                        for final_resource_iri in sameAsIndex.lookup(str(skos_resource_iri)):
+                        for final_resource_iri in same_as_index.lookup(str(skos_resource_iri)):
                             # report related concept na dimenzi
                             report.append(('relatedConceptOnDimension', final_resource_iri, distr_iri))
                 report.append(('conceptOnDimension', resource_iri, distr_iri))
@@ -330,69 +323,6 @@ def data_driven_relationships():
         pipe.execute()
 
 # ## MISC ###
-
-
-@celery.task
-def add_stats(analyses, stats):
-    if stats:
-        logging.getLogger(__name__).info('Stats')
-        red = redis.Redis(connection_pool=redis_pool)
-        analyses.append({
-            'format': list(red.hgetall('stat:format')),
-            'size': retrieve_size_stats(red)  # check
-        })
-    return analyses
-
-
-def convert_size(size_bytes):
-    """Convert size in bytes into a human readable string."""
-    if size_bytes == 0:
-        return '0B'
-    size_name = ('B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB')
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return '%s %s' % (s, size_name[i])
-
-
-def retrieve_size_stats(red):
-    """Load sizes from redis and calculate some stats about it."""
-    lst = sorted([int(x) for x in red.lrange('stat:size', 0, -1)])
-    try:
-        mode = statistics.mode(lst)
-    except statistics.StatisticsError:
-        mode = None
-    try:
-        mean = statistics.mean(lst)
-    except statistics.StatisticsError:
-        mean = None
-    try:
-        stdev = statistics.stdev(lst, mean)
-    except statistics.StatisticsError:
-        stdev = None
-    try:
-        var = statistics.variance(lst, mean)
-    except statistics.StatisticsError:
-        var = None
-
-    try:
-        minimum = min(lst)
-    except ValueError:
-        minimum = None
-
-    try:
-        maximum = max(lst)
-    except ValueError:
-        maximum = None
-
-    return {
-        'min': convert_size(minimum),
-        'max': convert_size(maximum),
-        'mean': convert_size(mean),
-        'mode': convert_size(mode),
-        'stdev': convert_size(stdev),
-        'var': var
-    }
 
 
 class CustomJSONEncoder(JSONEncoder):

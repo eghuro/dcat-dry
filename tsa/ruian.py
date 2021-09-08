@@ -3,21 +3,22 @@ import logging
 from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
-from tsa.extensions import conceptIndex, ddrIndex
-from tsa.robots import user_agent
+from tsa.extensions import concept_index, ddr_index
+from tsa.robots import USER_AGENT
 from tsa.util import test_iri
 
 
-class RuianInspector(object):
+class RuianInspector:
 
-    def process_references(self, iris):
+    @staticmethod
+    def process_references(iris):
         # query SPARQL endpoint at https://linked.cuzk.cz.opendata.cz/sparql
         log = logging.getLogger(__name__)
         processed = set()
         queue = list(iris)
 
         endpoint = 'https://linked.cuzk.cz.opendata.cz/sparql'
-        store = SPARQLStore(endpoint, headers={'User-Agent': user_agent})
+        store = SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT})
         ruian = Graph(store=store)
         ruian.open(endpoint)
 
@@ -39,7 +40,7 @@ class RuianInspector(object):
                     queue.append(next_iri)
 
                     # report: (IRI, next_iri) - type: token
-                    ddrIndex.index(token, iri, next_iri)
-                    conceptIndex.index(iri)
+                    ddr_index.index(token, iri, next_iri)
+                    concept_index.index(iri)
                     relationship_count = relationship_count + 1
         log.info(f'Done proceessing RUIAN references. Processed {len(processed)}, indexed {relationship_count} relationships in RUIAN hierarchy.')

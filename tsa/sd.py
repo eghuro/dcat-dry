@@ -12,15 +12,15 @@ def create_sd_iri(query_string):
 
 
 def generate_service_description(sd_iri, endpoint_iri, graph_iri):
-    SD = Namespace('http://www.w3.org/ns/sparql-service-description#')
+    sd_namespace = Namespace('http://www.w3.org/ns/sparql-service-description#')
 
-    o = urlparse(endpoint_iri)
-    endpoint_iri = f'{o.netloc}{o.path}'
+    parsed_endpoint_iri = urlparse(endpoint_iri)
+    endpoint_iri = f'{parsed_endpoint_iri.netloc}{parsed_endpoint_iri.path}'
 
     base = f'{Config.SD_BASE_IRI}/sd/endpoint/{endpoint_iri}/'
     if graph_iri is not None:
-        o = urlparse(graph_iri)
-        graph_iri = f'{o.netloc}{o.path}'
+        parsed_graph_iri = urlparse(graph_iri)
+        graph_iri = f'{parsed_graph_iri.netloc}{parsed_graph_iri.path}'
         base = f'{base}graph/{graph_iri}/'
         graph_iri = URIRef(graph_iri)
 
@@ -30,22 +30,22 @@ def generate_service_description(sd_iri, endpoint_iri, graph_iri):
 
     graph = Graph()
 
-    graph.bind('sd', SD)
+    graph.bind('sd', sd_namespace)
     graph.bind('void', VOID)
     graph.bind('rdf', RDF)
 
-    graph.add((sd_iri, RDF.type, SD.Service))
-    graph.add((sd_iri, SD.endpoint, endpoint_iri))
-    graph.add((sd_iri, SD.defaultDatasetDescription, ds_description_iri))
-    graph.add((ds_description_iri, RDF.type, SD.Dataset))
+    graph.add((sd_iri, RDF.type, sd_namespace.Service))
+    graph.add((sd_iri, sd_namespace.endpoint, endpoint_iri))
+    graph.add((sd_iri, sd_namespace.defaultDatasetDescription, ds_description_iri))
+    graph.add((ds_description_iri, RDF.type, sd_namespace.Dataset))
     graph.add((ds_description_iri, RDF.type, VOID.Dataset))
     graph.add((ds_description_iri, VOID.sparqlEndpoint, endpoint_iri))
 
     if graph_iri is None:
-        graph.add((ds_description_iri, SD.defaultGraph, BNode()))
+        graph.add((ds_description_iri, sd_namespace.defaultGraph, BNode()))
     else:
         graph_node_iri = URIRef(urljoin(f'{ds_description_iri}/defaultGraph/', str(uuid4())))
-        graph.add((ds_description_iri, SD.namedGraph, graph_node_iri))
-        graph.add((graph_node_iri, SD.name, graph_iri))
+        graph.add((ds_description_iri, sd_namespace.namedGraph, graph_node_iri))
+        graph.add((graph_node_iri, sd_namespace.name, graph_iri))
 
     return graph

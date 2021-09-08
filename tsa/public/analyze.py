@@ -21,8 +21,6 @@ def api_analyze_catalog():
     URL parameters sparql, graph (optional)
     """
     force = 'force' in request.args
-    if 'token' not in session:
-        session['token'] = str(uuid.uuid4())
 
     iri = request.args.get('sparql', None)
     graph = request.args.get('graph', None)
@@ -30,25 +28,19 @@ def api_analyze_catalog():
         if graph is None:
             iris = request.get_json()
             graphs = [iri.strip() for iri in iris if test_iri(iri)]
+        elif test_iri(graph):
+            graphs = [graph]
         else:
-            if test_iri(graph):
-                graphs = [graph]
-            else:
-                graphs = []
+            graphs = []
         current_app.logger.info(f'Analyzing endpoint {iri}')
         if len(graphs) == 0:
             current_app.logger.warning('No graphs given')
         else:
             current_app.logger.info(f'Graphs: {len(graphs)}')
 
-        red = redis.Redis(connection_pool=redis_pool)
-
-        t = batch_inspect.si(iri, graphs, force, session['token'], 10).apply_async()
-        current_app.logger.info(f'Batch id: {session["token"]}, task id: {t.id}')
-        red.hset('taskBatchId', t.id, session['token'])
+        batch_inspect.si(iri, graphs, force, 10).apply_async()
         return ''
-    else:
-        abort(400)
+    abort(400)
 
 
 @blueprint.route('/api/v1/analyze/distributions', methods=['POST'])
@@ -73,11 +65,11 @@ def api_analyze_list():
             counter = counter + 1
 
             sig = process_priority.si(distribution_iri, force)
-            t = sig.apply_async()
+            task = sig.apply_async()
 
             token = session['token']
-            current_app.logger.info(f'Batch id: {token}, task id: {t.id}')
-            pipe.hset('taskBatchId', t.id, token)
+            current_app.logger.info(f'Batch id: {token}, task id: {task.id}')
+            pipe.hset('taskBatchId', task.id, token)
             pipe.execute()
     return ''
 

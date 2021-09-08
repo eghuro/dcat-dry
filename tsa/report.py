@@ -7,12 +7,12 @@ from bson.json_util import dumps as dumps_bson
 from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.enricher import AbstractEnricher, NoEnrichment
-from tsa.extensions import mongo_db, redis_pool, sameAsIndex
+from tsa.extensions import mongo_db, redis_pool, same_as_index
 from tsa.redis import sanitize_key
 
 supported_languages = ["cs", "en"]
 enrichers = [e() for e in AbstractEnricher.__subclasses__()]
-reltypes = reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension'] #sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
+reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension']  # sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
 
 
 def query_dataset(iri):
@@ -21,9 +21,10 @@ def query_dataset(iri):
         "profile": query_profile(iri)
     }
 
+
 def get_all_related():
-    for r in mongo_db.related.find({}):
-        return r
+    for related in mongo_db.related.find({}):
+        return related
 
 
 def query_related(ds_iri):
@@ -59,7 +60,7 @@ def query_related(ds_iri):
                         log.debug(related_ds_iri)
                         obj = {'type': reltype, 'common': token}
 
-                        for sameas_iri in sameAsIndex.lookup(token):
+                        for sameas_iri in same_as_index.lookup(token):
                             for enricher in enrichers:
                                 try:
                                     obj[enricher.token] = enricher.enrich(sameas_iri)
@@ -101,41 +102,41 @@ def query_profile(ds_iri):
     #log.info(analyses)
 
     #so far, so good
-    analysis = {}
-    for a in analyses:
+    analysis_out = {}
+    for analysis in analyses:
         log.info('...')
-        del a['_id']
-        del a['ds_iri']
-        del a['batch_id']
-        for k in a.keys():
-            analysis[k] = a[k]
+        del analysis['_id']
+        del analysis['ds_iri']
+        del analysis['batch_id']
+        for k in analysis.keys():
+            analysis_out[k] = analysis[k]
 
-    log.info(analysis.keys())
-    if len(analysis.keys()) == 0:
-        log.error(f'Missing analysis for {ds_iri}')
+    log.info(analysis_out.keys())
+    if len(analysis_out.keys()) == 0:
+        log.error(f'Missing analysis_out for {ds_iri}')
         return {}
 
     #key = f'dsanalyses:{ds_iri}'
     #red = redis.Redis(connection_pool=redis_pool)
-    #analysis = json.loads(red.get(key))  # raises TypeError if key is missing
+    #analysis_out = json.loads(red.get(key))  # raises TypeError if key is missing
 
     output = {}
-    output["triples"] = analysis["generic"]["triples"]
+    output["triples"] = analysis_out["generic"]["triples"]
 
     output["classes"] = []
-    log.info(json.dumps(analysis["generic"]))
-    for x in analysis["generic"]["classes"]:
-        klaz = x["iri"]
-        label = create_labels(klaz, supported_languages)
-        output["classes"].append({'iri': klaz, 'label': label})
+    log.info(json.dumps(analysis_out["generic"]))
+    for class_analysis in analysis_out["generic"]["classes"]:
+        class_iri = class_analysis["iri"]
+        label = create_labels(class_iri, supported_languages)
+        output["classes"].append({'iri': class_iri, 'label': label})
 
-    output["predicates"] = analysis["generic"]["predicates"]
+    output["predicates"] = analysis_out["generic"]["predicates"]
 
     #should work, but untested
     output["concepts"] = []
-    if "concepts" in analysis["skos"]:
-        for x in analysis["skos"]["concepts"]:
-            concept = x['iri']
+    if "concepts" in analysis_out["skos"]:
+        for class_analysis in analysis_out["skos"]["concepts"]:
+            concept = class_analysis['iri']
             output["concepts"].append({
                 'iri': concept,
                 'label': create_labels(concept, supported_languages)
@@ -143,25 +144,24 @@ def query_profile(ds_iri):
 
     #likely not working
     #output["codelists"] = set()
-    #for o in analysis["generic"]["external"]["not_subject"]:
-    #    for c in red.smembers(codelist_key(o)):  # codelists - datasets, that contain o as a subject
+    #for o in analysis_out["generic"]["external"]["not_subject"]:
+    #    for c in red.smembers(codelist_key(o)):  # codelists - datasets, that contain o as analysis subject
     #        output["codelists"].add(c)
     #output["codelists"] = list(output["codelists"])
 
-
     #should work, but untested
     output["schemata"] = []
-    for x in analysis["skos"]["schema"]:
+    for class_analysis in analysis_out["skos"]["schema"]:
         output["schemata"].append({
-            'iri': x['iri'],
-            'label': create_labels(x['iri'], supported_languages)
+            'iri': class_analysis['iri'],
+            'label': create_labels(class_analysis['iri'], supported_languages)
         })
 
     #new
     output["datasets"] = []
-    for ds in analysis["cube"]["datasets"]:
+    for dataset in analysis_out["cube"]["datasets"]:
         dimensions = []
-        for dim in ds['dimensions']:
+        for dim in dataset['dimensions']:
             resources = []
             for res in dim['resources']:
                 resources.append({
@@ -169,37 +169,37 @@ def query_profile(ds_iri):
                     'label': create_labels(res, supported_languages)
                 })
             dimensions.append({
-              'iri': dim['dimension'],
-              'label': create_labels(dim['dimension'], supported_languages),
-              'resources': resources
+                'iri': dim['dimension'],
+                'label': create_labels(dim['dimension'], supported_languages),
+                'resources': resources
             })
         measures = []
-        for measure in ds['measures']:
+        for measure in dataset['measures']:
             measures.append({
                 'iri': measure,
                 'label': create_labels(measure, supported_languages)
             })
         output["datasets"].append(
             {
-                'iri': ds['iri'],
+                'iri': dataset['iri'],
                 'dimensions': dimensions,
                 'measures': measures,
-                'label': create_labels(ds['iri'], supported_languages)
+                'label': create_labels(dataset['iri'], supported_languages)
             }
         )
 
     #old
     #dimensions, measures, resources_on_dimension = set(), set(), defaultdict(list)
-    #datasets = analysis["cube"]["datasets"]
-    #for x in datasets:
-    #    ds = x['iri']
+    #datasets = analysis_out["cube"]["datasets"]
+    #for class_analysis in datasets:
+    #    dataset = class_analysis['iri']
     #    try:
-    #        dimensions.update([ y["dimension"] for y in x["dimensions"]])
-    #        for y in x["dimensions"]:
+    #        dimensions.update([ y["dimension"] for y in class_analysis["dimensions"]])
+    #        for y in class_analysis["dimensions"]:
     #            resources_on_dimension[y["dimension"]] = y["resources"]
     #    except TypeError:
-    #        dimensions.update(x["dimensions"])
-    #    measures.update(x["measures"])
+    #        dimensions.update(class_analysis["dimensions"])
+    #    measures.update(class_analysis["measures"])
     #
     #output["dimensions"], output["measures"] = [], []
     #for d in dimensions:
@@ -252,17 +252,18 @@ def create_labels(ds_iri, tags):
 def sanitize_label_iri_for_mongo(iri):
     return '+'.join(iri.split('.'))
 
+
 def query_label(ds_iri):
     #LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
     #red.set(key, title)
     ds_iri = sanitize_key(ds_iri)
     red = redis.Redis(connection_pool=redis_pool)
     result = {}
-    #for x in red.scan_iter(match=f'label:{ds_iri!s}*'): #red.keys(f'label:{ds_iri!s}*'):  #FIXME
+    # for x in red.scan_iter(match=f'label:{ds_iri!s}*'): #red.keys(f'label:{ds_iri!s}*'):  #FIXME
     for lang in ['cs', 'en']:
-        key_lang = f'label:{ds_iri!s}:{lang}'  #FIXME
+        key_lang = f'label:{ds_iri!s}:{lang}'  # FIXME
         key_default = f'label:{ds_iri!s}'
-        if red.exists(key_lang):#x.startswith(prefix_lang):
+        if red.exists(key_lang):  # x.startswith(prefix_lang):
             title = red.get(key_lang)
             result[lang] = title
         elif red.exists(key_default):
@@ -275,13 +276,13 @@ def export_labels():
     prefix = 'label:'
     out = defaultdict(dict)
     red = redis.Redis(connection_pool=redis_pool)
-    for x in red.keys(f'{prefix}*'):
-        if ':' in x[len(prefix):]:
-            (ds_iri, language_code) = x[len(prefix):].split(':')
+    for label_key in red.keys(f'{prefix}*'):
+        if ':' in label_key[len(prefix):]:
+            (ds_iri, language_code) = label_key[len(prefix):].split(':')
         else:
             language_code = 'default'
-            ds_iri = x[len(prefix):]
-        out[sanitize_label_iri_for_mongo(ds_iri)][sanitize_label_iri_for_mongo(language_code)] = red.get(x)
+            ds_iri = label_key[len(prefix):]
+        out[sanitize_label_iri_for_mongo(ds_iri)][sanitize_label_iri_for_mongo(language_code)] = red.get(label_key)
     return out
 
 
@@ -325,7 +326,7 @@ def import_profiles(profiles):
             iri = analysis['ds_iri']
             log.exception(f'Failed to store analysis for ds: {iri}')
         except OperationFailure:
-            log.exception(f'Operation failure')
+            log.exception('Operation failure')
     log.info('Stored analyses')
 
 

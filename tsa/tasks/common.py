@@ -21,7 +21,7 @@ class TrackableTask(Task):
 
     def __call__(self, *args, **kwargs):
         self.redis.set('shouldQuery', 1)
-        return super(TrackableTask, self).__call__(*args, **kwargs)
+        return super().__call__(*args, **kwargs)
 
 
 @celery.task
@@ -45,4 +45,4 @@ def monitor(*args):
 
         result_id = str(uuid.uuid4())
         log.info(f'Query result id: {result_id}')
-        query(result_id, red)
+        query(result_id)

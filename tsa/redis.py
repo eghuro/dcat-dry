@@ -79,12 +79,6 @@ def analysis_dataset(iri):
     return f'{root_name[KeyRoot.ANALYSIS]}:{iri}'
 
 
-def analysis_endpoint(endpoint, graph_iri):
-    endpoint = sanitize_key(endpoint)
-    graph_iri = sanitize_key(graph_iri)
-    return f'{root_name[KeyRoot.ANALYSIS]}:{endpoint}:{graph_iri}'
-
-
 def graph(endpoint, iri):
     endpoint = sanitize_key(endpoint)
     iri = sanitize_key(iri)
@@ -96,64 +90,54 @@ def delay(robots_url):
     return f'delay_{robots_url!s}'
 
 
-def ds_title(ds, language):
-    ds = sanitize_key(ds)
-    language = sanitize_key(language)
-    return f'{root_name[KeyRoot.DS_TITLE]}:{ds!s}:{language}' if language is not None else f'{root_name[KeyRoot.DS_TITLE]}:{ds!s}'
+def ds_title(unsafe_label, unsafe_language):
+    sanitized_label = sanitize_key(unsafe_label)
+    sanitized_language = sanitize_key(unsafe_language)
+    return f'{root_name[KeyRoot.DS_TITLE]}:{sanitized_label!s}:{sanitized_language}' if sanitized_language is not None else f'{root_name[KeyRoot.DS_TITLE]}:{sanitized_label!s}'
 
 
-def label(ds, language):
-    ds = sanitize_key(ds)
-    language = sanitize_key(language)
-    return f'{root_name[KeyRoot.LABEL]}:{ds!s}:{language}' if language is not None else f'{root_name[KeyRoot.LABEL]}:{ds!s}'
+def label(unsafe_label, unsafe_language):
+    sanitized_label = sanitize_key(unsafe_label)
+    sanitized_language = sanitize_key(unsafe_language)
+    return f'{root_name[KeyRoot.LABEL]}:{sanitized_label!s}:{sanitized_language}' if sanitized_language is not None else f'{root_name[KeyRoot.LABEL]}:{sanitized_label!s}'
 
 
-def description(ds, language):
-    ds = sanitize_key(ds)
-    language = sanitize_key(language)
-    return f'{root_name[KeyRoot.DESCRIPTION]}:{ds!s}:{language}' if language is not None else f'{root_name[KeyRoot.DESCRIPTION]}:{ds!s}'
+def description(unsafe_label, unsafe_language):
+    sanitized_label = sanitize_key(unsafe_label)
+    sanitized_language = sanitize_key(unsafe_language)
+    return f'{root_name[KeyRoot.DESCRIPTION]}:{sanitized_label!s}:{sanitized_language}' if sanitized_language is not None else f'{root_name[KeyRoot.DESCRIPTION]}:{sanitized_label!s}'
 
 
-def resource_type(iri):
-    iri = sanitize_key(iri)
-    return f'{root_name[KeyRoot.TYPE]}:{iri!s}'
+def resource_type(unsafe_iri):
+    sanitized_iri = sanitize_key(unsafe_iri)
+    return f'{root_name[KeyRoot.TYPE]}:{sanitized_iri!s}'
 
 
 def ds_distr():
     return 'dsdistr', 'distrds'
 
 
-def related(rel_type, key):
-    rel_type = sanitize_key(rel_type)
-    key = sanitize_key(key)
-    return f'{root_name[KeyRoot.RELATED]}:{rel_type!s}:{key!s}'
+def related(unsafe_rel_type, unsafe_key):
+    sanitized_rel_type = sanitize_key(unsafe_rel_type)
+    sanitized_key = sanitize_key(unsafe_key)
+    return f'{root_name[KeyRoot.RELATED]}:{sanitized_rel_type!s}:{sanitized_key!s}'
 
 
-def codelist(obj):
-    obj = sanitize_key(obj)
-    return f'{root_name[KeyRoot.CODELISTS]}:{obj}'
+def same_as(unsafe_iri):
+    sanitized_iri = sanitize_key(unsafe_iri)
+    return f'{root_name[KeyRoot.SAME_AS]}:{sanitized_iri}'
 
 
-def same_as(iri):
-    iri = sanitize_key(iri)
-    return f'{root_name[KeyRoot.SAME_AS]}:{iri}'
+def skos_relation(unsafe_iri):
+    sanitized_iri = sanitize_key(unsafe_iri)
+    return f'{root_name[KeyRoot.SKOS_RELATION]}:{sanitized_iri}'
 
 
-def skos_relation(iri):
-    iri = sanitize_key(iri)
-    return f'{root_name[KeyRoot.SKOS_RELATION]}:{iri}'
+def dataset_endpoint(unsafe_iri_distribution):
+    sanitized_iri = sanitize_key(unsafe_iri_distribution)
+    return f'{root_name[KeyRoot.ENDPOINTS]}:{sanitized_iri}'
 
 
-def dataset_endpoint(iri_distribution):
-    iri = sanitize_key(iri_distribution)
-    return f'{root_name[KeyRoot.ENDPOINTS]}:{iri}'
-
-
-def dereference(iri):
-    iri = sanitize_key(iri)
-    return f'{root_name[KeyRoot.DEREFERENCE]}:{iri}'
-
-
-def pure_subject(iri):
-    iri = sanitize_key(iri)
-    return f'{root_name[KeyRoot.SUBJECT]}:{iri}'
+def pure_subject(unsafe_iri):
+    sanitized_iri = sanitize_key(unsafe_iri)
+    return f'{root_name[KeyRoot.SUBJECT]}:{sanitized_iri}'

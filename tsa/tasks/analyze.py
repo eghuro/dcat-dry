@@ -14,9 +14,9 @@ from tsa.redis import related as related_key
 def load_graph(iri, data, format_guess):
     log = logging.getLogger(__name__)
     try:
-        g = rdflib.ConjunctiveGraph()
-        g.parse(data=data, format=format_guess.lower())
-        return g
+        graph = rdflib.ConjunctiveGraph()
+        graph.parse(data=data, format=format_guess.lower())
+        return graph
     except (TypeError, rdflib.exceptions.ParserError):
         log.warning(f'Failed to parse {iri} ({format_guess})')
     except (rdflib.plugin.PluginException, UnicodeDecodeError):
@@ -28,9 +28,9 @@ def load_graph(iri, data, format_guess):
     return None
 
 
-def do_analyze_and_index(g, iri, red):
+def do_analyze_and_index(graph, iri, red):
     log = logging.getLogger(__name__)
-    if g is None:
+    if graph is None:
         log.debug(f'Graph is None for {iri}')
         return
 
@@ -44,7 +44,7 @@ def do_analyze_and_index(g, iri, red):
         log.debug(f'Analyze and index {iri} with {analyzer_token}')
         analyzer = analyzer_class()
 
-        analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red)
+        analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red)
         log.debug(f'Done analyze and index {iri} with {analyzer_token}')
 
     log.debug(f'Done processing {iri}, now storing')
@@ -52,10 +52,10 @@ def do_analyze_and_index(g, iri, red):
     log.debug(f'Done storing {iri}')
 
 
-def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
+def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red):
     log.debug(f'Analyzing {iri} with {analyzer_class.token}')
     with TimedBlock(f'analyze.{analyzer_class.token}'):
-        res = analyzer.analyze(g, iri)
+        res = analyzer.analyze(graph)
     log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
     analyses.append({analyzer_class.token: res})
 
@@ -63,7 +63,7 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
     try:
         iris_found = defaultdict(list)
         with TimedBlock(f'index.{analyzer_class.token}'):
-            for common_iri, group, rel_type in analyzer.find_relation(g):
+            for common_iri, group, rel_type in analyzer.find_relation(graph):
                 log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, common resource: {common_iri!s}, significant resource: {group!s}')
                 # TODO: group IRI not used
                 iris_found[(rel_type, common_iri)].append(iri)  # this is so that we sadd whole list in one call

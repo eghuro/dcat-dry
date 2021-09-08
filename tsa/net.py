@@ -9,8 +9,9 @@ from tsa.redis import MAX_CONTENT_LENGTH, KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import delay as delay_key
 from tsa.redis import expiration
+from tsa.robots import USER_AGENT
 from tsa.robots import allowed as robots_allowed
-from tsa.robots import session, user_agent
+from tsa.robots import session
 
 
 class Skip(Exception):
@@ -23,6 +24,7 @@ class SizeException(Exception):
     def __init__(self, name):
         """Record the file name."""
         self.name = name
+        super().__init__()
 
 
 class RobotsRetry(Exception):
@@ -31,6 +33,7 @@ class RobotsRetry(Exception):
     def __init__(self, delay):
         """Note the delay."""
         self.delay = delay
+        super().__init__()
 
 
 def fetch(iri, log, red):
@@ -38,13 +41,12 @@ def fetch(iri, log, red):
     is_allowed, delay, robots_url = robots_allowed(iri)
     key = delay_key(robots_url)
     if not is_allowed:
-        log.warn(f'Not allowed to fetch {iri!s} as {user_agent!s}')
+        log.warn(f'Not allowed to fetch {iri!s} as {USER_AGENT!s}')
         raise Skip()
-    else:
-        wait = red.ttl(key)
-        if wait > 0:
-            log.info(f'Analyze {iri} in {wait} because of crawl-delay')
-            raise RobotsRetry(wait)
+    wait = red.ttl(key)
+    if wait > 0:
+        log.info(f'Analyze {iri} in {wait} because of crawl-delay')
+        raise RobotsRetry(wait)
 
     timeout = 5243  # ~87 min
     # a guess for 100 KB/s on data that will still make it into redis (512 MB)
@@ -52,8 +54,8 @@ def fetch(iri, log, red):
     # the idea is to allow for as much time as needed for the known RDF distros, while preventing task queue "jam"
     log.debug(f'Setting timeout {timeout!s} for {iri}')
     accept = 'application/ld+json, application/trig, application/rdf+xml, text/turtle, text/n3;charset=utf-8, application/n-triples, application/n-quads, application/xml;q=0.9, text/xml;q=0.9, text/plain;q=0.9, */*;q=0.8'
-    r = session.get(iri, stream=True, timeout=timeout, verify=False, headers={'Accept': accept})
-    r.raise_for_status()
+    request = session.get(iri, stream=True, timeout=timeout, verify=False, headers={'Accept': accept})
+    request.raise_for_status()
 
     if delay is not None:
         log.info(f'Recording crawl-delay of {delay} for {iri}')
@@ -67,17 +69,17 @@ def fetch(iri, log, red):
                 red.expire(key, delay)
             except redis.exceptions.ResponseError:
                 log.error(f'Failed to set crawl-delay for {iri}: {delay}')
-    return r
+    return request
 
 
-def store_content(iri, r, red):
+def store_content(iri, request, red):
     """Store contents into redis."""
     key = data_key(iri)
     if not red.exists(key):
         chsize = 1024
         conlen = 0
         with red.pipeline() as pipe:
-            for chunk in r.iter_content(chunk_size=chsize):
+            for chunk in request.iter_content(chunk_size=chsize):
                 if chunk:
                     if len(chunk) + conlen > MAX_CONTENT_LENGTH:
                         pipe.delete(key)
@@ -90,14 +92,14 @@ def store_content(iri, r, red):
         monitor.log_size(conlen)
 
 
-def get_content(iri, r, red):
+def get_content(iri, request, red):
     """Load content in memory."""
     key = data_key(iri)
 
     chsize = 1024
     conlen = 0
     data = BytesIO()
-    for chunk in r.iter_content(chunk_size=chsize):
+    for chunk in request.iter_content(chunk_size=chsize):
         if chunk:
             data.write(chunk)
             conlen = conlen + len(chunk)
@@ -108,12 +110,12 @@ def get_content(iri, r, red):
     monitor.log_size(conlen)
     try:
         return data.getvalue().decode('utf-8')
-    except UnicodeDecodeError as e:
-        logging.getLogger(__name__).warning(f'Failed to load content for {iri}: {e!s}')
+    except UnicodeDecodeError as exc:
+        logging.getLogger(__name__).warning(f'Failed to load content for {iri}: {exc!s}')
     return None
 
 
-def guess_format(iri, r, log, red):
+def guess_format(iri, request, log):
     """
     Guess format of the distribution.
 
@@ -121,7 +123,7 @@ def guess_format(iri, r, log, red):
     """
     guess = rdflib.util.guess_format(iri)
     if guess is None:
-        guess = r.headers.get('content-type').split(';')[0]
+        guess = request.headers.get('content-type').split(';')[0]
     monitor.log_format(str(guess))
     if 'xml' in guess:
         guess = 'xml'
@@ -145,10 +147,10 @@ def guess_format(iri, r, log, red):
     return guess, (guess in priority)
 
 
-def test_content_length(iri, r, log):
+def test_content_length(iri, request, log):
     """Test content length header if the distribution is not too large."""
-    if 'Content-Length' in r.headers.keys():
-        conlen = int(r.headers.get('Content-Length'))
+    if 'Content-Length' in request.headers.keys():
+        conlen = int(request.headers.get('Content-Length'))
         if conlen > MAX_CONTENT_LENGTH:
             # Due to redis limitation
             log.warn(f'Skipping {iri} as it is too large: {conlen!s}')

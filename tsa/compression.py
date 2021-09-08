@@ -13,19 +13,18 @@ if platform == 'darwin':
     os.environ['LIBARCHIVE'] = '/usr/local/Cellar/libarchive/3.3.3/lib/libarchive.13.dylib'
 
 
-
-def load_data(iri, r):
+def load_data(iri, request):
     log = logging.getLogger(__name__)
     log.debug(f'Downloading {iri} into an in-memory buffer')
-    fp = BytesIO(r.content)
+    buffer = BytesIO(request.content)
     log.debug('Read the buffer')
-    data = fp.read()
+    data = buffer.read()
     log.debug(f'Size: {len(data)}')
     return data
 
 
-def decompress_gzip(iri, r):
-    data = load_data(iri, r)
+def decompress_gzip(iri, request):
+    data = load_data(iri, request)
 
     if iri.endswith('.gz'):
         iri = iri[:-3]
@@ -41,9 +40,9 @@ def decompress_gzip(iri, r):
     return f'{iri}', decompressed.getvalue().decode('utf-8')
 
 
-def decompress_7z(iri, r):
+def decompress_7z(iri, request):
     """Download a 7z file, decompress it and store contents in redis."""
-    data = load_data(iri, r)
+    data = load_data(iri, request)
     log = logging.getLogger(__name__)
 
     deco_size_total = 0

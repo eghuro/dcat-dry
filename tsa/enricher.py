@@ -31,16 +31,16 @@ class RuianEnricher(AbstractEnricher):
                 payload = self.__redis.get(key)
                 if payload is None:
                     raise NoEnrichment()
-                for a in json.loads(payload)['analysis']:
-                    if 'ruian' in a.keys() and ruian_iri in a['ruian'].keys():
-                        return a['ruian'][ruian_iri]
+                for analysis in json.loads(payload)['analysis']:
+                    if 'ruian' in analysis.keys() and ruian_iri in analysis['ruian'].keys():
+                        return analysis['ruian'][ruian_iri]
                 raise NoEnrichment()
-            except RedisError as e:
+            except RedisError as err:
                 logging.getLogger(__name__).exception(f'Redis error loading ruian analysis for {ruian_iri}')
-                raise NoEnrichment() from e
-            except ValueError as e:
+                raise NoEnrichment() from err
+            except ValueError as err:
                 logging.getLogger(__name__).exception(f'Value error loading ruian analysis for {ruian_iri}')
-                raise NoEnrichment() from e
+                raise NoEnrichment() from err
 
             # return {
             #    'vusc': ruian_iri[len(root):].split('/')[0],
@@ -61,16 +61,16 @@ class TimeEnricher(AbstractEnricher):
         if time_iri.startswith(root):
             key = analysis_dataset(time_iri)
             try:
-                for a in json.loads(self.__redis.get(key))['analysis']:
-                    if 'time' in a.keys() and time_iri in a['time'].keys():
-                        return a['time'][time_iri]
+                for analysis in json.loads(self.__redis.get(key))['analysis']:
+                    if 'time' in analysis.keys() and time_iri in analysis['time'].keys():
+                        return analysis['time'][time_iri]
                 raise NoEnrichment()
-            except RedisError as e:
+            except RedisError as err:
                 logging.getLogger(__name__).exception(f'Redis error loading time analysis for {time_iri}')
-                raise NoEnrichment() from e
-            except ValueError as e:
+                raise NoEnrichment() from err
+            except ValueError as err:
                 logging.getLogger(__name__).exception(f'Value error loading time analysis for {time_iri}')
-                raise NoEnrichment() from e
+                raise NoEnrichment() from err
 
             # return {
             #    'date': time_iri[len(root):]

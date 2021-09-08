@@ -4,13 +4,12 @@ import json
 import uuid
 from collections import defaultdict
 
-import redis
 from bson.json_util import dumps as dumps_bson
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 from flask_rdf.flask import returns_rdf
 
 from tsa.cache import cached
-from tsa.extensions import csrf, mongo_db, redis_pool, sameAsIndex
+from tsa.extensions import csrf, mongo_db, same_as_index
 from tsa.query import query
 from tsa.report import (export_interesting, export_labels, export_profile, export_related, import_interesting,
                         import_labels, import_profiles, import_related, list_datasets, query_dataset)
@@ -43,7 +42,7 @@ def dcat_viewer_index_query():
 def same_as():
     iri = request.args.get('iri', None)
     if test_iri(iri):
-        return jsonify([token for token in sameAsIndex.lookup(iri)])
+        return jsonify(list(same_as_index.lookup(iri)))
     abort(400)
 
 
@@ -51,9 +50,8 @@ def same_as():
 @csrf.exempt
 def batch_analysis():
     """Get a big report for all required distributions."""
-    red = redis.Redis(connection_pool=redis_pool)
     result_id = str(uuid.uuid4())
-    query(result_id, red)
+    query(result_id)
     return result_id
 
 
@@ -79,10 +77,8 @@ def fetch_analysis():
                 del related['_id']
                 return jsonify({'analyses': analyses, 'related': related})
             return jsonify({'analyses': analyses})
-        else:
-            abort(404)
-    else:
-        abort(400)
+        abort(404)
+    abort(400)
 
 
 @blueprint.route('/api/v1/export/labels', methods=['GET'])
@@ -111,23 +107,23 @@ def export_related_endpoint():
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_profile_endpoint():
     lst = []
-    for it in export_profile():
-        del it['_id']
-        lst.append(it)
+    for entry in export_profile():
+        del entry['_id']
+        lst.append(entry)
     return jsonify(lst)
 
 
 @blueprint.route('/api/v1/export/sameas', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_sameas_endpoint():
-    return jsonify(sameAsIndex.export_index())
+    return jsonify(same_as_index.export_index())
 
 
 @blueprint.route('/api/v1/import/sameas', methods=['PUT'])
 @csrf.exempt
 def import_sameas_endpoint():
     index = request.get_json()
-    sameAsIndex.import_index(index)
+    same_as_index.import_index(index)
     return 'OK'
 
 
@@ -148,18 +144,17 @@ def import_profile_endpoint():
 
 
 @blueprint.route('/api/v1/export/interesting', methods=['GET'])
-def export_interesting():
+def export_interesting_endpoint():
     return jsonify(export_interesting())
 
 
 @blueprint.route('/api/v1/import/interesting', methods=['POST'])
-def import_interesting():
+def import_interesting_endpoint():
     interesting_datasets = request.get_json()
     if isinstance(interesting_datasets, list):
         import_interesting(interesting_datasets)
         return 'OK'
-    else:
-        abort(400)
+    abort(400)
 
 
 @blueprint.route('/list', methods=['GET'])

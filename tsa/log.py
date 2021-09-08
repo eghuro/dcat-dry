@@ -8,7 +8,7 @@ from tsa.extensions import on_error
 @environment('LOGZIO_TOKEN', 'LOGZIO_URL',
              default=[None, 'https://listener-eu.logz.io:8071'],
              onerror=on_error)
-def logging_setup(token, url):
+def logging_setup(token=None, url=None):
     if token is None:
         logging.info('Remote logging into logz.io is not configured')
         return

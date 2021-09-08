@@ -5,7 +5,7 @@ import redis
 from tsa.util import test_iri
 
 
-class Index(object):
+class Index:
     def __init__(self, redis_pool, index_key, symmetric):
         self.__red = redis.Redis(connection_pool=redis_pool)
         self.__key = index_key
@@ -37,7 +37,7 @@ class Index(object):
         graph = {}
         for key in self.__red.scan_iter(match=self.__key('*')):
             iri = key[len(self.__key('')):].replace('_', ':', 1)
-            neighbours = [x for x in self.__red.sscan_iter(key)]
+            neighbours = list(self.__red.sscan_iter(key))
             graph[iri] = neighbours
 
         for node in graph.keys():
@@ -67,7 +67,7 @@ class Index(object):
         result = {}
         for key in self.__red.scan_iter(match=self.__key('*')):
             iri = key[len(self.__key('')):]
-            values = [x for x in self.__red.sscan_iter(key)]
+            values = list(self.__red.sscan_iter(key))
             result[iri] = values
         return result
 

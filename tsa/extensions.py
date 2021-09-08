@@ -22,12 +22,12 @@ cors = CORS()
 csrf = CSRFProtect()
 
 
-def on_error(x):
-    logging.getLogger(__name__).debug(f'Using default value for environment variable: {x}')
+def on_error(missing_variable):
+    logging.getLogger(__name__).debug(f'Using default value for environment missing_variable: {missing_variable}')
 
 
 @environment('REDIS', default=['redis://localhost:6379/0'], onerror=on_error)
-def get_redis(redis_cfg):
+def get_redis(redis_cfg=None):
     """Create a redis connectiion pool."""
     log = logging.getLogger(__name__)
     log.info(f'redis cfg: {redis_cfg}')
@@ -35,7 +35,7 @@ def get_redis(redis_cfg):
 
 
 @environment('MONGO', 'MONGO_DB', default=[None, 'dcat_dry'], onerror=on_error)
-def get_mongo(mongo_cfg, mongo_db):
+def get_mongo(mongo_cfg=None, mongo_db_name=None):
     log = logging.getLogger(__name__)
     if mongo_cfg is None:
         log.warning('Mongo cfg not provided, using default')
@@ -43,20 +43,20 @@ def get_mongo(mongo_cfg, mongo_db):
     else:
         log.info('Setting up mongo')
         client = MongoClient(mongo_cfg)
-    db = client[mongo_db]
+    db = client[mongo_db_name]
     return client, db
 
 
 @environment('STATSD_HOST', 'STATSD_PORT', default=[None, 8125], onerror=on_error)
-def get_statsd(host, port):
+def get_statsd(host=None, port=None):
     return statsd.StatsClient(host=host, port=port)
 
 
 redis_pool = get_redis()
-sameAsIndex = Index(redis_pool, sameas_key, True)
-skosIndex = Index(redis_pool, skos_key, False)
-ddrIndex = DDR(redis_pool)
-conceptIndex = ConceptIndex(redis_pool)
-dsdIndex = DSD(redis_pool)
+same_as_index = Index(redis_pool, sameas_key, True)
+skos_index = Index(redis_pool, skos_key, False)
+ddr_index = DDR(redis_pool)
+concept_index = ConceptIndex(redis_pool)
+dsd_index = DSD(redis_pool)
 mongo_client, mongo_db = get_mongo()
 statsd_client = get_statsd()
