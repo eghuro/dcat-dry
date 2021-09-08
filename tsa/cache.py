@@ -225,7 +225,6 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
             dict is a mapping of key-names -> values. For ZADD, the dict is a mapping of
             element-names -> score. https://pypi.org/project/redis/
             """
-            # conn.zadd(cache_keys, 0, key)  # Original Python 2
             conn.zadd(cache_keys, {key: 0.0})
 
             return value
@@ -241,7 +240,6 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
                 All 2.X users that rely on ZINCRBY must swap the order of amount and value for the
                 command to continue to work as intended. https://pypi.org/project/redis/
                 """
-                # conn.zincrby(cache_keys, key, 1.0)  # Original Python 2
                 conn.zincrby(cache_keys, 1.0, key)
 
                 value = pickle.loads(value)
@@ -253,7 +251,6 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
             In python 2.7, the / operator is integer division if inputs are integers.
             In python 3 Integer division is achieved by using //
             """
-            # count = min((maxsize / 10) or 1, 1000)  # Original Python 2
             count = min((maxsize // 10) or 1, 1000)
 
             if conn.zcard(cache_keys) >= maxsize:
@@ -292,7 +289,6 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
                 paramsignatures = conn.zrange(cache_keys, 0, 9999)
                 return _CacheInfoVerbose(hits, misses, maxsize, size, [pickle.loads(sig) for sig in paramsignatures])
 
-            # return hits, misses, capacity, size  # Original Python 2
             return _CacheInfo(hits, misses, maxsize, size)
 
         def cache_clear(*args, **kwargs):
