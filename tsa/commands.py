@@ -106,7 +106,6 @@ def urls(url, order):
 
     if column_length >= 2:
         max_endpoint_length = max(len(str(r[1])) for r in rows)
-        # max_endpoint_length = max(rows, key=len)
         max_endpoint_length = (
             max_endpoint_length if max_endpoint_length > 8 else 8)
         str_template += '  {:' + str(max_endpoint_length) + '}'
