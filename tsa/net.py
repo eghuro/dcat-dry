@@ -15,12 +15,10 @@ from tsa.robots import session
 
 
 class Skip(Exception):
-
     """Exception indicating we have to skip this distribution."""
 
 
 class SizeException(Exception):
-
     """Indicating a subfile is too large."""
 
     def __init__(self, name):
@@ -99,7 +97,8 @@ def get_content(iri, request, red):
 
 
 def guess_format(iri, request, log):
-    """Guess format of the distribution.
+    """
+    Guess format of the distribution.
 
     Skip if not known 5* distribution format.
     """

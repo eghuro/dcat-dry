@@ -15,7 +15,6 @@ from tsa.util import test_iri
 
 
 class AbstractAnalyzer(ABC):
-
     """Abstract base class allowing to fetch all available analyzers on runtime."""
 
     def find_relation(self, graph):
@@ -23,7 +22,6 @@ class AbstractAnalyzer(ABC):
 
 
 class CubeAnalyzer(AbstractAnalyzer):
-
     """RDF dataset analyzer focusing on DataCube."""
 
     token = 'cube'
@@ -141,7 +139,6 @@ class CubeAnalyzer(AbstractAnalyzer):
 
 
 class SkosAnalyzer(AbstractAnalyzer):
-
     """RDF dataset analyzer focusing on SKOS."""
 
     token = 'skos'
@@ -281,7 +278,6 @@ class SkosAnalyzer(AbstractAnalyzer):
 
 
 class GenericAnalyzer(AbstractAnalyzer):
-
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
     token = 'generic'

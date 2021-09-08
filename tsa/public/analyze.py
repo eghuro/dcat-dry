@@ -16,7 +16,8 @@ blueprint = Blueprint('analyze', __name__, static_folder='../static')
 @blueprint.route('/api/v1/analyze/catalog', methods=['POST'])
 @csrf.exempt
 def api_analyze_catalog():
-    """Analyze a catalog.
+    """
+    Analyze a catalog.
 
     URL parameters sparql, graph (optional)
     """

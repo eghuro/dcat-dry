@@ -291,8 +291,8 @@ def do_process(iri, task, is_prio, force):
         log.warning(f'Failed to parse {iri!s} - likely not an RDF: {err!s}')
         monitor.log_processed()
     except:
-        err = sys.exc_info()[1]
-        log.exception(f'Failed to get {iri!s}: {err!s}')
+        exc = sys.exc_info()[1]
+        log.exception(f'Failed to get {iri!s}: {exc!s}')
         monitor.log_processed()
 
 

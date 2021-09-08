@@ -39,7 +39,7 @@ class RuianEnricher(AbstractEnricher):
                 logging.getLogger(__name__).exception('Redis error loading ruian analysis for %s', ruian_iri)
                 raise NoEnrichment() from err
             except ValueError as err:
-                logging.getLogger(__name__).exception(f'Value error loading ruian analysis for %s', ruian_iri)
+                logging.getLogger(__name__).exception('Value error loading ruian analysis for %s', ruian_iri)
                 raise NoEnrichment() from err
 
             # return {
@@ -66,10 +66,10 @@ class TimeEnricher(AbstractEnricher):
                         return analysis['time'][time_iri]
                 raise NoEnrichment()
             except RedisError as err:
-                logging.getLogger(__name__).exception(f'Redis error loading time analysis for %s', time_iri)
+                logging.getLogger(__name__).exception('Redis error loading time analysis for %s', time_iri)
                 raise NoEnrichment() from err
             except ValueError as err:
-                logging.getLogger(__name__).exception(f'Value error loading time analysis for %s', time_iri)
+                logging.getLogger(__name__).exception('Value error loading time analysis for %s', time_iri)
                 raise NoEnrichment() from err
 
             # return {

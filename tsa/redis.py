@@ -15,7 +15,6 @@ class KeyRoot(Enum):
     TYPE = 10
     DESCRIPTION = 11
     SAME_AS = 12
-    SKOS_RELATION = 13
     CONCEPT = 14
     DEREFERENCE = 15
     SUBJECT = 16
@@ -35,7 +34,6 @@ root_name = {
     KeyRoot.TYPE: 'restype',
     KeyRoot.DESCRIPTION: 'description',
     KeyRoot.SAME_AS: 'same_as',
-    KeyRoot.SKOS_RELATION: 'skos',
     KeyRoot.CONCEPT: 'concept',
     KeyRoot.DEREFERENCE: 'deref',
     KeyRoot.SUBJECT: 'subpure'
@@ -126,11 +124,6 @@ def related(unsafe_rel_type, unsafe_key):
 def same_as(unsafe_iri):
     sanitized_iri = sanitize_key(unsafe_iri)
     return f'{root_name[KeyRoot.SAME_AS]}:{sanitized_iri}'
-
-
-def skos_relation(unsafe_iri):
-    sanitized_iri = sanitize_key(unsafe_iri)
-    return f'{root_name[KeyRoot.SKOS_RELATION]}:{sanitized_iri}'
 
 
 def dataset_endpoint(unsafe_iri_distribution):

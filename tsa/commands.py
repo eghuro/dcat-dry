@@ -8,8 +8,6 @@ from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 HERE = os.path.abspath(os.path.dirname(__file__))
-PROJECT_ROOT = os.path.join(HERE, os.pardir)
-TEST_PATH = os.path.join(PROJECT_ROOT, 'tests')
 
 
 @click.command()
