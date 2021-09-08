@@ -12,7 +12,7 @@ pipeline {
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
 					pip install prospector[with_everything] types-requests
-					prospector -0 --strictness medium --max-line-length 200 -m -w bandit -w frosted -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt
+					prospector -0 --uses celery --uses flask --strictness medium --max-line-length 200 -m -w bandit -w frosted -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt -i tsa/settings.py -i tsa/celeryconfig.py -i tsa/cache.py
 					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {

@@ -14,7 +14,6 @@ from tsa.ddr import ConceptIndex
 from tsa.ddr import DataCubeDefinitionIndex as DSD
 from tsa.ddr import DataDrivenRelationshipIndex as DDR
 from tsa.redis import same_as as sameas_key
-from tsa.redis import skos_relation as skos_key
 from tsa.sameas import Index
 
 cache = Cache()
@@ -57,5 +56,5 @@ same_as_index = Index(redis_pool, sameas_key, True)
 ddr_index = DDR(redis_pool)
 concept_index = ConceptIndex(redis_pool)
 dsd_index = DSD(redis_pool)
-mongo_client, mongo_db = get_mongo()
+_, mongo_db = get_mongo()
 statsd_client = get_statsd()
