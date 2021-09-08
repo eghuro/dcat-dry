@@ -70,7 +70,7 @@ def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
                 effective_ds = ds
 
                 for parent in query_parent(ds, endpoint, log):
-                    log.info(f'{parent!s} is a series containing {ds!s}')
+                    log.debug(f'{parent!s} is a series containing {ds!s}')
                     effective_ds = parent
 
                 # DCAT Distribution
