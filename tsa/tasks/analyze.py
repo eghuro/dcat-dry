@@ -14,10 +14,8 @@ from tsa.redis import related as related_key
 def load_graph(iri, data, format_guess):
     log = logging.getLogger(__name__)
     try:
-        log.debug('Parsing')
         g = rdflib.ConjunctiveGraph()
         g.parse(data=data, format=format_guess.lower())
-        log.debug('Done parsing')
         return g
     except (TypeError, rdflib.exceptions.ParserError):
         log.warning(f'Failed to parse {iri} ({format_guess})')
@@ -65,9 +63,9 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, g, iri, log, red):
     try:
         iris_found = defaultdict(list)
         with TimedBlock(f'index.{analyzer_class.token}'):
-            for common_iri, significant_iri, rel_type in analyzer.find_relation(g):
-                log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, common resource: {common_iri!s}, significant resource: {significant_iri!s}')
-                # FIXME: significant IRI not used
+            for common_iri, group, rel_type in analyzer.find_relation(g):
+                log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, common resource: {common_iri!s}, significant resource: {group!s}')
+                # TODO: group IRI not used
                 iris_found[(rel_type, common_iri)].append(iri)  # this is so that we sadd whole list in one call
 
         log.debug('Storing relations in redis')
