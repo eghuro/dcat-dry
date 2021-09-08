@@ -5,7 +5,7 @@ pipeline {
 			agent { label 'use' }
 			steps {
 				script {
-					withPythonEnv('python3') {
+					withPythonEnv("python3-${BUILD_NUMBER}") {
 					    sh 'python3 -m pip install --upgrade pip'
 						sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver --upgrade -r requirements.txt'
 						sh 'pip check'
