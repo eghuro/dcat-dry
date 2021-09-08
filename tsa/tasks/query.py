@@ -131,7 +131,6 @@ def gen_related_ds():
         root = f'related:{rel_type!s}:'
         for key in red.scan_iter(match=f'related:{rel_type!s}:*'):
             token = key[len(root):].replace('_', ':', 1)  # common element
-            # log.info(f'{rel_type} - {key} - {token}')
             related_dist = set()
             for sameas_iri in sameAsIndex.lookup(token):
                 related_dist.update(red.smembers(related_key(rel_type, sameas_iri)))  # these are related by sameAs of token

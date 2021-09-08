@@ -17,9 +17,6 @@ from tsa.util import test_iri
 class AbstractAnalyzer(ABC):
     """Abstract base class allowing to fetch all available analyzers on runtime."""
 
-    # def find_relation(self, graph):
-    #    #yield common, significant, type
-
     def find_relation(self, grapg):
         """Empty default implementation."""
         pass
@@ -44,9 +41,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         """
         qres = graph.query(query)
         for row in qres:
-            # yield common, significant, type
             yield row.resource, row.component, 'qb'
-            # yield row.resource, row.component, 'skosqb'
 
     def __dimensions(self, graph):
         d = defaultdict(set)
@@ -229,7 +224,6 @@ class SkosAnalyzer(AbstractAnalyzer):
 
     def find_relation(self, graph):
         """Lookup concepts that might be used on DQ dimension."""
-        # yield common, significant, type = 'qb'
         # -> zde do structure indexu
         concepts = [row['concept'] for row in graph.query("""
         SELECT DISTINCT ?concept WHERE {
@@ -240,7 +234,6 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         for c in concepts:
             if test_iri(c):
-                # yield c, 'skosqb'
                 conceptIndex.index(c)
 
         """Lookup relationships based on SKOS vocabularies.
@@ -254,22 +247,18 @@ class SkosAnalyzer(AbstractAnalyzer):
         """
         q = 'SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}'
         for row in graph.query(q):
-            # yield row['scheme'], 'inScheme'
             ddrIndex.index('inScheme', row['scheme'], row['a'])
 
         q = 'SELECT ?collection ?a WHERE {?collection <http://www.w3.org/2004/02/skos/core#member> ?a. }'
         for row in graph.query(q):
             ddrIndex.index('member', row['collection'], row['a'])
             conceptIndex.index(row['a'])
-            # yield row['collection'], 'collection'
 
         for token in ['exactMatch', 'mappingRelation', 'closeMatch', 'relatedMatch']:
             for row in graph.query(f'SELECT ?a ?b WHERE {{ ?a <http://www.w3.org/2004/02/skos/core#{token}> ?b. }}'):
                 ddrIndex.index(token, row['a'], row['b'])
                 conceptIndex.index(row['a'])
                 conceptIndex.index(row['b'])
-                # yield row['a'], token
-                # yield row['b'], token
 
         for row in graph.query("""
         SELECT ?a ?b WHERE {
@@ -286,15 +275,13 @@ class SkosAnalyzer(AbstractAnalyzer):
             ddrIndex.index('broadNarrow', row['a'], row['b'])
             conceptIndex.index(row['a'])
             conceptIndex.index(row['b'])
-            # yield row['a'], 'broadNarrow'
-            # yield row['b'], 'broadNarrow'
 
 
 class GenericAnalyzer(AbstractAnalyzer):
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
     token = 'generic'
-    relations = ['sameAs', 'seeAlso']
+    relations = ['sameAs']
 
     def _count(self, graph):
         triples = 0
@@ -405,14 +392,7 @@ class GenericAnalyzer(AbstractAnalyzer):
     def find_relation(self, graph):
         """Two distributions are related if they share resources that are owl:sameAs."""
         for row in graph.query('SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }'):
-            # yield row['a'], 'sameAs'
-            # yield row['b'], 'sameAs'
             sameAsIndex.index(row['a'], row['b'])
-
-        # for row in graph.query('SELECT DISTINCT ?a ?b WHERE { {?a <http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> ?b.} UNION {?a <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?b.} }'):
-            # yield row['a'], 'seeAlso'
-            # yield row['b'], 'seeAlso'
-            # pass
 
 
 class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
