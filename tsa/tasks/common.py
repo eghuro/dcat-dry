@@ -27,7 +27,6 @@ class TrackableTask(Task):
 @celery.task
 def monitor(*args):
     log = logging.getLogger(__name__)
-    log.info('Periodic queue monitoring task')
     redis_cfg = os.environ.get('REDIS_CELERY', None)
     pool = redis_lib.ConnectionPool().from_url(redis_cfg, charset='utf-8', decode_responses=True)
     red = redis_lib.Redis(connection_pool=pool)
