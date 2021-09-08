@@ -7,7 +7,7 @@ pipeline {
 				script {
 					withPythonEnv('python3') {
 					    sh 'python3 -m pip install --upgrade pip'
-						sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
+						sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver --upgrade -r requirements.txt'
 						sh 'pip check'
 						sh 'pip install prospector[with_everything]'
 						sh 'prospector -0 --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt'
