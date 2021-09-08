@@ -13,6 +13,7 @@ from tsa.util import test_iri
 
 
 class SparqlEndpointAnalyzer:
+
     """Extract DCAT datasets from a SPARQL endpoint."""
 
     @staticmethod
