@@ -13,7 +13,7 @@ pipeline {
 						pip check
 						pip install prospector[with_everything]
 						prospector -0 --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt
-					}
+					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
 						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
