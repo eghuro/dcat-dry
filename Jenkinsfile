@@ -7,7 +7,7 @@ pipeline {
 				script {
 					sh '''
 					/opt/conda/bin/conda create --yes -n ${BUILD_TAG} python=3.8.8
-                	source activate ${BUILD_TAG}
+                	/opt/conda/bin/conda activate ${BUILD_TAG}
 					pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
 					pip install prospector[with_everything]
