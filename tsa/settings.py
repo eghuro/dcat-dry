@@ -5,7 +5,8 @@ import os
 import uuid
 
 
-class Config(object):
+class Config:
+
     """Base configuration."""
 
     SECRET_KEY = os.environ.get('DCAT_DRY_SECRET', str(uuid.uuid4()))
@@ -21,7 +22,8 @@ class Config(object):
     SD_BASE_IRI = 'https://data.eghuro.cz/resource/'
 
 
-class ProdConfig(Config):
+class ProdConfig:
+
     """Production configuration."""
 
     ENV = 'prod'

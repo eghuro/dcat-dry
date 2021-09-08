@@ -23,7 +23,7 @@ class Index:
                 if not yielded_base:
                     yield base_iri  # reflexivity
         except TypeError:
-            logging.getLogger(__name__).exception(f'TypeError in lookup, iri: {base_iri}')
+            logging.getLogger(__name__).exception('TypeError in lookup, iri: %s', base_iri)
 
     def index(self, iri1, iri2):
         # iri1 owl:sameAs iri2
@@ -60,7 +60,7 @@ class Index:
                     for neighbour in neighbours:
                         queue.append(neighbour)
                 except KeyError:
-                    logging.getLogger(__name__).warning(f'Key error in BFS: {node}, key: {self.__key("")}')
+                    logging.getLogger(__name__).warning('Key error in BFS: %s, key: %s', node, self.__key(""))
         return visited
 
     def export_index(self):

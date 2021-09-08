@@ -23,7 +23,7 @@ class RuianInspector:
         ruian.open(endpoint)
 
         relationship_count = 0
-        log.info(f'In queue initially: {len(queue)}')
+        log.info('In queue initially: %s', len(queue))
         while len(queue) > 0:
             iri = queue.pop(0)
             if not test_iri(iri):
@@ -32,7 +32,7 @@ class RuianInspector:
                 continue
             processed.add(iri)
 
-            log.info(f'Processing {iri}. In queue remaining: {len(queue)}')
+            log.info('Processing %s. In queue remaining: %s', iri, len(queue))
             for token in ['ulice', 'obec', 'okres', 'vusc', 'regionSoudružnosti', 'stát']:
                 query = f'SELECT ?next WHERE {{ <{iri}> <https://linked.cuzk.cz/ontology/ruian/{token}> ?next }}'
                 for row in ruian.query(query):
@@ -43,4 +43,4 @@ class RuianInspector:
                     ddr_index.index(token, iri, next_iri)
                     concept_index.index(iri)
                     relationship_count = relationship_count + 1
-        log.info(f'Done proceessing RUIAN references. Processed {len(processed)}, indexed {relationship_count} relationships in RUIAN hierarchy.')
+        log.info('Done proceessing RUIAN references. Processed %s, indexed %s relationships in RUIAN hierarchy.', len(processed), relationship_count)

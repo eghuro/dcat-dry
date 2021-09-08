@@ -29,7 +29,7 @@ def get_all_related():
 
 def query_related(ds_iri):
     log = logging.getLogger(__name__)
-    log.info(f'Query related: {ds_iri}')
+    log.info('Query related: %s', ds_iri)
     try:
         all_related = get_all_related()
         #out = {}
@@ -94,7 +94,7 @@ def query_profile(ds_iri):
     #path = quote(parse.path)
     #ds_iri = f'{parse.scheme}://{parse.netloc}{path}'
 
-    log.info(f'iri: {ds_iri}')
+    log.info('iri: %s', ds_iri)
     analyses = mongo_db.dsanalyses.find({'ds_iri': ds_iri})
     log.info("Retrieved analyses")
     json_str = dumps_bson(analyses)
@@ -113,7 +113,7 @@ def query_profile(ds_iri):
 
     log.info(analysis_out.keys())
     if len(analysis_out.keys()) == 0:
-        log.error(f'Missing analysis_out for {ds_iri}')
+        log.error('Missing analysis_out for %s', ds_iri)
         return {}
 
     #key = f'dsanalyses:{ds_iri}'
@@ -244,7 +244,7 @@ def create_labels(ds_iri, tags):
                 label[tag] = label[available[0]]  # put anything there
     else:
         log = logging.getLogger(__name__)
-        log.error(f'Missing labels for {ds_iri}')
+        log.error('Missing labels for %s', ds_iri)
 
     return label
 
@@ -324,7 +324,7 @@ def import_profiles(profiles):
             mongo_db.dsanalyses.insert_one(analysis)
         except DocumentTooLarge:
             iri = analysis['ds_iri']
-            log.exception(f'Failed to store analysis for ds: {iri}')
+            log.exception('Failed to store analysis for ds: %s', iri)
         except OperationFailure:
             log.exception('Operation failure')
     log.info('Stored analyses')

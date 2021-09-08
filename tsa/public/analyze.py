@@ -80,4 +80,4 @@ def api_analyze_resource():
     if 'iri' not in request.args:
         abort(400)
     iri = request.args['iri']
-    dereference_one(iri)
+    dereference_one(iri, 'AD-HOC')

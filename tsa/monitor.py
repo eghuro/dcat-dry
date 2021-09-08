@@ -6,6 +6,7 @@ from tsa.extensions import statsd_client
 
 
 class Monitor:
+
     """Monitor is recording various runtime metrics into statsd."""
 
     @staticmethod

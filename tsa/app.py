@@ -13,7 +13,8 @@ from tsa.log import logging_setup
 
 @environment('DSN', default=[None], onerror=on_error)
 def create_app(config_object, dsn_str=None):
-    """An application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
+    """
+    An application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
 
     :param config_object: The configuration object to use.
     """

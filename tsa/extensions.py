@@ -23,14 +23,14 @@ csrf = CSRFProtect()
 
 
 def on_error(missing_variable):
-    logging.getLogger(__name__).debug(f'Using default value for environment missing_variable: {missing_variable}')
+    logging.getLogger(__name__).debug('Using default value for environment missing_variable: %s', missing_variable)
 
 
 @environment('REDIS', default=['redis://localhost:6379/0'], onerror=on_error)
 def get_redis(redis_cfg=None):
     """Create a redis connectiion pool."""
     log = logging.getLogger(__name__)
-    log.info(f'redis cfg: {redis_cfg}')
+    log.info('redis cfg: %s', redis_cfg)
     return redis.ConnectionPool().from_url(redis_cfg, charset='utf-8', decode_responses=True)
 
 
@@ -54,7 +54,6 @@ def get_statsd(host=None, port=None):
 
 redis_pool = get_redis()
 same_as_index = Index(redis_pool, sameas_key, True)
-skos_index = Index(redis_pool, skos_key, False)
 ddr_index = DDR(redis_pool)
 concept_index = ConceptIndex(redis_pool)
 dsd_index = DSD(redis_pool)

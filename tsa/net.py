@@ -15,10 +15,12 @@ from tsa.robots import session
 
 
 class Skip(Exception):
+
     """Exception indicating we have to skip this distribution."""
 
 
 class SizeException(Exception):
+
     """Indicating a subfile is too large."""
 
     def __init__(self, name):
@@ -28,6 +30,7 @@ class SizeException(Exception):
 
 
 class RobotsRetry(Exception):
+
     """Exception indicating retry is neeeded because of crawl delay."""
 
     def __init__(self, delay):
@@ -72,26 +75,6 @@ def fetch(iri, log, red):
     return request
 
 
-def store_content(iri, request, red):
-    """Store contents into redis."""
-    key = data_key(iri)
-    if not red.exists(key):
-        chsize = 1024
-        conlen = 0
-        with red.pipeline() as pipe:
-            for chunk in request.iter_content(chunk_size=chsize):
-                if chunk:
-                    if len(chunk) + conlen > MAX_CONTENT_LENGTH:
-                        pipe.delete(key)
-                        pipe.execute()
-                        raise SizeException(iri)
-                    pipe.append(key, chunk)
-                    conlen = conlen + len(chunk)
-            pipe.expire(key, expiration[KeyRoot.DATA])
-            pipe.execute()
-        monitor.log_size(conlen)
-
-
 def get_content(iri, request, red):
     """Load content in memory."""
     key = data_key(iri)
@@ -111,13 +94,12 @@ def get_content(iri, request, red):
     try:
         return data.getvalue().decode('utf-8')
     except UnicodeDecodeError as exc:
-        logging.getLogger(__name__).warning(f'Failed to load content for {iri}: {exc!s}')
+        logging.getLogger(__name__).warning('Failed to load content for %s: %s', iri, exc)
     return None
 
 
 def guess_format(iri, request, log):
-    """
-    Guess format of the distribution.
+    """Guess format of the distribution.
 
     Skip if not known 5* distribution format.
     """

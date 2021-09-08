@@ -138,6 +138,11 @@ def dataset_endpoint(unsafe_iri_distribution):
     return f'{root_name[KeyRoot.ENDPOINTS]}:{sanitized_iri}'
 
 
+def dereference(unsafe_iri):
+    sanitized_iri = sanitize_key(unsafe_iri)
+    return f'{root_name[KeyRoot.DEREFERENCE]}:{sanitized_iri}'
+
+
 def pure_subject(unsafe_iri):
     sanitized_iri = sanitize_key(unsafe_iri)
     return f'{root_name[KeyRoot.SUBJECT]}:{sanitized_iri}'

@@ -9,22 +9,22 @@ from setuptools import find_packages, setup
 
 import tsa
 
-with open('requirements.txt') as f:
-    required = f.read().splitlines()
+with open('requirements.txt', encoding='utf-8') as requirements_file:
+    required = requirements_file.read().splitlines()
 
-with open('README.rst') as readme_file:
+with open('README.rst', encoding='utf-8') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.rst') as history_file:
+with open('HISTORY.rst', encoding='utf-8') as history_file:
     history = history_file.read()
 
 # Package meta-data.
-NAME = 'tsa'
+NAME = 'dcat-dry'
 DESCRIPTION = 'Indexing linked data and relationships between datasets.'
-URL = 'https://github.com/eghuro/nkod-tsa'
+URL = 'https://github.com/eghuro/dcat-dry'
 EMAIL = 'alex@eghuro.cz'
 AUTHOR = 'Alexandr Mansurov'
-REQUIRES_PYTHON = '>=3.6.0'
+REQUIRES_PYTHON = '>=3.8.7'
 VERSION = tsa.__version__
 
 # What packages are required for this module to be executed?
@@ -32,7 +32,7 @@ REQUIRED = required
 
 # What packages are optional?
 EXTRAS = {
-    # 'fancy feature': ['django'],
+    'monitor': ['statsd'],
 }
 
 # The rest you shouldn't have to touch too much :)
@@ -40,7 +40,6 @@ EXTRAS = {
 # Except, perhaps the License and Trove Classifiers!
 # If you do change the License, remember to change the Trove Classifier for that!
 
-here = os.path.abspath(os.path.dirname(__file__))
 
 long_description = readme + '\n\n' + history
 
@@ -76,9 +75,8 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: Implementation :: CPython',
         'Development Status :: 3 - Alpha',
         'Framework :: Flask',

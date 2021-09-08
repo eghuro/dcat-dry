@@ -7,7 +7,7 @@ import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.celery import celery
-from tsa.extensions import concept_index, ddr_index, dsd_index, get_mongo, redis_pool, same_as_index
+from tsa.extensions import concept_index, ddr_index, dsd_index, mongo_db, redis_pool, same_as_index
 from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, ds_distr, pure_subject
 from tsa.redis import related as related_key
 from tsa.redis import sanitize_key
@@ -89,7 +89,6 @@ def gen_analyses(batch_id, dataset_iris, red):
 def store_to_mongo(dataset_iris, batch_id):
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
-    _, mongo_db = get_mongo()
     log.info('Cleaning mongo')
     mongo_db.dsanalyses.delete_many({})
     insert_count, gen_count = 0, 0
@@ -140,7 +139,6 @@ def gen_related_ds():
                 interesting_datasets.update(all_related)
 
     try:
-        _, mongo_db = get_mongo()
         mongo_db.related.delete_many({})
         mongo_db.related.insert(related_ds)
 
@@ -172,7 +170,6 @@ def cache_labels():
     log = logging.getLogger(__name__)
     log.info('Cache labels in mongo')
     labels = export_labels()
-    _, mongo_db = get_mongo()
     mongo_db.labels.delete_many({})
     try:
         for (iri, entry) in labels.items():
@@ -198,7 +195,6 @@ def iter_generic(mongo_db):
 def ruian_reference():
     log = logging.getLogger(__name__)
     log.info('Look for RUIAN references')
-    _, mongo_db = get_mongo()
     ruian_references = set()
     for doc in iter_generic(mongo_db):
         ds_ruian_references = set()
@@ -222,7 +218,6 @@ def report_relationship(red, rel_type, resource_iri, distr_iri):
 def concept_usage():
     log = logging.getLogger(__name__)
     log.info('Concept usage')
-    _, mongo_db = get_mongo()
     dsdistr, _ = ds_distr()
     counter = 0
     red = redis.Redis(connection_pool=redis_pool)
@@ -259,7 +254,6 @@ def concept_usage():
 @celery.task
 def concept_definition():
     count = 0
-    _, mongo_db = get_mongo()
     dsdistr, _ = ds_distr()
     log = logging.getLogger(__name__)
     log.info('Find datasets with information about concepts (codelists)')
@@ -279,7 +273,6 @@ def concept_definition():
 
 @celery.task
 def cross_dataset_sameas():
-    _, mongo_db = get_mongo()
     dsdistr, _ = ds_distr()
     red = redis.Redis(connection_pool=redis_pool)
     for generic in iter_generic(mongo_db):

@@ -15,6 +15,7 @@ from tsa.util import test_iri
 
 
 class AbstractAnalyzer(ABC):
+
     """Abstract base class allowing to fetch all available analyzers on runtime."""
 
     def find_relation(self, graph):
@@ -22,6 +23,7 @@ class AbstractAnalyzer(ABC):
 
 
 class CubeAnalyzer(AbstractAnalyzer):
+
     """RDF dataset analyzer focusing on DataCube."""
 
     token = 'cube'
@@ -77,7 +79,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         log = logging.getLogger(__name__)
         log.debug('Looking up resources on dimensions')
         ds_dimensions = CubeAnalyzer.__dataset_structures(graph, CubeAnalyzer.__dimensions(graph))
-        log.debug(f'Dimensions: %s', ds_dimensions)
+        log.debug('Dimensions: %s', ds_dimensions)
 
         ds_query = """
             SELECT DISTINCT ?observation ?dataset
@@ -95,6 +97,7 @@ class CubeAnalyzer(AbstractAnalyzer):
                     yield row.dataset, row1.resource, dimension
 
     def analyze(self, graph, iri):
+
         """Analysis of a datacube."""
         datasets_queried = defaultdict(QbDataset)
         query = """
@@ -138,6 +141,7 @@ class CubeAnalyzer(AbstractAnalyzer):
 
 
 class SkosAnalyzer(AbstractAnalyzer):
+
     """RDF dataset analyzer focusing on SKOS."""
 
     token = 'skos'
@@ -176,7 +180,7 @@ class SkosAnalyzer(AbstractAnalyzer):
         concept_count = []
         for concept_iri in concepts:
             if not test_iri(concept_iri):
-                log.debug(f'{concept_iri} is not a valid IRI')
+                log.debug('%s is not a valid IRI', concept_iri)
                 continue
             for row in graph.query(SkosAnalyzer._count_query(concept_iri)):
                 concept_count.append({'iri': concept_iri, 'count': row['count']})
@@ -191,7 +195,7 @@ class SkosAnalyzer(AbstractAnalyzer):
         schemes_count, top_concept = [], []
         for schema in schemes:
             if not test_iri(schema):
-                log.debug(f'{schema} is a not valid IRI')
+                log.debug('%s is a not valid IRI', schema)
                 continue
             for row in graph.query(SkosAnalyzer._scheme_count_query(str(schema))):
                 schemes_count.append({'iri': schema, 'count': row['count']})
@@ -222,7 +226,15 @@ class SkosAnalyzer(AbstractAnalyzer):
         }
 
     def find_relation(self, graph):
-        """Lookup concepts that might be used on DQ dimension."""
+        """Lookup relationships based on SKOS vocabularies.
+
+        Datasets are related if they share a resources that are:
+            - in the same skos:scheme
+            - in the same skos:collection
+            - skos:exactMatch
+            - related by skos:related, skos:semanticRelation, skos:broader,
+        skos:broaderTransitive, skos:narrower, skos:narrowerTransitive
+        """
         # -> zde do structure indexu
         concepts = [row['concept'] for row in graph.query("""
         SELECT DISTINCT ?concept WHERE {
@@ -235,15 +247,7 @@ class SkosAnalyzer(AbstractAnalyzer):
             if test_iri(concept_iri):
                 concept_index.index(concept_iri)
 
-        """Lookup relationships based on SKOS vocabularies.
 
-        Datasets are related if they share a resources that are:
-            - in the same skos:scheme
-            - in the same skos:collection
-            - skos:exactMatch
-            - related by skos:related, skos:semanticRelation, skos:broader,
-        skos:broaderTransitive, skos:narrower, skos:narrowerTransitive
-        """
         query = 'SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}'
         for row in graph.query(query):
             ddr_index.index('inScheme', row['scheme'], row['a'])
@@ -277,6 +281,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
 
 class GenericAnalyzer(AbstractAnalyzer):
+
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
     token = 'generic'
