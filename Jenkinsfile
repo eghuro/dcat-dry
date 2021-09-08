@@ -5,17 +5,14 @@ pipeline {
 			agent { label 'use' }
 			steps {
 				script {
-					withPythonEnv('python3') {
-						sh '''
-						pip install --upgrade pip
-						python3 -m venv venv-${BUILD_TAG}
-						source venv-${BUILD_TAG}/bin/activate
-						pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
-						pip check
-						pip install prospector[with_everything]
-						prospector -0 --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt
-						'''
-					}
+					sh '''
+					conda create --yes -n ${BUILD_TAG} python=3.8.7
+                	source activate ${BUILD_TAG}
+					pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
+					pip check
+					pip install prospector[with_everything]
+					prospector -0 --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt
+					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
 						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
