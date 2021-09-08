@@ -34,7 +34,6 @@ class RuianInspector(object):
             log.info(f'Processing {iri}. In queue remaining: {len(queue)}')
             for token in ['ulice', 'obec', 'okres', 'vusc', 'regionSoudružnosti', 'stát']:
                 query = f'SELECT ?next WHERE {{ <{iri}> <https://linked.cuzk.cz/ontology/ruian/{token}> ?next }}'
-                # log.info(query)
                 for row in ruian.query(query):
                     next_iri = row['next']
                     queue.append(next_iri)

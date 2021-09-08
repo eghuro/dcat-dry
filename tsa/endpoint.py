@@ -82,7 +82,6 @@ class SparqlEndpointAnalyzer(object):
         g.open(self.__endpoint)
 
         query = self.__query(graph_iri)
-        # log.debug(query)
 
         try:
             with TimedBlock('process_graph'):
@@ -114,7 +113,6 @@ class SparqlEndpointAnalyzer(object):
             # certain SPARQL endpoints (aka Virtuoso) do not support queries above, so we have to use the one below
             # however, it's very inefficient and will likely timeout
             log = logging.getLogger(__name__)
-            # log.warn(f'Endpoint {endpoint} does not support the preferred SPARQL query, falling back, this will likely timeout though')
             while True:
                 local_cnt = 0
                 log.debug(f'Peek graphs in {endpoint}, offset: {offset}')

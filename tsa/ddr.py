@@ -36,8 +36,6 @@ class DataDrivenRelationshipIndex(object):
                     yield el
             elif isinstance(iri, str):
                 yield iri
-            # else:
-            #    logging.getLogger(__name__).error(f'Bad iri type. iri: {iri!s}, type: {type(iri)!s}, rel type: {relationship_type}, resource: {resource_iri}')
 
 
 class ConceptIndex(object):

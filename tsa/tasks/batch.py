@@ -27,10 +27,8 @@ def query_parent(ds, endpoint, log):
     g = Graph(SPARQLStore(endpoint, headers={'User-Agent': user_agent}))
     for opt in opts:
         query = f'SELECT ?parent WHERE {{ {opt} }}'
-        # log.debug(query)
         for parent in g.query(query):
             parent_iri = str(parent['parent'])
-            # log.info(f'{parent_iri!s} is a series containing {ds!s}')
             yield str(parent_iri)
 
 

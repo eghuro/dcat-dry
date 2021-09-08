@@ -54,7 +54,6 @@ def compile_analyses(batch_id):
         log.debug(distr_iri)
         ds_iris = red.smembers(f'distrds:{distr_iri}')
         key = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
-        # log.debug(key)
         for ds_iri in ds_iris:
             if ds_iri is None:
                 with red.pipeline() as pipe:
@@ -82,7 +81,6 @@ def gen_analyses(batch_id, ds, red):
     for ds_iri in ds:
         for distr_iri in red.smembers(f'dsdistr:{ds_iri}'):
             key_in = f'analysis:{batch_id}:{sanitize_key(distr_iri)}'
-            # logging.getLogger(__name__).info(key_in)
             for a in [json.loads(a) for a in red.lrange(key_in, 0, -1)]:
                 for b in a:  # flatten
                     for key in b.keys():  # 1 element
@@ -232,7 +230,6 @@ def concept_usage():
     for doc in iter_generic(mongo_db):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         ds_iri = doc['ds_iri']
-        # log.info(ds_iri)
         distr_iri = red.srandmember(f'{dsdistr}:{ds_iri}')
 
         resource_iri_cache = set()
@@ -244,7 +241,6 @@ def concept_usage():
                     resource_iri_cache.add(resource_iri)
                 # type (broad / narrow apod.)
                 # indexuji T -> (a, b); mam jedno z (a, b)
-                # log.info(iri)
                 if conceptIndex.is_concept(resource_iri):
                     # pouzit koncept (polozka ciselniku)
                     report_relationship(pipe, 'conceptUsage', resource_iri, distr_iri)
@@ -310,7 +306,6 @@ def data_driven_relationships():
                 # report concept na dimenzi
                 for token in rel_types:
                     for skos_resource_iri in ddrIndex.lookup(token, resource_iri):
-                        # log.info(f'SKOS resource: {skos_resource_iri}')
                         if isinstance(skos_resource_iri, int):
                             continue
                         if len(skos_resource_iri) == 0:
