@@ -6,15 +6,15 @@ pipeline {
 			steps {
 				script {
 					withPythonEnv('python3') {
-					'''
-						python3 -m pip install --upgrade pip conda
+						sh '''
+						pip install --upgrade pip conda'
 						python3 -m conda create --yes -n ${BUILD_TAG} python
 						source activate ${BUILD_TAG}
 						pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
 						pip check
 						pip install prospector[with_everything]
 						prospector -0 --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt
-					'''
+						'''
 					}
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
