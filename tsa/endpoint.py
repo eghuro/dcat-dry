@@ -91,39 +91,6 @@ class SparqlEndpointAnalyzer(object):
 
         return None
 
-    def get_graphs_from_endpoint(self, endpoint):
-        """Extract named graphs from the given endpoint."""
-        log = logging.getLogger(__name__)
-        g = Graph(store='SPARQLStore')
-        g.open(endpoint)
-        cnt = 0
-        offset = 0
-        while True:
-            local_cnt = 0
-            log.debug(f'Peek graphs in {endpoint}, offset: {offset}')
-            for row in g.query('select ?g where { GRAPH ?g {} } LIMIT 100 OFFSET ' + str(offset)):
-                cnt = cnt + 1
-                local_cnt = local_cnt + 1
-                yield row['g']
-            if local_cnt > 0:
-                offset = offset + 100
-            else:
-                break
-        if cnt == 0:
-            # certain SPARQL endpoints (aka Virtuoso) do not support queries above, so we have to use the one below
-            # however, it's very inefficient and will likely timeout
-            log = logging.getLogger(__name__)
-            while True:
-                local_cnt = 0
-                log.debug(f'Peek graphs in {endpoint}, offset: {offset}')
-                for row in g.query('select distinct ?g where { GRAPH ?g {?s ?p ?o} } LIMIT 100 OFFSET ' + str(offset)):
-                    local_cnt = local_cnt + 1
-                    yield row['g']
-                if local_cnt > 0:
-                    offset = offset + 100
-                else:
-                    break
-
     # TODO
     # all above is extracting DCAT for use in batch
     # however we might have some real datasets there
