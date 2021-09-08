@@ -68,5 +68,8 @@ def decompress_7z(iri, r):
             log.debug(f'Subfile has size {conlen}')
             deco_size_total = deco_size_total + conlen
             if conlen > 0:
-                yield sub_iri, data.getvalue().decode('utf-8')
+                try:
+                    yield sub_iri, data.getvalue().decode('utf-8')
+                except UnicodeDecodeError:
+                    yield sub_iri, data.getvalue()
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')

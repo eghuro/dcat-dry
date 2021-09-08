@@ -19,7 +19,7 @@ def load_graph(iri, data, format_guess):
         g.parse(data=data, format=format_guess.lower())
         log.debug('Done parsing')
         return g
-    except TypeError:
+    except (TypeError, rdflib.exceptions.ParserError):
         log.warning(f'Failed to parse {iri} ({format_guess})')
     except (rdflib.plugin.PluginException, UnicodeDecodeError):
         log.warning(f'Failed to parse graph for {iri}')

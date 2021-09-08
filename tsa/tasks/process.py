@@ -167,10 +167,17 @@ def dereference_one(iri_to_dereference, iri_distr):
         red = redis.Redis(connection_pool=redis_pool)
         key = dereference_key(iri_to_dereference)
         if red.exists(key):
-            g = load_graph(iri_to_dereference, red.get(key), 'n3')
+            data = red.get(key)
+            if data is not None:
+                g = load_graph(iri_to_dereference, red.get(key), 'n3')
+            else:
+                return None
         else:
             g = dereference_one_impl(iri_to_dereference, iri_distr)
-            red.set(key, g.serialize(format='n3'))
+            if g is not None:
+                red.set(key, g.serialize(format='n3'))
+            else:
+                red.set(key, None)
         return g
     except:
         logging.getLogger(__name__).exception(f'All attempts to dereference failed: {iri_to_dereference}')
@@ -253,8 +260,8 @@ def do_process(iri, task, is_prio, force):
             r = fetch(iri, log, red)
         except RobotsRetry as e:
             task.retry(countdown=e.delay)
-        except requests.exceptions.HTTPError:
-            log.exception('HTTP Error')  # this is a 404 or similar, not worth retrying
+        except requests.exceptions.HTTPError as e:
+            log.warning(f'HTTP Error processsing {iri}: {e!s}')  # this is a 404 or similar, not worth retrying
             monitor.log_processed()
             return
         except requests.exceptions.RequestException as e:
@@ -327,5 +334,5 @@ def do_decompress(red, iri, archive_type, r):
                 red.expire(data_key(sub_iri), 1)
             else:
                 process_content(data, sub_iri, guess, red, log)
-    except TypeError:
-        log.exception(f'iri: {iri!s}, archive_type: {archive_type!s}')
+    except (TypeError, ValueError):
+        log.error(f'Failed to decompress. iri: {iri!s}, archive_type: {archive_type!s}')
