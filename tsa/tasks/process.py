@@ -169,7 +169,7 @@ def dereference_one(iri_to_dereference, iri_distr):
         if red.exists(key):
             data = red.get(key)
             if data is not None:
-                g = load_graph(iri_to_dereference, red.get(key), 'n3')
+                g = load_graph(iri_to_dereference, data, 'n3')
             else:
                 return None
         else:

@@ -49,7 +49,10 @@ def decompress_7z(iri, r):
     deco_size_total = 0
     with libarchive.memory_reader(data) as archive:
         for entry in archive:
-            name = str(entry)
+            try:
+                name = str(entry)
+            except TypeError:
+                name = ''
 
             if len(name) == 0:
                 if iri.endswith('.zip'):
