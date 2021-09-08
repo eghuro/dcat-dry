@@ -126,6 +126,8 @@ def gen_related_ds():
     red = redis.Redis(connection_pool=redis_pool)
     related_ds = {}
 
+    interesting_datasets = set()
+
     for rel_type in reltypes:
         related_ds[rel_type] = []
         root = f'related:{rel_type!s}:'
@@ -139,14 +141,19 @@ def gen_related_ds():
                 all_related.update(red.smembers(f'distrds:{distr_iri}'))
             if len(all_related) > 1:  # do not consider sets on one candidate for conciseness
                 related_ds[rel_type].append({'iri': token, 'related': list(all_related)})
+                interesting_datasets.update(all_related)
 
     try:
         _, mongo_db = get_mongo()
         mongo_db.related.delete_many({})
         mongo_db.related.insert(related_ds)
+
+        mongo_db.interesting.delete_many({})
+        mongo_db.interesting.insert(list(interesting_datasets))
+
         log = logging.getLogger(__name__)
-        log.info('Successfully stored related datasets')
-        log.debug(related_ds)
+        log.info(f'Successfully stored related datasets, interesting: {len(interesting_datasets)}')
+        # log.debug(related_ds)
     except DocumentTooLarge:
         logging.getLogger(__name__).exception('Failed to store related datasets')
 

@@ -12,8 +12,8 @@ from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
 from tsa.extensions import csrf, mongo_db, redis_pool, sameAsIndex
 from tsa.query import query
-from tsa.report import (export_labels, export_profile, export_related, import_labels, import_profiles, import_related,
-                        list_datasets, query_dataset)
+from tsa.report import (export_interesting, export_labels, export_profile, export_related, import_interesting,
+                        import_labels, import_profiles, import_related, list_datasets, query_dataset)
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.util import test_iri
 
@@ -145,6 +145,21 @@ def import_profile_endpoint():
     profiles = request.get_json()
     import_profiles(profiles)
     return 'OK'
+
+
+@blueprint.route('/api/v1/export/interesting', methods=['GET'])
+def export_interesting():
+    return jsonify(export_interesting())
+
+
+@blueprint.route('/api/v1/import/interesting', methods=['POST'])
+def import_interesting():
+    interesting_datasets = request.get_json()
+    if isinstance(interesting_datasets, list):
+        import_interesting(interesting_datasets)
+        return 'OK'
+    else:
+        abort(400)
 
 
 @blueprint.route('/list', methods=['GET'])

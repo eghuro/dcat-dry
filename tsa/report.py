@@ -329,6 +329,16 @@ def import_profiles(profiles):
     log.info('Stored analyses')
 
 
+def export_interesting():
+    for lst in mongo_db.interesting.find({}):
+        return lst
+
+
+def import_interesting(interesting_datasets):
+    mongo_db.interesting.delete_many({})
+    mongo_db.interesting.insert(list(interesting_datasets))
+
+
 def list_datasets():
     listed = set()
     datasets = []
