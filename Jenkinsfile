@@ -8,7 +8,7 @@ pipeline {
 					withPythonEnv('python3') {
 						sh '''
 						pip install --upgrade pip
-						python3 -m virtualenv venv-${BUILD_TAG}
+						python3 -m venv venv-${BUILD_TAG}
 						source venv-${BUILD_TAG}/bin/activate
 						pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
 						pip check
