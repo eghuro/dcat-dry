@@ -6,7 +6,7 @@ pipeline {
 			steps {
 				script {
 					sh '''
-					conda create --yes -n ${BUILD_TAG} python=3.8.7
+					/root/miniconda3/conda create --yes -n ${BUILD_TAG} python=3.8.7
                 	source activate ${BUILD_TAG}
 					pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
