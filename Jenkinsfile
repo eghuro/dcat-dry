@@ -6,8 +6,8 @@ pipeline {
 			steps {
 				script {
 					sh '''
-						pip install --upgrade pip conda
-						python -m conda create --yes -n ${BUILD_TAG} python
+						python3 -m pip install --upgrade pip conda
+						python3 -m conda create --yes -n ${BUILD_TAG} python
 						source activate ${BUILD_TAG}
 						pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
 						pip check
