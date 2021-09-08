@@ -32,19 +32,19 @@ def logging_setup(token, url):
         },
         'loggers': {
             'tsa': {
-                'level': 'DEBUG',
+                'level': 'WARNING',
                 'handlers': ['logzio'],
             },
             'app.logger': {
-                'level': 'DEBUG',
+                'level': 'WARNING',
                 'handlers': ['logzio'],
             },
             'gunicorn.error': {
-                'level': 'INFO',
+                'level': 'WARNING',
                 'handlers': ['logzio'],
             },
             'gunicorn.access': {
-                'level': 'INFO',
+                'level': 'WARNING',
                 'handlers': ['logzio'],
             }
         }
