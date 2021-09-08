@@ -44,5 +44,5 @@ def monitor(*args):
             return
 
         result_id = str(uuid.uuid4())
-        query(result_id, red)
         log.info(f'Query result id: {result_id}')
+        query(result_id, red)
