@@ -432,7 +432,7 @@ class TimeAnalyzer(AbstractAnalyzer):
 class RuianAnalyzer(AbstractAnalyzer):
     token = 'ruian'
 
-    def analyze(self, graph, iri):
+    def analyze(self, graph, iri_unused):
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>

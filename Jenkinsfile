@@ -9,7 +9,7 @@ pipeline {
 					source /opt/conda/etc/profile.d/conda.sh
 					conda create --yes -n ${BUILD_TAG} python=3.8.8
                 	conda activate ${BUILD_TAG}
-					pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
+					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
 					pip install prospector[with_everything]
 					prospector -0 --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt
