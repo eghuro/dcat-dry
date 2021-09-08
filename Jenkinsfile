@@ -6,7 +6,7 @@ pipeline {
 			steps {
 				script {
 					sh '''
-						pip install --upgrade pip
+						pip install --upgrade pip conda
 						conda create --yes -n ${BUILD_TAG} python3
 						source activate ${BUILD_TAG}
 						pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt
