@@ -10,11 +10,12 @@ pipeline {
 						sh 'pip install --use-feature=fast-deps --use-deprecated=legacy-resolver -r requirements.txt'
 						sh 'pip check'
 						sh 'pip install prospector[with_everything]'
-						sh 'prospector --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture'
+						sh 'prospector --strictness high --max-line-length 200 -m -w bandit -w frosted -w mypy -w pyflakes -w pylint -w pyroma -w vulture -o pylint:prospector.txt'
 					}
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
-						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY"
+						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
+						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY -Dsonar.projectVersion=${GIT_COMMIT_HASH} -Dsonar.python.pylint.reportPaths=prospector.txt"
 					}
 				}
 			}
