@@ -8,6 +8,7 @@ from bson.json_util import dumps as dumps_bson
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 from flask_rdf.flask import returns_rdf
 
+import tsa
 from tsa.cache import cached
 from tsa.extensions import csrf, mongo_db, same_as_index
 from tsa.query import query
@@ -180,3 +181,13 @@ def service_description():
     graph_iri = request.args.get('graph', None)
     query_string = request.query_string.decode('utf-8')
     return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
+
+
+@blueprint.route('/api/v1/version')
+def version():
+    doc = {
+        'app': tsa.__version__
+    }
+    if tsa.__revision__ != 'PLACEHOLDER':
+        doc['revision'] = tsa.__revision__
+    return jsonify(doc)
