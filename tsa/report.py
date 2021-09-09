@@ -331,13 +331,13 @@ def import_profiles(profiles):
 
 
 def export_interesting():
-    for lst in mongo_db.interesting.find({}):
-        return lst
+    for doc in mongo_db.interesting.find({}):
+        return doc['iris']
 
 
 def import_interesting(interesting_datasets):
     mongo_db.interesting.delete_many({})
-    mongo_db.interesting.insert(list(interesting_datasets))
+    mongo_db.interesting.insert({'iris': list(interesting_datasets)})
 
 
 def list_datasets():

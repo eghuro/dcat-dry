@@ -143,7 +143,7 @@ def gen_related_ds():
         mongo_db.related.insert(related_ds)
 
         mongo_db.interesting.delete_many({})
-        mongo_db.interesting.insert(list(interesting_datasets))
+        mongo_db.interesting.insert({'iris': list(interesting_datasets)})
 
         log = logging.getLogger(__name__)
         log.info(f'Successfully stored related datasets, interesting: {len(interesting_datasets)}')
