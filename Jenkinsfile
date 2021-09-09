@@ -50,7 +50,7 @@ pipeline {
 	}
 	post {
         always {
-            mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+            mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
         }
     }
 }
