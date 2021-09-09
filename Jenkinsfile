@@ -25,6 +25,14 @@ pipeline {
 
 		stage('Build docker') {
 			agent { label 'docker' }
+			when {
+				anyOf {
+					branch 'develop'
+					branch 'master'
+					branch pattern: "release/.+", comparator: "REGEXP"
+					buildingTag()
+				}
+			}
 			steps {
 				script {
 					GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
@@ -36,6 +44,14 @@ pipeline {
 		
 		stage ('Push docker') {
 			agent { label 'docker' }
+			when {
+				allOf {
+					branch 'master'
+					expression {
+						currentBuild.result == null || currentBuild.result == 'SUCCESS'
+					}
+				}
+			}
 			steps {
 				script {
 					GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
@@ -50,7 +66,7 @@ pipeline {
 	}
 	post {
         always {
-            mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+            mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
         }
     }
 }
