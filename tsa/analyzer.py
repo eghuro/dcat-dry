@@ -244,7 +244,6 @@ class SkosAnalyzer(AbstractAnalyzer):
             if test_iri(concept_iri):
                 concept_index.index(concept_iri)
 
-
         query = 'SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}'
         for row in graph.query(query):
             ddr_index.index('inScheme', row['scheme'], row['a'])
