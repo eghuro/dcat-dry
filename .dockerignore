@@ -1,0 +1,12 @@
+.git/
+.pytest_cache/
+__pycache__/
+tests/
+.gitignore
+.travis.yml
+.isort.cfg
+renovate.json
+docker-compose.yml
+Dockerfile
+Jenkinsfile
+
