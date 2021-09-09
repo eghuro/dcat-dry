@@ -48,7 +48,6 @@ def register_blueprints(app):
     app.register_blueprint(public.views.blueprint)
     app.register_blueprint(public.test.blueprint)
     app.register_blueprint(public.analyze.blueprint)
-    app.register_blueprint(public.stat.blueprint)
 
 
 def register_errorhandlers(app):
@@ -75,7 +74,5 @@ def register_shellcontext(app):
 
 def register_commands(app):
     """Register Click commands."""
-    app.cli.add_command(commands.test)
-    app.cli.add_command(commands.lint)
     app.cli.add_command(commands.clean)
     app.cli.add_command(commands.urls)
