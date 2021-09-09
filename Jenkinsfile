@@ -28,7 +28,7 @@ pipeline {
 			steps {
 				script {
 					GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
-					sed -i "s/PLACEHOLDER/${GIT_COMMIT_HASH}/g" tsa/__init__.py
+					sh "sed -i \"s/PLACEHOLDER/${GIT_COMMIT_HASH}/g\" tsa/__init__.py"
 					dockerImage = docker.build "eghuro/dcat-dry"
 				}
 			}
