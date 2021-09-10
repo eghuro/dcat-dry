@@ -23,7 +23,7 @@ pipeline {
 			steps {
 				script {
 					pip install prospector[with_everything] types-requests
-					prospector -0 --uses celery --uses flask -s veryhigh --max-line-length 200 -m -w frosted -w pyflakes -w pylint -w pyroma -W pep257 -o pylint:prospector.txt -i autoapp.py -i tsa/settings.py -i tsa/celeryconfig.py -i tsa/cache.py
+					sh prospector -0 --uses celery --uses flask -s veryhigh --max-line-length 200 -m -w frosted -w pyflakes -w pylint -w pyroma -W pep257 -o pylint:prospector.txt -i autoapp.py -i tsa/settings.py -i tsa/celeryconfig.py -i tsa/cache.py
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
 						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
