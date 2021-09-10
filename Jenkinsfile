@@ -1,7 +1,7 @@
 pipeline {
 	agent none
 	stages {
-		stage ('QA') {
+		stage ('Dependency check') {
 			agent { label 'use' }
 			steps {
 				script {
@@ -11,6 +11,14 @@ pipeline {
                 	conda activate ${BUILD_TAG}
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
+					pip list --outdated
+			}
+		}
+
+		stage ('Sonar') {
+			agent { label 'use' }
+			when { branch 'master' }
+			steps {
 					pip install prospector[with_everything] types-requests
 					prospector -0 --uses celery --uses flask -s veryhigh --max-line-length 200 -m -w frosted -w pyflakes -w pylint -w pyroma -W pep257 -o pylint:prospector.txt -i autoapp.py -i tsa/settings.py -i tsa/celeryconfig.py -i tsa/cache.py
 					'''
