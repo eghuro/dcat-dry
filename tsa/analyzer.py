@@ -1,11 +1,13 @@
 """Dataset analyzer."""
 
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import defaultdict
+from typing import Any, Callable, Generator, Optional, Tuple
 
+import rdflib
 import redis
-from rdflib import RDF, Literal
+from rdflib import RDF, Graph, Literal, URIRef
 
 from tsa.extensions import concept_index, ddr_index, dsd_index, redis_pool, same_as_index
 from tsa.redis import description as desc_query
@@ -17,8 +19,25 @@ from tsa.util import test_iri
 class AbstractAnalyzer(ABC):
     """Abstract base class allowing to fetch all available analyzers on runtime."""
 
-    def find_relation(self, graph):
-        """Empty default implementation."""
+    @abstractmethod
+    def find_relation(self, graph: Graph) -> Optional[Generator[Tuple[str, str, str], None, None]]:
+        pass
+
+    @abstractmethod
+    def analyze(self, graph: Graph, iri: str) -> dict:
+        pass
+
+
+class QbDataset:
+    """Model for reporting DataCube dataset.
+
+    The model contains sets of dimensions and measures used.
+    """
+
+    def __init__(self):
+        """Init model by initializing sets."""
+        self.dimensions = set()
+        self.measures = set()
 
 
 class CubeAnalyzer(AbstractAnalyzer):
@@ -26,7 +45,7 @@ class CubeAnalyzer(AbstractAnalyzer):
 
     token = 'cube'
 
-    def find_relation(self, graph):
+    def find_relation(self, graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
         """We consider DSs to be related if they share a resource on dimension."""
         log = logging.getLogger(__name__)
         log.debug('Looking up significant resources')
@@ -42,7 +61,7 @@ class CubeAnalyzer(AbstractAnalyzer):
             yield row.resource, row.component, 'qb'
 
     @staticmethod
-    def __dimensions(graph):
+    def __dimensions(graph: Graph) -> defaultdict:
         dimensions = defaultdict(set)
         qb_query = """
         SELECT DISTINCT ?dsd ?dimension
@@ -57,7 +76,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         return dimensions
 
     @staticmethod
-    def __dataset_structures(graph, structures):
+    def __dataset_structures(graph: Graph, structures: defaultdict) -> defaultdict:
         dataset_structures = defaultdict(set)
         qb_query = """
         SELECT DISTINCT ?ds ?structure
@@ -73,7 +92,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         return dataset_structures
 
     @staticmethod
-    def __resource_on_dimension(graph):
+    def __resource_on_dimension(graph: Graph) -> Generator[Tuple[URIRef, URIRef, str], None, None]:
         log = logging.getLogger(__name__)
         log.debug('Looking up resources on dimensions')
         ds_dimensions = CubeAnalyzer.__dataset_structures(graph, CubeAnalyzer.__dimensions(graph))
@@ -94,10 +113,9 @@ class CubeAnalyzer(AbstractAnalyzer):
                 for row1 in qres1:
                     yield row.dataset, row1.resource, dimension
 
-    def analyze(self, graph, iri):
-
-        """Analysis of a datacube."""
-        datasets_queried = defaultdict(QbDataset)
+    @staticmethod
+    def __datasets_queried(graph: Graph) -> defaultdict[str, QbDataset]:
+        datasets_queried = defaultdict(QbDataset)  # type: defaultdict[str, QbDataset]
         query = """
         PREFIX qb: <http://purl.org/linked-data/cube#>
         SELECT DISTINCT ?ds ?dimension ?measure WHERE {
@@ -111,15 +129,18 @@ class CubeAnalyzer(AbstractAnalyzer):
             measure = str(row['measure'])
             datasets_queried[dataset].dimensions.add(dimension)
             datasets_queried[dataset].measures.add(measure)
+        return datasets_queried
 
+    def analyze(self, graph: Graph, iri: str) -> dict:
+        """Analysis of a datacube."""
         resource_dimension = defaultdict(set)
-        for dataset, resource, dimension in CubeAnalyzer.__resource_on_dimension(graph):
+        for _, resource, dimension in CubeAnalyzer.__resource_on_dimension(graph):
             resource_dimension[str(dimension)].add(str(resource))
 
         datasets_processed = []
         # in the query above either dimension or measure could have been None and still added into set, cleaning here
         none = str(None)
-        for (dataset_iri, dataset) in datasets_queried.items():
+        for dataset_iri, dataset in CubeAnalyzer.__datasets_queried(graph).items():
             dataset.dimensions.discard(none)
             dataset.measures.discard(none)
 
@@ -144,15 +165,15 @@ class SkosAnalyzer(AbstractAnalyzer):
     token = 'skos'
 
     @staticmethod
-    def _scheme_count_query(scheme):
+    def _scheme_count_query(scheme: str) -> str:
         return f'SELECT (count(*) as ?count) WHERE {{ ?_ <http://www.w3.org/2004/02/skos/core#inScheme> <{scheme}> }}'
 
     @staticmethod
-    def _count_query(concept):
+    def _count_query(concept: str) -> str:
         return f'SELECT DISTINCT ?a (count(?a) as ?count) WHERE {{ OPTIONAL {{ ?a ?b <{concept}>.}} OPTIONAL {{ <{concept}> ?b ?a.}} }}'
 
     @staticmethod
-    def _scheme_top_concept(scheme):
+    def _scheme_top_concept(scheme: str) -> str:
         return """
         SELECT ?concept WHERE {
             OPTIONAL { ?concept <http://www.w3.org/2004/02/skos/core#topConceptOf>
@@ -163,7 +184,7 @@ class SkosAnalyzer(AbstractAnalyzer):
         }
         """
 
-    def analyze(self, graph, iri):
+    def analyze(self, graph: Graph, iri: str) -> dict:
         """Analysis of SKOS concepts and related properties presence in a dataset."""
         log = logging.getLogger(__name__)
 
@@ -222,7 +243,7 @@ class SkosAnalyzer(AbstractAnalyzer):
             'orderedCollection': ord_collections
         }
 
-    def find_relation(self, graph):
+    def find_relation(self, graph: Graph) -> None:
         """Lookup relationships based on SKOS vocabularies.
 
         Datasets are related if they share a resources that are:
@@ -281,9 +302,10 @@ class GenericAnalyzer(AbstractAnalyzer):
 
     token = 'generic'
 
-    def _count(self, graph):
+    def _count(self, graph: Graph) -> Tuple[int, defaultdict, defaultdict, list, list, list]:
         triples = 0
-        predicates_count, classes_count = defaultdict(int), defaultdict(int)
+        predicates_count = defaultdict(int)  # type: defaultdict[str, int]
+        classes_count = defaultdict(int)  # type: defaultdict[str, int]
         objects, subjects, locally_typed = [], [], []
 
         for subject, predicate, objekt in graph:  # object is reserved
@@ -308,19 +330,19 @@ class GenericAnalyzer(AbstractAnalyzer):
 
         return triples, predicates_count, classes_count, objects, subjects, locally_typed
 
-    def analyze(self, graph, iri):
+    def analyze(self, graph: Graph, iri: str) -> dict:
         """Basic graph analysis."""
-        triples, predicates_count, classes_count, objects, subjects, locally_typed = self._count(graph)
-        predicates_count = [{'iri': iri, 'count': count} for (iri, count) in predicates_count.items()]
-        classes_count = [{'iri': iri, 'count': count} for (iri, count) in classes_count.items()]
+        triples, initial_predicates_count, initial_classes_count, objects_list, subjects_list, locally_typed_list = self._count(graph)
+        predicates_count = [{'iri': iri, 'count': count} for (iri, count) in initial_predicates_count.items()]
+        classes_count = [{'iri': iri, 'count': count} for (iri, count) in initial_classes_count.items()]
 
         # external resource ::
         #   - objekty, ktere nejsou subjektem v tomto grafu
         #   - objekty, ktere nemaji typ v tomto grafu
 
-        objects = set(objects)
-        subjects = set(subjects)
-        locally_typed = set(locally_typed)
+        objects = set(objects_list)
+        subjects = set(subjects_list)
+        locally_typed = set(locally_typed_list)
 
         external_1 = objects.difference(subjects)
         external_2 = objects.difference(locally_typed)
@@ -342,7 +364,7 @@ class GenericAnalyzer(AbstractAnalyzer):
         }
         return summary
 
-    def get_details(self, graph):
+    def get_details(self, graph: Graph) -> None:
         query = """
         SELECT DISTINCT ?x ?label ?type ?description WHERE {
         OPTIONAL { ?x <http://www.w3.org/2000/01/rdf-schema#label> ?label }
@@ -362,7 +384,7 @@ class GenericAnalyzer(AbstractAnalyzer):
             if test_iri(iri):
                 self._extract_detail(row, iri, red)
 
-    def _extract_detail(self, row, iri, red):
+    def _extract_detail(self, row: rdflib.query.Result, iri: str, red: redis.client.Redis) -> None:
         with red.pipeline() as pipe:
             self.extract_label(row['label'], iri, pipe, label_query)
             self.extract_label(row['description'], iri, pipe, desc_query)
@@ -373,13 +395,13 @@ class GenericAnalyzer(AbstractAnalyzer):
                 pipe.sadd(key, type_of_iri)
             pipe.execute()
 
-    def extract_label(self, literal, iri, pipe, query):
+    def extract_label(self, literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable) -> None:
         if literal is not None and isinstance(literal, Literal):
             value, language = literal.value, literal.language
             key = query(iri, language)
             pipe.set(key, value)
 
-    def find_relation(self, graph):
+    def find_relation(self, graph: Graph) -> None:
         """Two distributions are related if they share resources that are owl:sameAs."""
         for row in graph.query('SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }'):
             same_as_index.index(row['a'], row['b'])
@@ -389,7 +411,7 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
 
     token = 'schema-hierarchical-geo'
 
-    def find_relation(self, graph):
+    def find_relation(self, graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
         query = """
         PREFIX schema: <http://schema.org/>
         SELECT ?what ?place WHERE {
@@ -401,14 +423,14 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
             place = str(row['place'])
             yield place, what, 'containedInPlace'
 
-    def analyze(self, graph, iri):
+    def analyze(self, graph: Graph, iri: str) -> dict:
         return {}
 
 
 class TimeAnalyzer(AbstractAnalyzer):
     token = 'time'
 
-    def analyze(self, graph):
+    def analyze(self, graph: Graph, iri_unused: str) -> dict:
         query = """
         PREFIX interval: <http://reference.data.gov.uk/def/intervals/>
         SELECT ?day_iri ?day ?month ?year
@@ -432,7 +454,7 @@ class TimeAnalyzer(AbstractAnalyzer):
 class RuianAnalyzer(AbstractAnalyzer):
     token = 'ruian'
 
-    def analyze(self, graph, iri_unused):
+    def analyze(self, graph: Graph, iri_unused: str) -> dict:
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
@@ -466,15 +488,3 @@ class RuianAnalyzer(AbstractAnalyzer):
                     'longitude': longitude
                 }
         return result
-
-
-class QbDataset:
-    """Model for reporting DataCube dataset.
-
-    The model contains sets of dimensions and measures used.
-    """
-
-    def __init__(self):
-        """Init model by initializing sets."""
-        self.dimensions = set()
-        self.measures = set()
