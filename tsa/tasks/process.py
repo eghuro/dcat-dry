@@ -1,19 +1,22 @@
 """Celery tasks for running analyses."""
 import logging
 import sys
+from typing import Set, Tuple
 
 import rdflib
 import redis
 import requests
 import SPARQLWrapper
+from celery.app.task import Task
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from requests import RequestException
 
+from tsa import endpoint
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
-from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
+from tsa.net import NoContent, RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
@@ -68,7 +71,7 @@ def get_iris_to_dereference(graph, iri):
             yield sub
 
 
-def dereference_from_endpoint(iri, endpoint_iri):
+def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     log.info(f'Dereference {iri} from endpoint {endpoint_iri}')
     store = SPARQLStore(endpoint_iri, True, True, _node_to_sparql,
@@ -92,7 +95,7 @@ def dereference_from_endpoint(iri, endpoint_iri):
     return graph
 
 
-def dereference_from_endpoints(iri, iri_distr, red):
+def dereference_from_endpoints(iri: str, iri_distr:str, red: redis.Redis) -> rdflib.ConjunctiveGraph:
     if not test_iri(iri):
         return None
     monitor.log_dereference_processed()
@@ -100,12 +103,15 @@ def dereference_from_endpoints(iri, iri_distr, red):
     log = logging.getLogger(__name__)
 
     _, distrds = ds_distr()
-    for ds_iri in red.smembers(f'{distrds}:{str(iri_distr)}'):
+    for ds_iri_bytes in red.sscan_iter(f'{distrds}:{str(iri_distr)}'):
+        ds_iri = str(ds_iri_bytes)
         log.debug(f'For {iri_distr} we have the dataset {ds_iri}')
-        endpoints = red.smembers(dataset_endpoint(str(ds_iri)))
+        endpoints = set(str(endpoint_iri) for endpoint_iri in red.sscan_iter(dataset_endpoint(ds_iri)))  # type: Set[str]
         endpoints.update(Config.LOOKUP_ENDPOINTS)
+        endpoints.discard(None)
         for endpoint_iri in endpoints:
-            graph += dereference_from_endpoint(iri, endpoint_iri)
+            if test_iri(endpoint_iri):
+                graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
 
 
@@ -113,7 +119,7 @@ class FailedDereference(ValueError):
     pass
 
 
-def dereference_one_impl(iri_to_dereference, iri_distr):
+def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.debug(f'Dereference: {iri_to_dereference}')
@@ -144,21 +150,20 @@ def dereference_one_impl(iri_to_dereference, iri_distr):
 
         try:
             content = get_content(iri_to_dereference, response, red)
-            if content is None:
-                log.debug(f'No content: {iri_to_dereference}')
-                return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-            content.encode('utf-8')
             monitor.log_dereference_processed()
             return load_graph(iri_to_dereference, content, guess)
         except requests.exceptions.ChunkedEncodingError:
             log.warning(f'Failed to dereference (ChunkedEncodingError getting content): {iri_to_dereference}')
+            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        except NoContent:
+            log.debug(f'No content: {iri_to_dereference}')
             return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
     except RequestException:
         log.exception(f'Failed to dereference: {iri_to_dereference}')
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 
 
-def dereference_one(iri_to_dereference, iri_distr):
+def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.ConjunctiveGraph, bool]:
     try:
         red = redis.Redis(connection_pool=redis_pool)
         key = dereference_key(iri_to_dereference)
@@ -182,7 +187,7 @@ def dereference_one(iri_to_dereference, iri_distr):
         raise FailedDereference() from sys.exc_info()[1]
 
 
-def expand_graph_with_dereferences(graph, iri_distr, recursion=0):
+def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion: int=0) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     if recursion == Config.MAX_RECURSION_LEVEL:
         log.warning(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
@@ -209,13 +214,8 @@ def store_pure_subjects(iri, graph, red):
     red.lpush(pure_subject(iri), *list(subjects_pure))
 
 
-def process_content(content, iri, guess, red, log):
-    if content is None:
-        log.warning(f'No content for {iri}')
-        return
-
+def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: logging.Logger) -> None:
     log.debug(f'Analyze and index {iri}')
-    content.encode('utf-8')
     with TimedBlock('process.load'):
         graph = load_graph(iri, content, guess)
 
@@ -236,7 +236,7 @@ def process_content(content, iri, guess, red, log):
     monitor.log_processed()
 
 
-def do_process(iri, task, is_prio, force):
+def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     """Analyze an RDF distribution under given IRI."""
     log = logging.getLogger(__name__)
 
@@ -295,6 +295,8 @@ def do_process(iri, task, is_prio, force):
                 process_content(content, iri, guess, red, log)
             except requests.exceptions.ChunkedEncodingError as err:
                 task.retry(exc=err)
+            except NoContent:
+                log.warning(f'No content for {iri}')
     except rdflib.exceptions.ParserError as err:
         log.warning(f'Failed to parse {iri!s} - likely not an RDF: {err!s}')
         monitor.log_processed()
