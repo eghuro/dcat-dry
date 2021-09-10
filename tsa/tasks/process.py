@@ -187,7 +187,7 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
         raise FailedDereference() from sys.exc_info()[1]
 
 
-def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion=0: int) -> rdflib.ConjunctiveGraph:
+def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion: int=0) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     if recursion == Config.MAX_RECURSION_LEVEL:
         log.warning(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
