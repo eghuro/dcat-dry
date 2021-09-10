@@ -120,7 +120,7 @@ def view_detail():
         abort(400)
 
 
-@blueprint.route('/sd')
+@blueprint.route('/sd', methods=['GET'])
 @returns_rdf
 def service_description():
     endpoint_iri = request.args.get('endpoint', None)
@@ -132,7 +132,7 @@ def service_description():
         abort(400)
 
 
-@blueprint.route('/api/v1/version')
+@blueprint.route('/api/v1/version', methods=['GET'])
 def version():
     doc = {
         'app': tsa.__version__
