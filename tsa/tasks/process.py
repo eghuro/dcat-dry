@@ -102,8 +102,8 @@ def dereference_from_endpoints(iri, iri_distr, red):
     _, distrds = ds_distr()
     for ds_iri in red.smembers(f'{distrds}:{str(iri_distr)}'):
         log.debug(f'For {iri_distr} we have the dataset {ds_iri}')
-        local_endpoints = red.smembers(dataset_endpoint(str(ds_iri)))
-        endpoints = Config.LOOKUP_ENDPOINTS + local_endpoints
+        endpoints = red.smembers(dataset_endpoint(str(ds_iri)))
+        endpoints.update(Config.LOOKUP_ENDPOINTS)
         for endpoint_iri in endpoints:
             graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
