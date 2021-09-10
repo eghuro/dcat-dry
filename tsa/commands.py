@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Click commands."""
+import logging
 import os
 
 import click
@@ -7,7 +8,47 @@ from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
+from tsa.tasks.batch import batch_inspect
+from tsa.tasks.process import dereference_one
+from tsa.util import test_iri
+
 HERE = os.path.abspath(os.path.dirname(__file__))
+
+
+def divide_chunks(list_to_split, chunk_size):
+    # looping till length of the list_to_split
+    for i in range(0, len(list_to_split), chunk_size):
+        yield list_to_split[i:i + chunk_size]
+
+
+@click.command()
+@click.option('-g', '--graphs', required=True, help='List of graphs')
+@click.option('-s', '--sparql', required=True, help='IRI of the SPARQL endpoint')
+def batch(graphs=None, sparql=None):
+    """Take a list of graphs in a text file and IRI of a SPARQL Endpoint and our API.
+    Trigger a batch execution.
+    """
+    log = logging.getLogger(__name__)
+    print(graphs)
+    if not test_iri(sparql):
+        log.error(f'Not a valid SPARQL Endpoint: {sparql}')
+        return
+    if len(graphs) == 0:
+        log.warning('No graphs given')
+        return
+    else:
+        log.info(f'Analyzing endpoint {sparql}, graphs: {len(graphs)}')
+    with open(graphs, 'r', encoding='utf-8') as graphs_file:
+        lines = graphs_file.readlines()
+        for iris in divide_chunks(lines, 1000):
+            graphs = [iri.strip() for iri in iris if test_iri(iri)]
+            batch_inspect.si(sparql, graphs, False, 10).apply_async()
+
+
+@click.command()
+@click.option('-i', '--iri', required=True, help='IRI to dereference')
+def dereference(iri=None):
+    dereference_one(iri, 'AD-HOC')
 
 
 @click.command()
