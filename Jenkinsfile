@@ -26,7 +26,7 @@ pipeline {
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate ${BUILD_TAG}
 						pip install prospector[with_everything] types-requests
-						sh prospector -0 --uses celery --uses flask -s veryhigh --max-line-length 200 -m -w frosted -w pyflakes -w pylint -w pyroma -W pep257 -o pylint:prospector.txt -i autoapp.py -i tsa/settings.py -i tsa/celeryconfig.py -i tsa/cache.py
+						prospector -0 --uses celery --uses flask -s veryhigh --max-line-length 200 -m -w frosted -w pyflakes -w pylint -w pyroma -W pep257 -o pylint:prospector.txt -i autoapp.py -i tsa/settings.py -i tsa/celeryconfig.py -i tsa/cache.py
 					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
