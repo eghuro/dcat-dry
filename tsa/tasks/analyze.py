@@ -11,7 +11,7 @@ from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
 
 
-def load_graph(iri, data, format_guess):
+def load_graph(iri: str, data: str, format_guess: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     try:
         graph = rdflib.ConjunctiveGraph()

@@ -1,8 +1,10 @@
 import logging
 from io import BytesIO
+from typing import Tuple
 
 import rdflib
 import redis
+import requests
 
 from tsa.monitor import monitor
 from tsa.redis import MAX_CONTENT_LENGTH, KeyRoot
@@ -73,7 +75,11 @@ def fetch(iri, log, red):
     return request
 
 
-def get_content(iri, request, red):
+class NoContent(ValueError):
+    pass
+
+
+def get_content(iri: str, request: requests.Request, red: redis.Redis) -> str:
     """Load content in memory."""
     key = data_key(iri)
 
@@ -93,10 +99,10 @@ def get_content(iri, request, red):
         return data.getvalue().decode('utf-8')
     except UnicodeDecodeError as exc:
         logging.getLogger(__name__).warning('Failed to load content for %s: %s', iri, exc)
-    return None
+    raise NoContent()
 
 
-def guess_format(iri, request, log):
+def guess_format(iri: str, request: requests.Request, log: logging.Logger) -> Tuple[str, bool]:
     """
     Guess format of the distribution.
 
