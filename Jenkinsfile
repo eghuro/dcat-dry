@@ -25,7 +25,7 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate ${BUILD_TAG}
-						pip install pytest-cov
+						pip install pytest-cov WebTest
 						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
 					'''
 					}
