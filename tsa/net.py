@@ -39,7 +39,7 @@ class RobotsRetry(Exception):
         super().__init__()
 
 
-def fetch(iri, log, red):
+def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
     """Fetch the distribution. Mind robots.txt."""
     is_allowed, delay, robots_url = robots_allowed(iri)
     key = delay_key(robots_url)
@@ -56,7 +56,19 @@ def fetch(iri, log, red):
     # this is mostly a safe stop in case a known RDF (tasks not time constrained) hangs along the way
     # the idea is to allow for as much time as needed for the known RDF distros, while preventing task queue "jam"
     log.debug(f'Setting timeout {timeout!s} for {iri}')
-    accept = 'application/ld+json, application/trig, application/rdf+xml, text/turtle, text/n3;charset=utf-8, application/n-triples, application/n-quads, application/xml;q=0.9, text/xml;q=0.9, text/plain;q=0.9, */*;q=0.8'
+    accept = '. '.join([
+        'application/ld+json',
+        'application/trig',
+        'application/rdf+xml',
+        'text/turtle',
+        'text/n3;charset=utf-8',
+        'application/n-triples',
+        'application/n-quads',
+        'application/xml;q=0.9',
+        'text/xml;q=0.9',
+        'text/plain;q=0.9',
+        '*/*;q=0.8'
+    ])
     request = session.get(iri, stream=True, timeout=timeout, verify=False, headers={'Accept': accept})
     request.raise_for_status()
 
@@ -79,14 +91,14 @@ class NoContent(ValueError):
     pass
 
 
-def get_content(iri: str, request: requests.Request, red: redis.Redis) -> str:
+def get_content(iri: str, response: requests.Response, red: redis.Redis) -> str:
     """Load content in memory."""
     key = data_key(iri)
 
     chsize = 1024
     conlen = 0
     data = BytesIO()
-    for chunk in request.iter_content(chunk_size=chsize):
+    for chunk in response.iter_content(chunk_size=chsize):
         if chunk:
             data.write(chunk)
             conlen = conlen + len(chunk)
@@ -102,7 +114,7 @@ def get_content(iri: str, request: requests.Request, red: redis.Redis) -> str:
     raise NoContent()
 
 
-def guess_format(iri: str, request: requests.Request, log: logging.Logger) -> Tuple[str, bool]:
+def guess_format(iri: str, response: requests.Response, log: logging.Logger) -> Tuple[str, bool]:
     """
     Guess format of the distribution.
 
@@ -110,7 +122,9 @@ def guess_format(iri: str, request: requests.Request, log: logging.Logger) -> Tu
     """
     guess = rdflib.util.guess_format(iri)
     if guess is None:
-        guess = request.headers.get('content-type').split(';')[0]
+        guess = response.headers.get('content-type')
+        if guess is not None:
+            guess = guess.split(';')[0]
     monitor.log_format(str(guess))
     if 'xml' in guess:
         guess = 'xml'
