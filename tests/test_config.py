@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Test configs."""
 from tsa.app import create_app
-from tsa.settings import DevConfig, ProdConfig
+from tsa.settings import ProdConfig
 
 
 def test_production_config():
@@ -10,10 +10,3 @@ def test_production_config():
     assert app.config['ENV'] == 'prod'
     assert app.config['DEBUG'] is False
     assert app.config['DEBUG_TB_ENABLED'] is False
-
-
-def test_dev_config():
-    """Development config."""
-    app = create_app(DevConfig)
-    assert app.config['ENV'] == 'dev'
-    assert app.config['DEBUG'] is True
