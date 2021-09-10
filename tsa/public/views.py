@@ -155,8 +155,11 @@ def view_list():
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def view_detail():
     iri = request.args.get('iri', None)
-    profile = query_dataset(iri)
-    return render_template('detail.html', dataset=profile)
+    if test_iri(iri):
+        profile = query_dataset(iri)
+        return render_template('detail.html', dataset=profile)
+    else:
+        abort(400)
 
 
 @blueprint.route('/sd')
@@ -165,7 +168,10 @@ def service_description():
     endpoint_iri = request.args.get('endpoint', None)
     graph_iri = request.args.get('graph', None)
     query_string = request.query_string.decode('utf-8')
-    return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
+    if test_iri(endpoint_iri) and test_iri(graph_iri):
+        return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
+    else:
+        abort(400)
 
 
 @blueprint.route('/api/v1/version')
