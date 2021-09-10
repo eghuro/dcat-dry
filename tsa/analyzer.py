@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Callable, Generator, Optional, Tuple
+from typing import Any, Callable, DefaultDict, Generator, Optional, Tuple
 
 import rdflib
 import redis
@@ -61,7 +61,7 @@ class CubeAnalyzer(AbstractAnalyzer):
             yield row.resource, row.component, 'qb'
 
     @staticmethod
-    def __dimensions(graph: Graph) -> defaultdict:
+    def __dimensions(graph: Graph) -> DefaultDict:
         dimensions = defaultdict(set)
         qb_query = """
         SELECT DISTINCT ?dsd ?dimension
@@ -76,7 +76,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         return dimensions
 
     @staticmethod
-    def __dataset_structures(graph: Graph, structures: defaultdict) -> defaultdict:
+    def __dataset_structures(graph: Graph, structures: DefaultDict) -> DefaultDict:
         dataset_structures = defaultdict(set)
         qb_query = """
         SELECT DISTINCT ?ds ?structure
@@ -114,8 +114,8 @@ class CubeAnalyzer(AbstractAnalyzer):
                     yield row.dataset, row1.resource, dimension
 
     @staticmethod
-    def __datasets_queried(graph: Graph) -> defaultdict[str, QbDataset]:
-        datasets_queried = defaultdict(QbDataset)  # type: defaultdict[str, QbDataset]
+    def __datasets_queried(graph: Graph) -> DefaultDict[str, QbDataset]:
+        datasets_queried = defaultdict(QbDataset)  # type: DefaultDict[str, QbDataset]
         query = """
         PREFIX qb: <http://purl.org/linked-data/cube#>
         SELECT DISTINCT ?ds ?dimension ?measure WHERE {
@@ -302,10 +302,10 @@ class GenericAnalyzer(AbstractAnalyzer):
 
     token = 'generic'
 
-    def _count(self, graph: Graph) -> Tuple[int, defaultdict, defaultdict, list, list, list]:
+    def _count(self, graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
         triples = 0
-        predicates_count = defaultdict(int)  # type: defaultdict[str, int]
-        classes_count = defaultdict(int)  # type: defaultdict[str, int]
+        predicates_count = defaultdict(int)  # type: DefaultDict[str, int]
+        classes_count = defaultdict(int)  # type: DefaultDict[str, int]
         objects, subjects, locally_typed = [], [], []
 
         for subject, predicate, objekt in graph:  # object is reserved
