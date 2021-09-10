@@ -55,7 +55,7 @@ def do_analyze_and_index(graph, iri, red):
 def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red):
     log.debug(f'Analyzing {iri} with {analyzer_class.token}')
     with TimedBlock(f'analyze.{analyzer_class.token}'):
-        res = analyzer.analyze(graph)
+        res = analyzer.analyze(graph, iri)
     log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
     analyses.append({analyzer_class.token: res})
 
