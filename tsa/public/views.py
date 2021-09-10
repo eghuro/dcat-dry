@@ -9,9 +9,8 @@ from flask_rdf.flask import returns_rdf
 
 import tsa
 from tsa.cache import cached
-from tsa.extensions import csrf, mongo_db, same_as_index
-from tsa.report import (export_interesting, export_labels, export_profile, export_related, import_interesting,
-                        import_labels, import_profiles, import_related, list_datasets, query_dataset)
+from tsa.extensions import mongo_db, same_as_index
+from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.util import test_iri
 
@@ -73,14 +72,6 @@ def export_labels_endpoint():
     return jsonify(export_labels())
 
 
-@blueprint.route('/api/v1/import/labels', methods=['PUT'])
-@csrf.exempt
-def import_labels_endpoint():
-    labels = request.get_json()
-    import_labels(labels)
-    return 'OK'
-
-
 @blueprint.route('/api/v1/export/related', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_related_endpoint():
@@ -105,42 +96,9 @@ def export_sameas_endpoint():
     return jsonify(same_as_index.export_index())
 
 
-@blueprint.route('/api/v1/import/sameas', methods=['PUT'])
-@csrf.exempt
-def import_sameas_endpoint():
-    index = request.get_json()
-    same_as_index.import_index(index)
-    return 'OK'
-
-
-@blueprint.route('/api/v1/import/related', methods=['PUT'])
-@csrf.exempt
-def import_related_endpoint():
-    related = request.get_json()
-    import_related(related)
-    return 'OK'
-
-
-@blueprint.route('/api/v1/import/profile', methods=['PUT'])
-@csrf.exempt
-def import_profile_endpoint():
-    profiles = request.get_json()
-    import_profiles(profiles)
-    return 'OK'
-
-
 @blueprint.route('/api/v1/export/interesting', methods=['GET'])
 def export_interesting_endpoint():
     return jsonify(export_interesting())
-
-
-@blueprint.route('/api/v1/import/interesting', methods=['POST'])
-def import_interesting_endpoint():
-    interesting_datasets = request.get_json()
-    if isinstance(interesting_datasets, list):
-        import_interesting(interesting_datasets)
-        return 'OK'
-    abort(400)
 
 
 @blueprint.route('/list', methods=['GET'])
