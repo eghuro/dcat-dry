@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Query endpoints."""
 import json
-import uuid
 from collections import defaultdict
 
 from bson.json_util import dumps as dumps_bson
@@ -11,7 +10,6 @@ from flask_rdf.flask import returns_rdf
 import tsa
 from tsa.cache import cached
 from tsa.extensions import csrf, mongo_db, same_as_index
-from tsa.query import query
 from tsa.report import (export_interesting, export_labels, export_profile, export_related, import_interesting,
                         import_labels, import_profiles, import_related, list_datasets, query_dataset)
 from tsa.sd import create_sd_iri, generate_service_description
@@ -47,30 +45,26 @@ def same_as():
     abort(400)
 
 
-@blueprint.route('/api/v1/query/analysis/result', methods=['GET'])
+@blueprint.route('/api/v1/query/analysis', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def fetch_analysis():
-    batch_id = request.args.get('id', None)
-    if batch_id is not None:
-        analyses = defaultdict(list)
-        for analysis in mongo_db.dsanalyses.find({'batch_id': batch_id}):
-            res = {}
-            for key in analysis.keys():
-                res[key] = analysis[key]
-            del res['_id']
-            del res['batch_id']
-            ds_iri = res['ds_iri']
-            del res['ds_iri']
-            analyses[ds_iri].append(res)
-        if len(analyses.keys()) > 0:
-            related = mongo_db.related.find({})
-            if related is not None:
-                related = json.loads(dumps_bson(related))[0]
-                del related['_id']
-                return jsonify({'analyses': analyses, 'related': related})
-            return jsonify({'analyses': analyses})
-        abort(404)
-    abort(400)
+    analyses = defaultdict(list)
+    for analysis in mongo_db.dsanalyses.find({}):
+        res = {}
+        for key in analysis.keys():
+            res[key] = analysis[key]
+        del res['_id']
+        ds_iri = res['ds_iri']
+        del res['ds_iri']
+        analyses[ds_iri].append(res)
+    if len(analyses.keys()) > 0:
+        related = mongo_db.related.find({})
+        if related is not None:
+            related = json.loads(dumps_bson(related))[0]
+            del related['_id']
+            return jsonify({'analyses': analyses, 'related': related})
+        return jsonify({'analyses': analyses})
+    abort(204)
 
 
 @blueprint.route('/api/v1/export/labels', methods=['GET'])

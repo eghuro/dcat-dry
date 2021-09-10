@@ -1,6 +1,5 @@
 import logging
 import os
-import uuid
 
 import redis as redis_lib
 from celery import Task
@@ -46,6 +45,4 @@ def monitor(*args):
         else:
             return
 
-        result_id = str(uuid.uuid4())
-        log.info(f'Query result id: {result_id}')
-        query(result_id)
+        query()
