@@ -17,7 +17,7 @@ services:
       - "8088:8000"
     depends_on:
      - celery
-    command: gunicorn -k gevent -w 4 -b 0.0.0.0:8000 --log-level info --log-file /log/gunicorn.log autoapp:app
+    command: gunicorn -k gevent -w 4 -b 0.0.0.0:8000 --log-level info --log-file /log/gunicorn.log app:app
   celery:
     restart: always
     build:
