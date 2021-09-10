@@ -9,4 +9,5 @@ renovate.json
 docker-compose.yml
 Dockerfile
 Jenkinsfile
-
+pytest.xml
+cov.xml
