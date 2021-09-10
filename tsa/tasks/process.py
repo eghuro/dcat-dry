@@ -173,9 +173,9 @@ def dereference_one(iri_to_dereference, iri_distr):
             if graph is not None:
                 red.set(key, graph.serialize(format='n3'))
             else:
-                red.set(key, None)
+                red.set(key, '')
         owl = rdflib.URIRef('http://www.w3.org/2002/07/owl#')
-        has_same_as = (None, owl.sameAs, None) in graph
+        has_same_as = (None, owl['sameAs'], None) in graph
         return graph, has_same_as
     except:
         logging.getLogger(__name__).exception(f'All attempts to dereference failed: {iri_to_dereference}')
