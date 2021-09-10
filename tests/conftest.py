@@ -5,13 +5,13 @@ import pytest
 from webtest import TestApp
 
 from tsa.app import create_app
-from tsa.settings import TestConfig
+from tsa.settings import ProdConfig
 
 
 @pytest.fixture
 def app():
     """An application for the tests."""
-    _app = create_app(TestConfig)
+    _app = create_app(ProdConfig)
     ctx = _app.test_request_context()
     ctx.push()
 

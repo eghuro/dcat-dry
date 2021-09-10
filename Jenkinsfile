@@ -17,7 +17,23 @@ pipeline {
 			}
 		}
 
-		stage ('Sonar') {
+		stage('Tests') {
+			agent { label 'use' }
+			steps {
+				script {
+					script {
+					sh '''#!/usr/bin/env bash
+						source /opt/conda/etc/profile.d/conda.sh
+						conda activate ${BUILD_TAG}
+						pip install pytest-cov
+						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
+					'''
+					}
+				}
+			}
+		}
+
+		stage('Sonar') {
 			agent { label 'use' }
 			when { branch 'master' }
 			steps {
@@ -31,7 +47,7 @@ pipeline {
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
 						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
-						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY -Dsonar.projectVersion=${GIT_COMMIT_HASH} -Dsonar.python.pylint.reportPaths=prospector.txt"
+						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY -Dsonar.projectVersion=${GIT_COMMIT_HASH} -Dsonar.python.pylint.reportPaths=prospector.txt -Dsonar.junit.reportsPath=pytest.xml -Dsonar.python.coverage.reportPaths=cov.xml -Dsonar.coverage.dtdVerification=false -Dsonar.coverage.exclusions=**/__init__.py"
 					}
 				}
 			}
