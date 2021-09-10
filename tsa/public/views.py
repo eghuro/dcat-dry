@@ -47,15 +47,6 @@ def same_as():
     abort(400)
 
 
-@blueprint.route('/api/v1/query/analysis', methods=['POST'])
-@csrf.exempt
-def batch_analysis():
-    """Get a big report for all required distributions."""
-    result_id = str(uuid.uuid4())
-    query(result_id)
-    return result_id
-
-
 @blueprint.route('/api/v1/query/analysis/result', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def fetch_analysis():
