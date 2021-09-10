@@ -15,10 +15,10 @@ from tsa.util import test_iri
 HERE = os.path.abspath(os.path.dirname(__file__))
 
 
-def divide_chunks(l, n):
-    # looping till length l
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+def divide_chunks(list_to_split, chunk_size):
+    # looping till length of the list_to_split
+    for i in range(0, len(list_to_split), chunk_size):
+        yield list_to_split[i:i + chunk_size]
 
 
 @click.command()
