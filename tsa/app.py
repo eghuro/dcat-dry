@@ -47,7 +47,6 @@ def register_blueprints(app):
     """Register Flask blueprints."""
     app.register_blueprint(public.views.blueprint)
     app.register_blueprint(public.test.blueprint)
-    app.register_blueprint(public.analyze.blueprint)
 
 
 def register_errorhandlers(app):
@@ -76,3 +75,4 @@ def register_commands(app):
     """Register Click commands."""
     app.cli.add_command(commands.clean)
     app.cli.add_command(commands.urls)
+    app.cli.add_command(commands.batch)

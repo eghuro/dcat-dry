@@ -37,12 +37,11 @@ def batch(graphs=None, sparql=None):
         log.warning('No graphs given')
         return
     else:
-        log.info(f'Graphs: {len(graphs)}')
+        log.info(f'Analyzing endpoint {sparql}, graphs: {len(graphs)}')
     with open(graphs, 'r', encoding='utf-8') as graphs_file:
         lines = graphs_file.readlines()
         for iris in divide_chunks(lines, 1000):
             graphs = [iri.strip() for iri in iris if test_iri(iri)]
-            log.info(f'Analyzing endpoint {iri}')
             batch_inspect.si(sparql, graphs, False, 10).apply_async()
 
 

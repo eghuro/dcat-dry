@@ -35,7 +35,10 @@ def monitor(*args):
         log.info(f'Enqueued: {enqueued}')
         red.set('shouldQuery', 1)
     else:
-        if int(red.get('shouldQuery')) == 1:
+        should_query = red.get('shouldQuery')
+        if should_query is None:
+            return
+        if int(should_query) == 1:
             log.info('Should query')
             red.set('shouldQuery', 2)
 
