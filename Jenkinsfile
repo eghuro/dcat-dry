@@ -12,6 +12,7 @@ pipeline {
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
 					pip list --outdated
+					'''
 				}
 			}
 		}
