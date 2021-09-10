@@ -7,7 +7,6 @@ from typing import Generator, Tuple
 
 import libarchive
 import requests
-from jedi.api.interpreter import _create
 
 from tsa.monitor import monitor
 
@@ -16,22 +15,22 @@ if platform == 'darwin':
     os.environ['LIBARCHIVE'] = '/usr/local/Cellar/libarchive/3.3.3/lib/libarchive.13.dylib'
 
 
-def _load_data(iri: str, request: requests.Request) -> BytesIO:
+def _load_data(iri: str, response: requests.Response) -> bytes:
     log = logging.getLogger(__name__)
     log.debug(f'Downloading {iri} into an in-memory buffer')
-    buffer = BytesIO(request.content)
+    buffer = BytesIO(response.content)
     log.debug('Read the buffer')
     data = buffer.read()
     log.debug(f'Size: {len(data)}')
     return data
 
 
-def decompress_gzip(iri: str, request: requests.Request) -> Tuple[str, str]:
+def decompress_gzip(iri: str, response: requests.Response) -> Tuple[str, str]:
     """Decompress gzip data.
 
-    Loads request data in memory, decompresses it as gzip and decodes the result to string.
+    Loads response data in memory, decompresses it as gzip and decodes the result to string.
     """
-    data = _load_data(iri, request)
+    data = _load_data(iri, response)
 
     if iri.endswith('.gz'):
         iri = iri[:-3]
@@ -76,13 +75,13 @@ def _load_entry_data(entry: libarchive.entry.ArchiveEntry) -> Tuple[int, BytesIO
     return conlen, data
 
 
-def decompress_7z(iri: str, request: requests.Request) -> Generator[Tuple[str, str], None, None]:
+def decompress_7z(iri: str, response: requests.Response) -> Generator[Tuple[str, str], None, None]:
     """Download a 7z file, decompress it and store contents in redis."""
-    data = _load_data(iri, request)
+    compressed_data = _load_data(iri, response)
     log = logging.getLogger(__name__)
 
     deco_size_total = 0
-    with libarchive.memory_reader(data) as archive:
+    with libarchive.memory_reader(compressed_data) as archive:
         for entry in archive:
             name = _get_name(entry)
             sub_iri = _create_sub_iri(name, iri, log)
