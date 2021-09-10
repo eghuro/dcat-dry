@@ -167,24 +167,32 @@ def dereference_one(iri_to_dereference, iri_distr):
             if data is not None:
                 graph = load_graph(iri_to_dereference, data, 'n3')
             else:
-                return None
+                return None, False
         else:
             graph = dereference_one_impl(iri_to_dereference, iri_distr)
             if graph is not None:
                 red.set(key, graph.serialize(format='n3'))
             else:
                 red.set(key, None)
-        return graph
+        owl = rdflib.URIRef('http://www.w3.org/2002/07/owl#')
+        has_same_as = (None, owl.sameAs, None) in graph
+        return graph, has_same_as
     except:
         logging.getLogger(__name__).exception(f'All attempts to dereference failed: {iri_to_dereference}')
         raise FailedDereference() from sys.exc_info()[1]
 
 
-def expand_graph_with_dereferences(graph, iri_distr):
+def expand_graph_with_dereferences(graph, iri_distr, recursion=0):
     log = logging.getLogger(__name__)
+    if recursion == Config.MAX_RECURSION_LEVEL:
+        log.warning(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
+        return graph
     for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
         try:
-            sub_graph = dereference_one(iri_to_dereference, iri_distr)
+            sub_graph, should_continue = dereference_one(iri_to_dereference, iri_distr)
+            if should_continue:
+                log.info(f'Continue dereferencing: now at {iri_distr}, dereferenced {iri_to_dereference}')
+                sub_graph += expand_graph_with_dereferences(sub_graph, iri_to_dereference, recursion + 1)
             if sub_graph is not None:
                 graph += sub_graph
         except UnicodeDecodeError:

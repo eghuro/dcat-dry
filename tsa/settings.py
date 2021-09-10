@@ -20,9 +20,10 @@ class Config:
     LOOKUP_ENDPOINTS = [os.environ.get('ENDPOINT', None), 'https://linked.cuzk.cz.opendata.cz/sparql']
     ANALYZE_IMMEDIATELY = True
     SD_BASE_IRI = 'https://data.eghuro.cz/resource/'
+    MAX_RECURSION_LEVEL = 3
 
 
-class ProdConfig:
+class ProdConfig(Config):
 
     """Production configuration."""
 
