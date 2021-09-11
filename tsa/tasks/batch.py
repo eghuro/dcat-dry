@@ -176,15 +176,6 @@ def _do_inspect_graph(inspector: SparqlEndpointAnalyzer, graph_iri: str, force: 
     monitor.log_inspected()
 
 
-@celery.task(base=TrackableTask)
-def inspect_graphs(graphs: Iterable[str], endpoint_iri: str, force: bool) -> None:
-    red = inspect_graphs.redis
-    log = logging.getLogger(__name__)
-    inspector = SparqlEndpointAnalyzer(endpoint_iri)
-    for graph in graphs:
-        _do_inspect_graph(inspector, graph, force, red, endpoint_iri, log)
-
-
 def _multiply(item: Any, times: int):
     for _ in range(times):
         yield item
@@ -196,3 +187,4 @@ def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunk
     monitor.log_graph_count(items)
     logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
     return inspect_graph.chunks(zip(_multiply(endpoint_iri, items), graphs, _multiply(force, items)), chunks).apply_async()
+    # 1000 graphs into 10 chunks of 100

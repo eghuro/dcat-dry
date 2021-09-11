@@ -39,7 +39,6 @@ def batch(graphs=None, sparql=None):
         lines = graphs_file.readlines()
         for iris in divide_chunks(lines, 1000):
             graphs = [iri.strip() for iri in iris if check_iri(iri)]
-            # inspect_graphs.si(graphs, sparql, False).apply_async()
             batch_inspect.si(sparql, graphs, False, 10).apply_async()
 
 

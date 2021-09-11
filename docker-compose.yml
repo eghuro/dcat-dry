@@ -31,7 +31,21 @@ services:
       - STATSD_HOST=graphite
     volumes:
       - /root/data/log:/log
-    command: celery -A tsa.celery worker -l info -Q high_priority,default,query,low_priority -c 10
+    command: celery -A tsa.celery worker -P eventlet -l debug -Q high_priority,default,query,low_priority -c 8
+  beat:
+    restart: always
+    build:
+        context: .
+        args:
+            PYTHON_VERSION: 3.8.7
+    environment:
+      - REDIS=redis://10.114.0.2:6379/0
+      - REDIS_CELERY=redis://10.114.0.2:6379/1
+      - MONGO=mongodb://10.114.0.2:27017/
+      - STATSD_HOST=graphite
+    volumes:
+      - /root/data/log:/log
+    command:celery -A tsa.celery worker -B -l debug -c 1
   graphite:
     image: graphiteapp/graphite-statsd
     restart: always
