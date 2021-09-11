@@ -33,6 +33,21 @@ pipeline {
 			}
 		}
 
+		stage('Lint') {
+			agent { label 'use' }
+			when { branch 'develop' }
+			steps {
+				script {
+					sh '''#!/usr/bin/env bash
+						source /opt/conda/etc/profile.d/conda.sh
+						conda activate ${BUILD_TAG}
+						pip install prospector[with_everything] types-requests types-redis
+						prospector -0
+					'''
+				}
+			}
+		}
+
 		stage('Sonar') {
 			agent { label 'use' }
 			when { branch 'master' }
@@ -41,7 +56,7 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate ${BUILD_TAG}
-						pip install prospector[with_everything] types-requests
+						pip install prospector[with_everything] types-requests types-redis
 						prospector -0 -o pylint:prospector.txt
 					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
