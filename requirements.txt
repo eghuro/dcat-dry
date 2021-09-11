@@ -11,8 +11,8 @@ click==7.1.2  # celery 5.1.2 depends on click<8.0 and >=7.0
 click-didyoumean==0.0.3
 click-plugins==1.1.1
 click-repl==0.2.0
-dnspython-2.1.0
-eventlet-0.32.0
+dnspython==2.1.0
+eventlet==0.32.0
 Flask==2.0.1
 Flask-Caching==1.10.1
 Flask-Cors==3.0.10
