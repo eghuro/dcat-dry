@@ -35,8 +35,8 @@ pipeline {
 
 		stage('Lint') {
 			agent { label 'use' }
-			when { anyof
-				{
+			when {
+				anyOf  {
 					branch 'develop'
 					branch pattern: "hotfix/.+", comparator: "REGEXP"
 				}
