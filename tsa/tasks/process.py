@@ -93,7 +93,7 @@ def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Conjunctive
     return graph
 
 
-def _sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
+def sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
     for item in list_in:
         if item is not None:
             yield item
