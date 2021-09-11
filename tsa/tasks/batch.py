@@ -173,7 +173,7 @@ def _do_inspect_graph(graph_iri: str, force: bool, red: redis.Redis, endpoint_ir
     monitor.log_inspected()
 
 
-@celery.task
+@celery.task(base=TrackableTask)
 def inspect_graphs(graphs: Iterable[str], endpoint_iri: str, force: bool) -> None:
     red = inspect_graphs.redis
     for graph in graphs:
