@@ -13,6 +13,7 @@ from tsa.redis import related as related_key
 from tsa.redis import sanitize_key
 from tsa.report import export_labels
 from tsa.ruian import RuianInspector
+from tsa.util import message_to_mattermost
 
 # === ANALYSIS (PROFILE) ===
 
@@ -117,7 +118,7 @@ reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 
 @celery.task
 def gen_related_ds():
     log = logging.getLogger(__name__)
-    log.info('Generate related datasets')
+    log.warning('Generate related datasets')
     red = redis.Redis(connection_pool=redis_pool)
     related_ds = {}
 
@@ -125,9 +126,10 @@ def gen_related_ds():
 
     for rel_type in reltypes:
         related_ds[rel_type] = []
-        root = f'related:{rel_type!s}:'
-        for key in red.scan_iter(match=f'related:{rel_type!s}:*'):
+        root = related_key(rel_type, '*')[:-2]
+        for key in red.scan_iter(match=related_key(rel_type, '*')):
             token = key[len(root):].replace('_', ':', 1)  # common element
+            log.warning(f'root: {root}, key: {key}, token: {token}')
             related_dist = set()
             for sameas_iri in same_as_index.lookup(token):
                 related_dist.update(red.smembers(related_key(rel_type, sameas_iri)))  # these are related by sameAs of token
@@ -153,6 +155,7 @@ def gen_related_ds():
 
     del related_ds['_id']
     red.set('shouldQuery', 0)
+    message_to_mattermost('Done!')
     return related_ds
 
 
@@ -160,6 +163,7 @@ def gen_related_ds():
 def finalize_sameas():
     log = logging.getLogger(__name__)
     log.info('Finalize sameAs index')
+    message_to_mattermost('Finalize sameAs index - query pipeline started')
     same_as_index.finalize()
     # skos not needed - not transitive
     log.info('Successfully finalized sameAs index')
