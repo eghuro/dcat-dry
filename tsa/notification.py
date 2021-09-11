@@ -11,5 +11,5 @@ def message_to_mattermost(message: str) -> None:
         channel = Config.MATTERMOST_CHANNEL
         hook = Config.MATTERMOST_HOOK
 
-        payload = { "channel": channel, "text": message }
+        payload = {"channel": channel, "text": message}
         session.post(hook, json=payload).raise_for_status()
