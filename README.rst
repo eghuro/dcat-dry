@@ -3,12 +3,9 @@ NKOD TSA
 ===============================
 
 .. |github| image:: https://img.shields.io/github/release-pre/eghuro/nkod-ts.svg
-.. |travis| image:: https://img.shields.io/travis/com/eghuro/nkod-ts.svg
-.. |renovate| image:: https://badges.renovateapi.com/github/eghuro/nkod-ts
-.. |codeclimate| image:: https://img.shields.io/codeclimate/maintainability/eghuro/nkod-ts.svg
 .. |licence| image:: https://img.shields.io/github/license/eghuro/nkod-ts.svg
 
-|github|  |travis|  |renovate|  |codeclimate|  |licence|
+|github|  |licence|
 
 
 Indexing linked data and relationships between datasets.
@@ -40,7 +37,7 @@ For the full environment use docker-compose:
 
 Build & run manually
 ----------
-CPython 3.6+ is supported.
+CPython 3.8+ is supported.
 
 Install redis server first. In following example we will assume it runs on localhost, port 6379 and DB 0 is used.
 

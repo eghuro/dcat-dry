@@ -7,5 +7,5 @@ RUN apk --no-cache add g++ gcc musl-dev libffi-dev openssl-dev make && pip insta
 
 COPY . .
 
-CMD gunicorn -k gevent -w 4 -b 0.0.0.0:8000 autoapp:app
+CMD gunicorn -k gevent -w 4 -b 0.0.0.0:8000 app:app
 EXPOSE 8000

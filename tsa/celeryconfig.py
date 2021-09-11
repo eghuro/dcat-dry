@@ -34,8 +34,8 @@ task_routes = {
     }
 }
 beat_schedule = {
-    'check-queue-every-minute': {
+    'check-queue-every-ten-minutes': {
         'task': 'tsa.tasks.common.monitor',
-        'schedule': 60.0,
+        'schedule': 600.0,
     },
 }

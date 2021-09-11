@@ -1,19 +1,20 @@
 """Celery tasks for running analyses."""
 import logging
 import sys
+from typing import Generator, List, Optional, Set, Tuple
 
 import rdflib
 import redis
 import requests
 import SPARQLWrapper
+from celery.app.task import Task
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
-from requests import RequestException
 
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
-from tsa.net import RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
+from tsa.net import NoContent, RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
@@ -68,7 +69,7 @@ def get_iris_to_dereference(graph, iri):
             yield sub
 
 
-def dereference_from_endpoint(iri, endpoint_iri):
+def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     log.info(f'Dereference {iri} from endpoint {endpoint_iri}')
     store = SPARQLStore(endpoint_iri, True, True, _node_to_sparql,
@@ -92,7 +93,13 @@ def dereference_from_endpoint(iri, endpoint_iri):
     return graph
 
 
-def dereference_from_endpoints(iri, iri_distr, red):
+def _sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
+    for item in list_in:
+        if item is not None:
+            yield item
+
+
+def dereference_from_endpoints(iri: str, iri_distr: str, red: redis.Redis) -> rdflib.ConjunctiveGraph:
     if not test_iri(iri):
         return None
     monitor.log_dereference_processed()
@@ -100,12 +107,14 @@ def dereference_from_endpoints(iri, iri_distr, red):
     log = logging.getLogger(__name__)
 
     _, distrds = ds_distr()
-    for ds_iri in red.smembers(f'{distrds}:{str(iri_distr)}'):
+    for ds_iri_bytes in red.sscan_iter(f'{distrds}:{str(iri_distr)}'):
+        ds_iri = str(ds_iri_bytes)
         log.debug(f'For {iri_distr} we have the dataset {ds_iri}')
-        local_endpoints = red.smembers(dataset_endpoint(str(ds_iri)))
-        endpoints = Config.LOOKUP_ENDPOINTS + local_endpoints
+        endpoints = set(str(endpoint_iri) for endpoint_iri in red.sscan_iter(dataset_endpoint(ds_iri)))  # type: Set[str]
+        endpoints.update(_sanitize_list(Config.LOOKUP_ENDPOINTS))
         for endpoint_iri in endpoints:
-            graph += dereference_from_endpoint(iri, endpoint_iri)
+            if test_iri(endpoint_iri):
+                graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
 
 
@@ -113,7 +122,7 @@ class FailedDereference(ValueError):
     pass
 
 
-def dereference_one_impl(iri_to_dereference, iri_distr):
+def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.debug(f'Dereference: {iri_to_dereference}')
@@ -121,44 +130,26 @@ def dereference_one_impl(iri_to_dereference, iri_distr):
         raise FailedDereference()
     monitor.log_dereference_request()
     try:
-        try:
-            response = fetch(iri_to_dereference, log, red)
-        except RobotsRetry as err:
-            log.warning(f'Should retry with delay of {err.delay}, will lookup in endpoint: {iri_to_dereference}')
-            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-        except requests.exceptions.HTTPError:
-            log.debug(f'HTTP Error dereferencing, will lookup in endpoint: {iri_to_dereference}')
-            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-        except requests.exceptions.RequestException:
-            log.debug(f'Failed to dereference (RequestException fetching): {iri_to_dereference}')
-            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-        except Skip:
-            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-
-        try:
-            test_content_length(iri_to_dereference, response, log)
-            guess, _ = guess_format(iri_to_dereference, response, log)
-        except Skip:
-            log.debug(f'Attempt to lookup {iri_to_dereference} in endpoint')
-            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-
-        try:
-            content = get_content(iri_to_dereference, response, red)
-            if content is None:
-                log.debug(f'No content: {iri_to_dereference}')
-                return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-            content.encode('utf-8')
-            monitor.log_dereference_processed()
-            return load_graph(iri_to_dereference, content, guess)
-        except requests.exceptions.ChunkedEncodingError:
-            log.warning(f'Failed to dereference (ChunkedEncodingError getting content): {iri_to_dereference}')
-            return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-    except RequestException:
-        log.exception(f'Failed to dereference: {iri_to_dereference}')
+        response = fetch(iri_to_dereference, log, red)
+        test_content_length(iri_to_dereference, response, log)
+        guess, _ = guess_format(iri_to_dereference, response, log)
+        content = get_content(iri_to_dereference, response, red)
+        monitor.log_dereference_processed()
+        return load_graph(iri_to_dereference, content, guess)
+    except RobotsRetry as err:
+        log.warning(f'Should retry with delay of {err.delay}, will lookup in endpoint: {iri_to_dereference}')
+        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+    except requests.exceptions.HTTPError:
+        log.debug(f'HTTP Error dereferencing, will lookup in endpoint: {iri_to_dereference}')
+        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+    except requests.exceptions.RequestException:
+        log.debug(f'Failed to dereference (RequestException fetching): {iri_to_dereference}')
+        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+    except (Skip, NoContent):
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 
 
-def dereference_one(iri_to_dereference, iri_distr):
+def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.ConjunctiveGraph, bool]:
     try:
         red = redis.Redis(connection_pool=redis_pool)
         key = dereference_key(iri_to_dereference)
@@ -173,8 +164,8 @@ def dereference_one(iri_to_dereference, iri_distr):
             if graph is not None:
                 red.set(key, graph.serialize(format='n3'))
             else:
-                red.set(key, None)
-        owl = rdflib.URIRef('http://www.w3.org/2002/07/owl#')
+                red.set(key, '')
+        owl = rdflib.Namespace('http://www.w3.org/2002/07/owl#')
         has_same_as = (None, owl.sameAs, None) in graph
         return graph, has_same_as
     except:
@@ -182,7 +173,7 @@ def dereference_one(iri_to_dereference, iri_distr):
         raise FailedDereference() from sys.exc_info()[1]
 
 
-def expand_graph_with_dereferences(graph, iri_distr, recursion=0):
+def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion: int=0) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     if recursion == Config.MAX_RECURSION_LEVEL:
         log.warning(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
@@ -209,13 +200,8 @@ def store_pure_subjects(iri, graph, red):
     red.lpush(pure_subject(iri), *list(subjects_pure))
 
 
-def process_content(content, iri, guess, red, log):
-    if content is None:
-        log.warning(f'No content for {iri}')
-        return
-
+def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: logging.Logger) -> None:
     log.debug(f'Analyze and index {iri}')
-    content.encode('utf-8')
     with TimedBlock('process.load'):
         graph = load_graph(iri, content, guess)
 
@@ -236,51 +222,45 @@ def process_content(content, iri, guess, red, log):
     monitor.log_processed()
 
 
-def do_process(iri, task, is_prio, force):
-    """Analyze an RDF distribution under given IRI."""
-    log = logging.getLogger(__name__)
-
+def _filter(iri: str, is_prio: bool, force: bool, log: logging.Logger, red: redis.Redis) -> None:
     if filter_iri(iri):
         log.debug(f'Skipping distribution as it will not be supported: {iri!s}')
-        monitor.log_processed()
-        return
+        raise Skip()
 
     if not is_prio and (iri.endswith('xml') or iri.endswith('xml.zip')):
         log.debug(f'Skipping distribution as it will not be supported: {iri!s} (xml in the non-priority channel)')
-        monitor.log_processed()
-        return
+        raise Skip()
 
-    red = task.redis
     key = root_name[KeyRoot.DISTRIBUTIONS]
     if not force and red.pfadd(key, iri) == 0:
         log.debug(f'Skipping distribution as it was recently processed: {iri!s}')
-        monitor.log_processed()
-        return
+        raise Skip()
 
-    log.info(f'Processing {iri!s}')
 
+def do_fetch(iri: str, task: Task, is_prio: bool, force: bool, log: logging.Logger, red: redis.Redis) -> Tuple[str, requests.Response]:
     try:
-        try:
-            response = fetch(iri, log, red)
-        except RobotsRetry as err:
-            task.retry(countdown=err.delay)
-        except requests.exceptions.HTTPError as err:
-            log.warning(f'HTTP Error processsing {iri}: {err!s}')  # this is a 404 or similar, not worth retrying
-            monitor.log_processed()
-            return
-        except requests.exceptions.RequestException as err:
-            task.retry(exc=err)
-        except Skip:
-            monitor.log_processed()
-            return
+        _filter(iri, is_prio, force, log, red)
+        log.info(f'Processing {iri!s}')
+        response = fetch(iri, log, red)
+        test_content_length(iri, response, log)
+        guess, priority = guess_format(iri, response, log)
+        is_prio = is_prio | priority
+        return guess, response
+    except RobotsRetry as err:
+        task.retry(countdown=err.delay)
+    except requests.exceptions.HTTPError as err:
+        log.warning(f'HTTP Error processsing {iri}: {err!s}')  # this is a 404 or similar, not worth retrying
+    except requests.exceptions.RequestException as err:
+        task.retry(exc=err)
+    raise Skip()
 
-        try:
-            test_content_length(iri, response, log)
-            guess, priority = guess_format(iri, response, log)
-            is_prio = is_prio | priority
-        except Skip:
-            monitor.log_processed()
-            return
+
+def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
+    """Analyze an RDF distribution under given IRI."""
+    log = logging.getLogger(__name__)
+    red = task.redis
+    try:
+        guess, response = do_fetch(iri, task, is_prio, force, log, red)
 
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
             with TimedBlock('process.decompress'):
@@ -295,6 +275,10 @@ def do_process(iri, task, is_prio, force):
                 process_content(content, iri, guess, red, log)
             except requests.exceptions.ChunkedEncodingError as err:
                 task.retry(exc=err)
+            except NoContent:
+                log.warning(f'No content for {iri}')
+    except Skip:
+        monitor.log_processed()  # any logging is handled already
     except rdflib.exceptions.ParserError as err:
         log.warning(f'Failed to parse {iri!s} - likely not an RDF: {err!s}')
         monitor.log_processed()
@@ -334,4 +318,4 @@ def do_decompress(red, iri, archive_type, request):
             else:
                 process_content(data, sub_iri, guess, red, log)
     except (TypeError, ValueError):
-        log.error(f'Failed to decompress. iri: {iri!s}, archive_type: {archive_type!s}')
+        log.exception(f'Failed to decompress. iri: {iri!s}, archive_type: {archive_type!s}')

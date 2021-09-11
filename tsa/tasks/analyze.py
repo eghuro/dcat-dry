@@ -11,7 +11,7 @@ from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
 
 
-def load_graph(iri, data, format_guess):
+def load_graph(iri: str, data: str, format_guess: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     try:
         graph = rdflib.ConjunctiveGraph()
@@ -55,7 +55,7 @@ def do_analyze_and_index(graph, iri, red):
 def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red):
     log.debug(f'Analyzing {iri} with {analyzer_class.token}')
     with TimedBlock(f'analyze.{analyzer_class.token}'):
-        res = analyzer.analyze(graph)
+        res = analyzer.analyze(graph, iri)
     log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
     analyses.append({analyzer_class.token: res})
 
