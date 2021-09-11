@@ -85,7 +85,7 @@ def _get_queue(distribution: Any, graph: rdflib.Graph) -> List[str]:
 
 
 def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: Any, graph: rdflib.Graph, pipe: redis.client.Pipeline, log: logging.Logger) -> Tuple[Set[str], List[str]]:
-    log.debug(f'Distr: {distribution!s}')
+    log.debug('Distr: %s', str(distribution))
     queue = _get_queue(distribution, graph)
 
     # download URL to files
@@ -95,35 +95,35 @@ def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: 
         # log.debug(f'Down: {download_url!s}')
         if check_iri(str(download_url)) and not filter_iri(str(download_url)):
             if download_url.endswith('/sparql'):
-                log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {dataset!s} (effective: {effective_dataset!s})')
+                log.info('Guessing %s is a SPARQL endpoint, will use for dereferences from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                 endpoints.add(download_url)
             else:
                 downloads.append(download_url)
                 distribution = True
-                log.debug(f'Distribution {download_url!s} from DCAT dataset {dataset!s} (effective: {effective_dataset!s})')
+                log.debug('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                 queue.append(download_url)
                 pipe.sadd(f'{dsdistr}:{str(effective_dataset)}', str(download_url))
                 pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_dataset))
         else:
-            log.debug(f'{download_url!s} is not a valid download URL')
+            log.debug('%s is not a valid download URL', str(download_url))
 
     # scan for DCAT2 data services here as well
     for access in graph.objects(distribution, dcat.accessService):
-        log.debug(f'Service: {access!s}')
+        log.debug('Service: %s', str(access))
         for endpoint in graph.objects(access, dcat.endpointURL):
             if check_iri(str(endpoint)):
-                log.debug(f'Endpoint {endpoint!s} from DCAT dataset {dataset!s}')
+                log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
                 endpoints.add(endpoint)
     return endpoints, downloads
 
 
 def _dataset_extractor(dataset: Any, lookup_endpoint: str, graph: rdflib.Graph, log: logging.Logger, pipe: redis.client.Pipeline) -> bool:
-    log.debug(f'DS: {dataset!s}')
+    log.debug('DS: %s', str(dataset))
     effective_dataset = dataset
     distribution = False
 
     for parent in _query_parent(dataset, lookup_endpoint, log):
-        log.debug(f'{parent!s} is a series containing {dataset!s}')
+        log.debug('%s is a series containing %s', parent, str(dataset))
         effective_dataset = parent
 
     # DCAT Distribution
@@ -136,13 +136,13 @@ def _dataset_extractor(dataset: Any, lookup_endpoint: str, graph: rdflib.Graph, 
         pipe.sadd(dataset_endpoint(str(effective_dataset)), endpoint)
 
     if not downloads and endpoints:
-        log.warning(f'Only endpoint without distribution for {dataset!s}')
+        log.warning('Only endpoint without distribution for %s', str(dataset))
 
     return distribution
 
 
 def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, force: bool, graph_iri: str, lookup_endpoint: str) -> None:
-    log.debug(f'Extracting distributions from {graph_iri}')
+    log.debug('Extracting distributions from %s', graph_iri)
     # DCAT dataset
     with TimedBlock('dcat_extractor'):
         distribution = False
@@ -166,14 +166,10 @@ def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
     log = logging.getLogger(__name__)
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        _do_inspect_graph(inspector, graph_iri, force, red, endpoint_iri, log)
+        _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
+        monitor.log_inspected()
     except (rdflib.query.ResultException, HTTPError):
-        log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
-
-
-def _do_inspect_graph(inspector: SparqlEndpointAnalyzer, graph_iri: str, force: bool, red: redis.Redis, endpoint_iri: str, log: logging.Logger) -> None:
-    _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
-    monitor.log_inspected()
+        log.error('Failed to inspect graph %s: ResultException or HTTP Error', graph_iri)
 
 
 def _multiply(item: Any, times: int):
@@ -185,6 +181,6 @@ def _multiply(item: Any, times: int):
 def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunks: int) -> AsyncResult:
     items = len(graphs)
     monitor.log_graph_count(items)
-    logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
+    logging.getLogger(__name__).info('Batch of %d graphs in %s', items, endpoint_iri)
     return inspect_graph.chunks(zip(_multiply(endpoint_iri, items), graphs, _multiply(force, items)), chunks).apply_async()
     # 1000 graphs into 10 chunks of 100

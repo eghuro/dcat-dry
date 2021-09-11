@@ -31,7 +31,6 @@ pyroma:
 pylint:
     run: true
     disable:
-        - logging-fstring-interpolation
         - too-few-public-methods
 vulture:
     run: true

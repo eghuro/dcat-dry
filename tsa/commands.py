@@ -29,12 +29,12 @@ def batch(graphs=None, sparql=None):
     log = logging.getLogger(__name__)
     print(graphs)
     if not check_iri(sparql):
-        log.error(f'Not a valid SPARQL Endpoint: {sparql}')
+        log.error('Not a valid SPARQL Endpoint: %s', sparql)
         return
     if len(graphs) == 0:
         log.warning('No graphs given')
         return
-    log.info(f'Analyzing endpoint {sparql}, graphs: {len(graphs)}')
+    log.info('Analyzing endpoint %s, graphs: %d', sparql, len(graphs))
     with open(graphs, 'r', encoding='utf-8') as graphs_file:
         lines = graphs_file.readlines()
         for iris in divide_chunks(lines, 1000):
