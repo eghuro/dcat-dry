@@ -41,11 +41,6 @@ class RuianEnricher(AbstractEnricher):
             except ValueError as err:
                 logging.getLogger(__name__).exception('Value error loading ruian analysis for %s', ruian_iri)
                 raise NoEnrichment() from err
-
-            # return {
-            #    'vusc': ruian_iri[len(root):].split('/')[0],
-            #    'iri': ruian_iri
-            # }
         else:
             raise NoEnrichment()
 
@@ -71,9 +66,5 @@ class TimeEnricher(AbstractEnricher):
             except ValueError as err:
                 logging.getLogger(__name__).exception('Value error loading time analysis for %s', time_iri)
                 raise NoEnrichment() from err
-
-            # return {
-            #    'date': time_iri[len(root):]
-            # }
         else:
             raise NoEnrichment()
