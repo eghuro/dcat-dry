@@ -8,7 +8,7 @@ from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
-from tsa.tasks.batch import inspect_graphs
+from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import test_iri
 
@@ -42,8 +42,8 @@ def batch(graphs=None, sparql=None):
         lines = graphs_file.readlines()
         for iris in divide_chunks(lines, 1000):
             graphs = [iri.strip() for iri in iris if test_iri(iri)]
-            inspect_graphs.si(graphs, sparql, False).apply_async()
-            # batch_inspect.si(sparql, graphs, False, 10).apply_async()
+            # inspect_graphs.si(graphs, sparql, False).apply_async()
+            batch_inspect.si(sparql, graphs, False, 10).apply_async()
 
 
 @click.command()

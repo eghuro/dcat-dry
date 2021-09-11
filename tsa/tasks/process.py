@@ -50,7 +50,7 @@ def filter_iri(iri):
         iri.startswith('http://services.cuzk.cz/') or iri.startswith('https://services.cuzk.cz/')
 
 
-def get_iris_to_dereference(graph, iri):
+def get_iris_to_dereference(graph: rdflib.Graph, iri: str) -> Generator[str, None, None]:
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug(f'Graph is None when dereferencing {iri}')
@@ -149,6 +149,15 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 
 
+def has_same_as(graph: rdflib.Graph) -> bool:
+    owl = rdflib.Namespace('http://www.w3.org/2002/07/owl#')
+    if graph is None:
+        return False
+    for _ in graph.subject_objects(owl.sameAs):
+        return True
+    return False
+
+
 def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.ConjunctiveGraph, bool]:
     try:
         red = redis.Redis(connection_pool=redis_pool)
@@ -165,9 +174,8 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
                 red.set(key, graph.serialize(format='n3'))
             else:
                 red.set(key, '')
-        owl = rdflib.Namespace('http://www.w3.org/2002/07/owl#')
-        has_same_as = (None, owl.sameAs, None) in graph
-        return graph, has_same_as
+
+        return graph, has_same_as(graph)
     except:
         logging.getLogger(__name__).exception(f'All attempts to dereference failed: {iri_to_dereference}')
         raise FailedDereference() from sys.exc_info()[1]

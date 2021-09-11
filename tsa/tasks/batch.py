@@ -160,24 +160,26 @@ def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, 
 @celery.task(base=TrackableTask)
 def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
     red = inspect_graph.redis
-    _do_inspect_graph(graph_iri, force, red, endpoint_iri)
-
-
-def _do_inspect_graph(graph_iri: str, force: bool, red: redis.Redis, endpoint_iri: str) -> None:
     log = logging.getLogger(__name__)
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
+        _do_inspect_graph(inspector, graph_iri, force, red, endpoint_iri, log)
     except (rdflib.query.ResultException, HTTPError):
         log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
+
+
+def _do_inspect_graph(inspector: SparqlEndpointAnalyzer, graph_iri: str, force: bool, red: redis.Redis, endpoint_iri: str, log: logging.Logger) -> None:
+    _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
     monitor.log_inspected()
 
 
 @celery.task(base=TrackableTask)
 def inspect_graphs(graphs: Iterable[str], endpoint_iri: str, force: bool) -> None:
     red = inspect_graphs.redis
+    log = logging.getLogger(__name__)
+    inspector = SparqlEndpointAnalyzer(endpoint_iri)
     for graph in graphs:
-        _do_inspect_graph(graph, force, red, endpoint_iri)
+        _do_inspect_graph(inspector, graph, force, red, endpoint_iri, log)
 
 
 def _multiply(item: Any, times: int):
