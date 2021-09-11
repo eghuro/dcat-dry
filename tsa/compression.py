@@ -25,7 +25,7 @@ def _load_data(iri: str, response: requests.Response) -> bytes:
     return data
 
 
-def decompress_gzip(iri: str, response: requests.Response) -> Tuple[str, str]:
+def decompress_gzip(iri: str, response: requests.Response) -> Generator[Tuple[str, str], None, None]:
     """Decompress gzip data.
 
     Loads response data in memory, decompresses it as gzip and decodes the result to string.
@@ -43,7 +43,7 @@ def decompress_gzip(iri: str, response: requests.Response) -> Tuple[str, str]:
     monitor.log_size(deco_size_total)
     log = logging.getLogger(__name__)
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')
-    return f'{iri}', decompressed.getvalue().decode('utf-8')
+    yield f'{iri}', decompressed.getvalue().decode('utf-8')
 
 
 def _create_sub_iri(name: str, iri: str, log: logging.Logger) -> str:
