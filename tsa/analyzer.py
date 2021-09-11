@@ -427,7 +427,13 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
         return {}
 
 
-class TimeAnalyzer(AbstractAnalyzer):
+class AbstractEnricher(AbstractAnalyzer):
+
+    def find_relation(self, graph: Graph) -> None:
+        pass  # enrichers do not discover relations
+
+
+class TimeAnalyzer(AbstractEnricher):
     token = 'time'  # nosec
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
@@ -451,7 +457,7 @@ class TimeAnalyzer(AbstractAnalyzer):
         return result
 
 
-class RuianAnalyzer(AbstractAnalyzer):
+class RuianAnalyzer(AbstractEnricher):
     token = 'ruian'  # nosec
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
