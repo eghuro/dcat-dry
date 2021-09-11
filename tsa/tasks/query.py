@@ -8,12 +8,12 @@ from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.celery import celery
 from tsa.extensions import concept_index, ddr_index, dsd_index, mongo_db, redis_pool, same_as_index
+from tsa.notification import message_to_mattermost
 from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, ds_distr, pure_subject
 from tsa.redis import related as related_key
 from tsa.redis import sanitize_key
 from tsa.report import export_labels
 from tsa.ruian import RuianInspector
-from tsa.util import message_to_mattermost
 
 # === ANALYSIS (PROFILE) ===
 
