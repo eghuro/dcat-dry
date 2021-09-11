@@ -22,7 +22,7 @@ from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import test_iri
 
 
-def _query_parent(dataset_iri: str, endpoint: str) -> Generator[str, None, None]:
+def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Generator[str, None, None]:
     opts = [f'<{dataset_iri!s}> <http://purl.org/dc/terms/isPartOf> ?parent',
             f'?parent <http://purl.org/dc/terms/hasPart> <{dataset_iri!s}> ',
             f'<{dataset_iri!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
@@ -30,9 +30,12 @@ def _query_parent(dataset_iri: str, endpoint: str) -> Generator[str, None, None]
     graph = Graph(SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT}))
     for opt in opts:
         query = f'SELECT ?parent WHERE {{ {opt} }}'
-        for parent in graph.query(query):
-            parent_iri = str(parent['parent'])
-            yield str(parent_iri)
+        try:
+            for parent in graph.query(query):
+                parent_iri = str(parent['parent'])
+                yield str(parent_iri)
+        except ValueError:
+            log.warning(f'Failed to query parent. Query was: {iri}')
 
 
 dcat = Namespace('http://www.w3.org/ns/dcat#')
@@ -119,7 +122,7 @@ def _dataset_extractor(dataset: Any, lookup_endpoint: str, graph: rdflib.Graph, 
     effective_dataset = dataset
     distribution = False
 
-    for parent in _query_parent(dataset, lookup_endpoint):
+    for parent in _query_parent(dataset, lookup_endpoint, log):
         log.debug(f'{parent!s} is a series containing {dataset!s}')
         effective_dataset = parent
 
