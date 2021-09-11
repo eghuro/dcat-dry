@@ -302,7 +302,8 @@ class GenericAnalyzer(AbstractAnalyzer):
 
     token = 'generic'  # nosec
 
-    def _count(self, graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
+    @staticmethod
+    def _count(graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
         triples = 0
         predicates_count = defaultdict(int)  # type: DefaultDict[str, int]
         classes_count = defaultdict(int)  # type: DefaultDict[str, int]
@@ -395,7 +396,8 @@ class GenericAnalyzer(AbstractAnalyzer):
                 pipe.sadd(key, type_of_iri)
             pipe.execute()
 
-    def extract_label(self, literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable) -> None:
+    @staticmethod
+    def extract_label(literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable) -> None:
         if literal is not None and isinstance(literal, Literal):
             value, language = literal.value, literal.language
             key = query(iri, language)

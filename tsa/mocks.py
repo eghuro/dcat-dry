@@ -1,4 +1,5 @@
 class Robots:
 
-    def robots_url(self, *args):  # pylint: disable=unused-argument
+    @staticmethod
+    def robots_url(*args):  # pylint: disable=unused-argument
         return ''

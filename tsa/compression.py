@@ -17,11 +17,11 @@ if platform == 'darwin':
 
 def _load_data(iri: str, response: requests.Response) -> bytes:
     log = logging.getLogger(__name__)
-    log.debug(f'Downloading {iri} into an in-memory buffer')
+    log.debug('Downloading %s into an in-memory buffer', iri)
     buffer = BytesIO(response.content)
     log.debug('Read the buffer')
     data = buffer.read()
-    log.debug(f'Size: {len(data)}')
+    log.debug('Size: %d', len(data))
     return data
 
 
@@ -42,8 +42,8 @@ def decompress_gzip(iri: str, response: requests.Response) -> Generator[Tuple[st
     deco_size_total = decompressed.getbuffer().nbytes
     monitor.log_size(deco_size_total)
     log = logging.getLogger(__name__)
-    log.debug(f'Done decompression, total decompressed size {deco_size_total}')
-    yield f'{iri}', decompressed.getvalue().decode('utf-8')
+    log.debug('Done decompression, total decompressed size %d', deco_size_total)
+    yield iri, decompressed.getvalue().decode('utf-8')
 
 
 def _create_sub_iri(name: str, iri: str, log: logging.Logger) -> str:
@@ -52,7 +52,7 @@ def _create_sub_iri(name: str, iri: str, log: logging.Logger) -> str:
             sub_iri = iri[:-4]
         else:
             sub_iri = f'{iri}/{name}'
-            log.error(f'Empty name, iri: {iri!s}')
+            log.error('Empty name, iri: %s', iri)
     else:
         sub_iri = f'{iri}/{name}'
     return sub_iri
@@ -87,11 +87,11 @@ def decompress_7z(iri: str, response: requests.Response) -> Generator[Tuple[str,
             sub_iri = _create_sub_iri(name, iri, log)
             conlen, data = _load_entry_data(entry)
             monitor.log_size(conlen)
-            log.debug(f'Subfile has size {conlen}')
+            log.debug('Subfile has size %d', conlen)
             deco_size_total = deco_size_total + conlen
             if conlen > 0:
                 try:
                     yield sub_iri, data.getvalue().decode('utf-8')
                 except UnicodeDecodeError:
                     yield sub_iri, str(data.getvalue())
-    log.debug(f'Done decompression, total decompressed size {deco_size_total}')
+    log.debug('Done decompression, total decompressed size %d', deco_size_total)

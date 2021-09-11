@@ -20,9 +20,9 @@ from tsa.util import check_iri
 blueprint = Blueprint('public', __name__, static_folder='../static')
 
 
-@blueprint.route('/api/v1/query/dataset', methods=['GET'])
+@blueprint.route('/api/v1/query/dataset', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
-def dcat_viewer_index_query():
+def dcat_viewer_index_query():  # noqa: inconsistent-return-statements
     iri = request.args.get('iri', None)
     if check_iri(iri):
         current_app.logger.info(f'Valid dataset request for {iri}')
@@ -40,14 +40,14 @@ def dcat_viewer_index_query():
 
 @blueprint.route('/api/v1/query/sameas', methods=['GET'])
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
-def same_as():
+def same_as():  # noqa: inconsistent-return-statements
     iri = request.args.get('iri', None)
     if check_iri(iri):
         return jsonify(list(same_as_index.lookup(iri)))
     abort(400)
 
 
-@blueprint.route('/api/v1/query/analysis', methods=['POST'])
+@blueprint.route('/api/v1/query/analysis', methods=['POST'])  # noqa: unused-function
 @csrf.exempt
 def batch_analysis():
     """Get a big report for all required distributions."""
@@ -56,9 +56,9 @@ def batch_analysis():
     return result_id
 
 
-@blueprint.route('/api/v1/query/analysis/result', methods=['GET'])
+@blueprint.route('/api/v1/query/analysis/result', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
-def fetch_analysis():
+def fetch_analysis():  # noqa: inconsistent-return-statements
     batch_id = request.args.get('id', None)
     if batch_id is not None:
         analyses = defaultdict(list)
@@ -82,7 +82,7 @@ def fetch_analysis():
     abort(400)
 
 
-@blueprint.route('/api/v1/export/labels', methods=['GET'])
+@blueprint.route('/api/v1/export/labels', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_labels_endpoint():
     return jsonify(export_labels())
@@ -96,7 +96,7 @@ def import_labels_endpoint():
     return 'OK'
 
 
-@blueprint.route('/api/v1/export/related', methods=['GET'])
+@blueprint.route('/api/v1/export/related', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_related_endpoint():
     obj = export_related()
@@ -104,7 +104,7 @@ def export_related_endpoint():
     return jsonify(obj)
 
 
-@blueprint.route('/api/v1/export/profile', methods=['GET'])
+@blueprint.route('/api/v1/export/profile', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_profile_endpoint():
     lst = []
@@ -114,7 +114,7 @@ def export_profile_endpoint():
     return jsonify(lst)
 
 
-@blueprint.route('/api/v1/export/sameas', methods=['GET'])
+@blueprint.route('/api/v1/export/sameas', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_sameas_endpoint():
     return jsonify(same_as_index.export_index())
@@ -144,7 +144,7 @@ def import_profile_endpoint():
     return 'OK'
 
 
-@blueprint.route('/api/v1/export/interesting', methods=['GET'])
+@blueprint.route('/api/v1/export/interesting', methods=['GET'])  # noqa: unused-function
 def export_interesting_endpoint():
     return jsonify(export_interesting())
 
@@ -158,7 +158,7 @@ def import_interesting_endpoint():
     abort(400)
 
 
-@blueprint.route('/list', methods=['GET'])
+@blueprint.route('/list', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def view_list():
     data = list_datasets()
@@ -166,7 +166,7 @@ def view_list():
     return render_template('list.html', datasets=data)
 
 
-@blueprint.route('/detail', methods=['GET'])
+@blueprint.route('/detail', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def view_detail():
     iri = request.args.get('iri', None)
@@ -174,7 +174,7 @@ def view_detail():
     return render_template('detail.html', dataset=profile)
 
 
-@blueprint.route('/sd')
+@blueprint.route('/sd')  # noqa: unused-function
 @returns_rdf
 def service_description():
     endpoint_iri = request.args.get('endpoint', None)
@@ -183,7 +183,7 @@ def service_description():
     return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
 
 
-@blueprint.route('/api/v1/version')
+@blueprint.route('/api/v1/version')  # noqa: unused-function
 def version():
     doc = {
         'app': tsa.__version__
