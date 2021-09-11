@@ -449,11 +449,11 @@ class TimeAnalyzer(AbstractEnricher):
         """
         result = {}
         for row in graph.query(query):
-            iri = str(row['day_iri'])
+            day_iri = str(row['day_iri'])
             day = str(row['day']).zfill(2)
             month = str(row['month']).zfill(2)
             year = str(row['year'])
-            result[iri] = f'{year}-{month}-{day}'
+            result[day_iri] = f'{year}-{month}-{day}'
         return result
 
 
@@ -476,15 +476,15 @@ class RuianAnalyzer(AbstractEnricher):
         result = {}
         ruian_prefix = 'https://linked.cuzk.cz/resource/ruian/'
         for row in graph.query(query):
-            iri = str(row['iri'])
+            ruian_iri = str(row['iri'])
             name = str(row['name'])
             ruian_type_iri = str(row['type_iri'])
             ruian_type_label = str(row['type_label'])
             longitude = str(row['longitude'])
             latitude = str(row['latitude'])
-            if iri.startswith(ruian_prefix) and ruian_type_iri.startswith(ruian_prefix):
-                result[iri] = {
-                    'iri': iri,
+            if ruian_iri.startswith(ruian_prefix) and ruian_type_iri.startswith(ruian_prefix):
+                result[ruian_iri] = {
+                    'iri': ruian_iri,
                     'name': name,
                     'type': {
                         'iri': ruian_type_iri,
