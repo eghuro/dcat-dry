@@ -156,23 +156,6 @@ def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, 
     monitor.log_tasks(len(tasks))
     group(tasks).apply_async()
 
-# @celery.task(base=TrackableTask)
-# def inspect_catalog(key):
-#    """Analyze DCAT datasets listed in the catalog."""
-#   log = logging.getLogger(__name__)
-#    red = inspect_catalog.redis
-#
-#    log.debug('Parsing graph')
-#    try:
-#        graph = rdflib.ConjunctiveGraph()
-#       graph.parse(data=red.get(key), format='n3')
-#        red.delete(key)
-#    except rdflib.plugin.PluginException:
-#        log.debug('Failed to parse graph')
-#        return None
-#
-#    return _dcat_extractor(graph, red, log, False, key, None)
-
 
 @celery.task(base=TrackableTask)
 def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
