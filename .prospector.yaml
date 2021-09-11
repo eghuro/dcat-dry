@@ -1,5 +1,5 @@
 output-format: pylint
-striictness: veryhigh
+strictness: veryhigh
 uses:
     - celery
     - flask
