@@ -43,7 +43,7 @@ class QbDataset:
 class CubeAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on DataCube."""
 
-    token = 'cube'
+    token = 'cube'  # nosec
 
     def find_relation(self, graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
         """We consider DSs to be related if they share a resource on dimension."""
@@ -162,7 +162,7 @@ class CubeAnalyzer(AbstractAnalyzer):
 class SkosAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on SKOS."""
 
-    token = 'skos'
+    token = 'skos'  # nosec
 
     @staticmethod
     def _scheme_count_query(scheme: str) -> str:
@@ -300,7 +300,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 class GenericAnalyzer(AbstractAnalyzer):
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
-    token = 'generic'
+    token = 'generic'  # nosec
 
     def _count(self, graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
         triples = 0
@@ -330,7 +330,7 @@ class GenericAnalyzer(AbstractAnalyzer):
 
         return triples, predicates_count, classes_count, objects, subjects, locally_typed
 
-    def analyze(self, graph: Graph, iri: str) -> dict:
+    def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         """Basic graph analysis."""
         triples, initial_predicates_count, initial_classes_count, objects_list, subjects_list, locally_typed_list = self._count(graph)
         predicates_count = [{'iri': iri, 'count': count} for (iri, count) in initial_predicates_count.items()]
@@ -409,7 +409,7 @@ class GenericAnalyzer(AbstractAnalyzer):
 
 class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
 
-    token = 'schema-hierarchical-geo'
+    token = 'schema-hierarchical-geo'  # nosec
 
     def find_relation(self, graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
         query = """
@@ -428,9 +428,9 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
 
 
 class TimeAnalyzer(AbstractAnalyzer):
-    token = 'time'
+    token = 'time'  # nosec
 
-    def analyze(self, graph: Graph, iri_unused: str) -> dict:
+    def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
         PREFIX interval: <http://reference.data.gov.uk/def/intervals/>
         SELECT ?day_iri ?day ?month ?year
@@ -452,9 +452,9 @@ class TimeAnalyzer(AbstractAnalyzer):
 
 
 class RuianAnalyzer(AbstractAnalyzer):
-    token = 'ruian'
+    token = 'ruian'  # nosec
 
-    def analyze(self, graph: Graph, iri_unused: str) -> dict:
+    def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>

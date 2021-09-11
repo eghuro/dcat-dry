@@ -12,8 +12,6 @@ from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import test_iri
 
-HERE = os.path.abspath(os.path.dirname(__file__))
-
 
 def divide_chunks(list_to_split, chunk_size):
     # looping till length of the list_to_split

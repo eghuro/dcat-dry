@@ -1,6 +1,7 @@
 """User agent and robots cache."""
 import resource
 from functools import lru_cache
+from typing import Tuple, Union
 
 import redis
 import requests
@@ -12,11 +13,7 @@ from tsa.extensions import redis_pool
 try:
     from reppy.robots import Robots
 except ImportError:
-
-    class Robots:
-
-        def robots_url(self, *args):
-            return ''
+    from tsa.mocks import Robots  # type: ignore
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 
@@ -28,7 +25,7 @@ session.mount('http://', adapter)
 session.mount('https://', adapter)
 
 
-def allowed(iri):
+def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
     robots_iri = Robots.robots_url(iri)
 
     text = fetch_robots(robots_iri)
@@ -39,13 +36,13 @@ def allowed(iri):
 
 
 @lru_cache()
-def fetch_robots(robots_iri):
+def fetch_robots(robots_iri: str) -> Union[str, None]:
     if len(robots_iri) == 0:
         return None
     red = redis.Redis(connection_pool=redis_pool)
     key = f'robots_{robots_iri}'
     if red.exists(key):
-        return red.get(key)
+        return str(red.get(key))
 
     response = session.get(robots_iri, verify=False)
     with red.pipeline() as pipe:

@@ -11,7 +11,7 @@ from tsa.extensions import cache, cors, csrf, on_error
 from tsa.log import logging_setup
 
 
-@environment('DSN', default=[None], onerror=on_error)
+@environment('DSN', default=[None], onerror=on_error)  # noqa: unused-function
 def create_app(config_object, dsn_str=None):
     """
     An application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.

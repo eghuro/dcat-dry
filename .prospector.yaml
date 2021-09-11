@@ -1,0 +1,40 @@
+output-format: pylint
+striictness: veryhigh
+uses:
+    - celery
+    - flask
+max-line-length: 200
+ignore-paths:
+    - tsa/settings.py
+    - tsa/celeryconnfig.py
+    - tsa/cache.py
+doc-warnings: false
+pylint:
+    member-warnings: false
+    disable:
+        - too-few-public-methods
+bandit:
+    run: true
+dodgy:
+    run: true
+mccabe:
+    run: true
+pep8:
+    run: true
+    full: true
+frosted:
+    run: true
+pyflakes:
+    run: true
+pyroma:
+    run: true
+pylint:
+    run: true
+    disable:
+        - logging-fstring-interpolation
+vulture:
+    run: true
+mypy:
+    run: true
+    options:
+        ignore-missing-imports: true

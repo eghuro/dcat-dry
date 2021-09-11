@@ -18,7 +18,7 @@ class NoEnrichment(Exception):
 
 
 class RuianEnricher(AbstractEnricher):
-    token = 'ruian'
+    token = 'ruian'  # nosec
 
     def __init__(self):
         self.__redis = redis.Redis(connection_pool=redis_pool)
@@ -46,7 +46,7 @@ class RuianEnricher(AbstractEnricher):
 
 
 class TimeEnricher(AbstractEnricher):
-    token = 'date'
+    token = 'date'  # nosec
 
     def __init__(self):
         self.__redis = redis.Redis(connection_pool=redis_pool)

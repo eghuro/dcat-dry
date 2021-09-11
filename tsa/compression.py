@@ -93,5 +93,5 @@ def decompress_7z(iri: str, response: requests.Response) -> Generator[Tuple[str,
                 try:
                     yield sub_iri, data.getvalue().decode('utf-8')
                 except UnicodeDecodeError:
-                    yield sub_iri, data.getvalue()
+                    yield sub_iri, str(data.getvalue())
     log.debug(f'Done decompression, total decompressed size {deco_size_total}')
