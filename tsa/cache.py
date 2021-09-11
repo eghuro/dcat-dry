@@ -1,5 +1,4 @@
 """Helper tools for caching."""
-
 import binascii
 import datetime
 import inspect
@@ -88,8 +87,8 @@ def cached(cacheable=False,
 # source: https://gist.github.com/abulka/6ab5b2afc5d1adda6f08126a617dd02a
 ALLOW_NON_REDIS_CACHING = False
 
-_CacheInfo = namedtuple("CacheInfo", ["hits", "misses", "maxsize", "currsize"])
-_CacheInfoVerbose = namedtuple("CacheInfoVerbose", ["hits", "misses", "maxsize", "currsize", "paramsignatures"])
+_CacheInfo = namedtuple("_CacheInfo", ["hits", "misses", "maxsize", "currsize"])
+_CacheInfoVerbose = namedtuple("_CacheInfoVerbose", ["hits", "misses", "maxsize", "currsize", "paramsignatures"])
 
 
 def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):

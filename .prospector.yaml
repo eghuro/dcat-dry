@@ -6,7 +6,7 @@ uses:
 max-line-length: 200
 ignore-paths:
     - tsa/settings.py
-    - tsa/celeryconnfig.py
+    - tsa/celeryconfig.py
     - tsa/cache.py
 doc-warnings: false
 pylint:
