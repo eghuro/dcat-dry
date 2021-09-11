@@ -21,6 +21,8 @@ class Config:
     ANALYZE_IMMEDIATELY = True
     SD_BASE_IRI = 'https://data.eghuro.cz/resource/'
     MAX_RECURSION_LEVEL = 3
+    MATTERMOST_CHANNEL = os.environ.get('CHANNEL', None)
+    MATTERMOST_HOOK = os.environ.get('MATTERMOST', None)
 
 
 class ProdConfig(Config):
