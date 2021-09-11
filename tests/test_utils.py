@@ -1,4 +1,7 @@
-from tsa.tasks.process import filter_iri, sanitize_list
+from rdflib import Graph, Namespace
+
+from tsa.redis import pure_subject
+from tsa.tasks.process import filter_iri, sanitize_list, store_pure_subjects
 from tsa.util import check_iri
 
 
@@ -38,3 +41,50 @@ def test_sanitize_list():
     assert [] == list(sanitize_list([None, None]))
     assert [1] == list(sanitize_list([1]))
     assert [0, 1] == list(sanitize_list([0, None, 1]))
+
+
+def test_store_pure():
+
+    class RedisMock:
+
+        def __init__(self):
+            self.__list = []
+            self.__key = None
+
+        def lpush(self, key, *items):
+            self.__list.extend(items)
+            self.__key = key
+
+        @property
+        def list(self):
+            return self.__list
+
+        @property
+        def key(self):
+            return self.__key
+
+        def clear(self):
+            self.__list = []
+
+    red = RedisMock()
+    g = Graph()
+    store_pure_subjects('a', g, red)
+
+    assert red.key == pure_subject('a')
+    assert red.list == []
+
+    ns = Namespace('file://localhost/')
+    g.add((ns['a'], ns['b'], ns['c']))
+    store_pure_subjects('b', g, red)
+    assert red.key == pure_subject('b')
+    assert set(red.list) == set([str(ns['a'])])
+
+    g.add((ns['a'], ns['c'], ns['d']))
+    store_pure_subjects('', g, red)
+    assert red.key == pure_subject('')
+    assert set(red.list) == set([str(ns['a'])])
+
+    g.add((ns['b'], ns['c'], ns['d']))
+    store_pure_subjects(None, g, red)
+    assert red.key == pure_subject(None)
+    assert set(red.list) == set([str(ns['a']), str(ns['b'])])
