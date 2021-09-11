@@ -35,7 +35,12 @@ pipeline {
 
 		stage('Lint') {
 			agent { label 'use' }
-			when { branch 'develop' }
+			when { anyof
+				{
+					branch 'develop'
+					branch pattern: "hotfix/.+", comparator: "REGEXP"
+				}
+			}
 			steps {
 				script {
 					sh '''#!/usr/bin/env bash
@@ -74,7 +79,7 @@ pipeline {
 				anyOf {
 					branch 'develop'
 					branch 'master'
-					branch pattern: "release/.+", comparator: "REGEXP"
+					branch pattern: "hotfix/.+", comparator: "REGEXP"
 					buildingTag()
 				}
 			}
