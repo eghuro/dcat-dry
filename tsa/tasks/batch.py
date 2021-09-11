@@ -16,7 +16,7 @@ from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
 from tsa.redis import dataset_endpoint, ds_distr
-from tsa.robots import USER_AGENT
+from tsa.robots import USER_AGENT, session
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import test_iri
@@ -27,7 +27,7 @@ def _query_parent(dataset_iri: str, endpoint: str) -> Generator[str, None, None]
             f'?parent <http://purl.org/dc/terms/hasPart> <{dataset_iri!s}> ',
             f'<{dataset_iri!s}> <http://www.w3.org/ns/dcat#inSeries> ?parent',
             ]
-    graph = Graph(SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT}))
+    graph = Graph(SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT}, session=session))
     for opt in opts:
         query = f'SELECT ?parent WHERE {{ {opt} }}'
         for parent in graph.query(query):
