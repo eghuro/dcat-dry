@@ -8,7 +8,10 @@ from setuptools import find_packages, setup
 import tsa
 
 with open('requirements.txt', encoding='utf-8') as requirements_file:
-    required = requirements_file.read().splitlines()
+    required_set = set(requirements_file.read().splitlines())
+    required_set.discard('statsd==3.3.0')
+    required_set.discard('reppy==0.4.14')
+    required = list(required_set)
 
 with open('README.rst', encoding='utf-8') as readme_file:
     readme = readme_file.read()
@@ -30,7 +33,8 @@ REQUIRED = required
 
 # What packages are optional?
 EXTRAS = {
-    'monitor': ['statsd'],
+    'monitor': ['statsd==3.3.0'],
+    'robots': ['reppy==0.4.14']
 }
 
 # The rest you shouldn't have to touch too much :)

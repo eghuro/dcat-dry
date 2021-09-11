@@ -3,12 +3,20 @@ import resource
 from functools import lru_cache
 
 import redis
-import reppy.robots
 import requests
 import requests_toolbelt
 
 import tsa
 from tsa.extensions import redis_pool
+
+try:
+    from reppy.robots import Robots
+except ImportError:
+
+    class Robots:
+
+        def robots_url(self, *args):
+            return ''
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 
@@ -21,17 +29,19 @@ session.mount('https://', adapter)
 
 
 def allowed(iri):
-    robots_iri = reppy.robots.Robots.robots_url(iri)
+    robots_iri = Robots.robots_url(iri)
 
     text = fetch_robots(robots_iri)
     if text is None:
         return True, None, robots_iri
-    robots = reppy.robots.Robots.parse('', text)
+    robots = Robots.parse('', text)
     return robots.allowed(iri, USER_AGENT), robots.agent(USER_AGENT).delay, robots_iri
 
 
 @lru_cache()
 def fetch_robots(robots_iri):
+    if len(robots_iri) == 0:
+        return None
     red = redis.Redis(connection_pool=redis_pool)
     key = f'robots_{robots_iri}'
     if red.exists(key):
