@@ -5,6 +5,7 @@ from typing import Any, Collection, Generator, Iterable, List, Set, Tuple
 import rdflib
 import redis
 from celery import group
+from celery.result import AsyncResult
 from rdflib import Graph, Namespace
 from rdflib.namespace import RDF
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
@@ -207,7 +208,7 @@ def _split(a, n):
 
 
 @celery.task(base=TrackableTask)
-def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunks: int) -> celery.result.AsyncResult:
+def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunks: int) -> AsyncResult:
     items = len(graphs)
     monitor.log_graph_count(items)
     logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
