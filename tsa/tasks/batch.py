@@ -1,6 +1,6 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
-from typing import Any, Collection, Generator, Iterable, List, Tuple
+from typing import Any, Collection, Generator, Iterable, List, Set, Tuple
 
 import rdflib
 import redis
@@ -80,7 +80,7 @@ def _get_queue(distribution: Any, graph: rdflib.Graph) -> List[str]:
     return queue
 
 
-def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: Any, graph: rdflib.Graph, pipe: redis.client.Pipeline, log: logging.Logger) -> Tuple[set[str], List]:
+def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: Any, graph: rdflib.Graph, pipe: redis.client.Pipeline, log: logging.Logger) -> Tuple[Set[str], List[str]]:
     log.debug(f'Distr: {distribution!s}')
     queue = _get_queue(distribution, graph)
 
