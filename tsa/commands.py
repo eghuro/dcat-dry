@@ -10,7 +10,7 @@ from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 
 def divide_chunks(list_to_split, chunk_size):
@@ -28,7 +28,7 @@ def batch(graphs=None, sparql=None):
     """
     log = logging.getLogger(__name__)
     print(graphs)
-    if not test_iri(sparql):
+    if not check_iri(sparql):
         log.error(f'Not a valid SPARQL Endpoint: {sparql}')
         return
     if len(graphs) == 0:
@@ -38,7 +38,7 @@ def batch(graphs=None, sparql=None):
     with open(graphs, 'r', encoding='utf-8') as graphs_file:
         lines = graphs_file.readlines()
         for iris in divide_chunks(lines, 1000):
-            graphs = [iri.strip() for iri in iris if test_iri(iri)]
+            graphs = [iri.strip() for iri in iris if check_iri(iri)]
             # inspect_graphs.si(graphs, sparql, False).apply_async()
             batch_inspect.si(sparql, graphs, False, 10).apply_async()
 

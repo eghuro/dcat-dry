@@ -24,7 +24,7 @@ from tsa.robots import USER_AGENT
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.common import TrackableTask
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 
 # Following 2 tasks are doing the same thing but with different priorities
@@ -61,11 +61,11 @@ def get_iris_to_dereference(graph: rdflib.Graph, iri: str) -> Generator[str, Non
         obj = str(o)
         sub = str(s)
 
-        if test_iri(pred):
+        if check_iri(pred):
             yield pred
-        if test_iri(obj):
+        if check_iri(obj):
             yield obj
-        if test_iri(sub):
+        if check_iri(sub):
             yield sub
 
 
@@ -100,7 +100,7 @@ def _sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
 
 
 def dereference_from_endpoints(iri: str, iri_distr: str, red: redis.Redis) -> rdflib.ConjunctiveGraph:
-    if not test_iri(iri):
+    if not check_iri(iri):
         return None
     monitor.log_dereference_processed()
     graph = rdflib.ConjunctiveGraph()
@@ -113,7 +113,7 @@ def dereference_from_endpoints(iri: str, iri_distr: str, red: redis.Redis) -> rd
         endpoints = set(str(endpoint_iri) for endpoint_iri in red.sscan_iter(dataset_endpoint(ds_iri)))  # type: Set[str]
         endpoints.update(_sanitize_list(Config.LOOKUP_ENDPOINTS))
         for endpoint_iri in endpoints:
-            if test_iri(endpoint_iri):
+            if check_iri(endpoint_iri):
                 graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
 
@@ -126,7 +126,7 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.debug(f'Dereference: {iri_to_dereference}')
-    if not test_iri(iri_to_dereference):
+    if not check_iri(iri_to_dereference):
         raise FailedDereference()
     monitor.log_dereference_request()
     try:

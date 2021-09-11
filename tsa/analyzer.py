@@ -13,7 +13,7 @@ from tsa.extensions import concept_index, ddr_index, dsd_index, redis_pool, same
 from tsa.redis import description as desc_query
 from tsa.redis import label as label_query
 from tsa.redis import resource_type
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 
 class AbstractAnalyzer(ABC):
@@ -197,7 +197,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         concept_count = []
         for concept_iri in concepts:
-            if not test_iri(concept_iri):
+            if not check_iri(concept_iri):
                 log.debug('%s is not a valid IRI', concept_iri)
                 continue
             for row in graph.query(SkosAnalyzer._count_query(concept_iri)):
@@ -212,7 +212,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         schemes_count, top_concept = [], []
         for schema in schemes:
-            if not test_iri(schema):
+            if not check_iri(schema):
                 log.debug('%s is a not valid IRI', schema)
                 continue
             for row in graph.query(SkosAnalyzer._scheme_count_query(str(schema))):
@@ -262,7 +262,7 @@ class SkosAnalyzer(AbstractAnalyzer):
         """)]
 
         for concept_iri in concepts:
-            if test_iri(concept_iri):
+            if check_iri(concept_iri):
                 concept_index.index(concept_iri)
 
         query = 'SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}'
@@ -314,18 +314,18 @@ class GenericAnalyzer(AbstractAnalyzer):
             obj = str(objekt)
             sub = str(subject)
 
-            if test_iri(pred):
+            if check_iri(pred):
                 predicates_count[pred] += 1
 
-            if test_iri(obj):
+            if check_iri(obj):
                 if predicate == RDF.type:
-                    if test_iri(sub):
+                    if check_iri(sub):
                         classes_count[obj] += 1
                         locally_typed.append(sub)
                 else:
                     objects.append(obj)
 
-            if test_iri(sub):
+            if check_iri(sub):
                 subjects.append(sub)
 
         return triples, predicates_count, classes_count, objects, subjects, locally_typed
@@ -381,7 +381,7 @@ class GenericAnalyzer(AbstractAnalyzer):
 
         for row in graph.query(query):
             iri = row['x']
-            if test_iri(iri):
+            if check_iri(iri):
                 self._extract_detail(row, iri, red)
 
     def _extract_detail(self, row: rdflib.query.Result, iri: str, red: redis.client.Redis) -> None:

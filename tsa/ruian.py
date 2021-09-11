@@ -5,7 +5,7 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
 from tsa.extensions import concept_index, ddr_index
 from tsa.robots import USER_AGENT
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 
 class RuianInspector:
@@ -26,7 +26,7 @@ class RuianInspector:
         log.info('In queue initially: %s', len(queue))
         while len(queue) > 0:
             iri = queue.pop(0)
-            if not test_iri(iri):
+            if not check_iri(iri):
                 continue
             if iri in processed:
                 continue

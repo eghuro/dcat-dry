@@ -10,7 +10,7 @@ from tsa.net import fetch, get_content, guess_format
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.process import dereference_one, expand_graph_with_dereferences, get_iris_to_dereference
 from tsa.tasks.system import hello, system_check
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 blueprint = Blueprint('test', __name__, static_folder='../static')
 
@@ -61,7 +61,7 @@ def test_dereference1():
         iri_of_interest = 'https://data.cssz.cz/resource/ruian/vusc/27'
         if iri_of_interest not in to_dereference:
             log.error('Missing IRI of interest in a set to dereference')
-        if not test_iri(iri_of_interest):
+        if not check_iri(iri_of_interest):
             log.error('Condition failed')
         r = fetch(iri_of_interest, log, red)
         guess, _ = guess_format(iri_of_interest, r, log)

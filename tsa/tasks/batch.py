@@ -19,7 +19,7 @@ from tsa.redis import dataset_endpoint, ds_distr
 from tsa.robots import USER_AGENT, session
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter_iri, process, process_priority
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 
 def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Generator[str, None, None]:
@@ -93,7 +93,7 @@ def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: 
     endpoints = set()
     for download_url in graph.objects(distribution, dcat.downloadURL):
         # log.debug(f'Down: {download_url!s}')
-        if test_iri(str(download_url)) and not filter_iri(str(download_url)):
+        if check_iri(str(download_url)) and not filter_iri(str(download_url)):
             if download_url.endswith('/sparql'):
                 log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {dataset!s} (effective: {effective_dataset!s})')
                 endpoints.add(download_url)
@@ -111,7 +111,7 @@ def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: 
     for access in graph.objects(distribution, dcat.accessService):
         log.debug(f'Service: {access!s}')
         for endpoint in graph.objects(access, dcat.endpointURL):
-            if test_iri(str(endpoint)):
+            if check_iri(str(endpoint)):
                 log.debug(f'Endpoint {endpoint!s} from DCAT dataset {dataset!s}')
                 endpoints.add(endpoint)
     return endpoints, downloads

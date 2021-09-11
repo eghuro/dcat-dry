@@ -15,7 +15,7 @@ from tsa.query import query
 from tsa.report import (export_interesting, export_labels, export_profile, export_related, import_interesting,
                         import_labels, import_profiles, import_related, list_datasets, query_dataset)
 from tsa.sd import create_sd_iri, generate_service_description
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 blueprint = Blueprint('public', __name__, static_folder='../static')
 
@@ -24,7 +24,7 @@ blueprint = Blueprint('public', __name__, static_folder='../static')
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def dcat_viewer_index_query():
     iri = request.args.get('iri', None)
-    if test_iri(iri):
+    if check_iri(iri):
         current_app.logger.info(f'Valid dataset request for {iri}')
         # LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
 
@@ -42,7 +42,7 @@ def dcat_viewer_index_query():
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def same_as():
     iri = request.args.get('iri', None)
-    if test_iri(iri):
+    if check_iri(iri):
         return jsonify(list(same_as_index.lookup(iri)))
     abort(400)
 

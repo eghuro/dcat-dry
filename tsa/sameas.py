@@ -2,7 +2,7 @@ import logging
 
 import redis
 
-from tsa.util import test_iri
+from tsa.util import check_iri
 
 
 class Index:
@@ -13,10 +13,10 @@ class Index:
 
     def lookup(self, base_iri):
         try:
-            if test_iri(base_iri):
+            if check_iri(base_iri):
                 yielded_base = False
                 for iri in self.__red.sscan_iter(self.__key(base_iri)):
-                    if test_iri(iri):
+                    if check_iri(iri):
                         yield iri
                         if iri == base_iri:
                             yielded_base = True
