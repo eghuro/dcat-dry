@@ -36,8 +36,7 @@ def batch(graphs=None, sparql=None):
     if len(graphs) == 0:
         log.warning('No graphs given')
         return
-    else:
-        log.info(f'Analyzing endpoint {sparql}, graphs: {len(graphs)}')
+    log.info(f'Analyzing endpoint {sparql}, graphs: {len(graphs)}')
     with open(graphs, 'r', encoding='utf-8') as graphs_file:
         lines = graphs_file.readlines()
         for iris in divide_chunks(lines, 1000):
@@ -88,8 +87,8 @@ def urls(url, order):
                            .match(url, return_rule=True))
             rows.append((rule.rule, rule.endpoint, arguments))
             column_length = 3
-        except (NotFound, MethodNotAllowed) as e:
-            rows.append(('<{}>'.format(e), None, None))
+        except (NotFound, MethodNotAllowed) as exc:
+            rows.append(('<{}>'.format(exc), None, None))
             column_length = 1
     else:
         rules = sorted(

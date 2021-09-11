@@ -185,11 +185,6 @@ def _multiply(item: Any, times: int):
         yield item
 
 
-def _split(a, n):
-    k, m = divmod(len(a), n)
-    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-
-
 @celery.task(base=TrackableTask)
 def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunks: int) -> AsyncResult:
     items = len(graphs)
