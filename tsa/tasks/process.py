@@ -113,7 +113,7 @@ def dereference_from_endpoints(iri: str, iri_distr: str, red: redis.Redis) -> rd
         ds_iri = str(ds_iri_bytes)
         log.debug(f'For {iri_distr} we have the dataset {ds_iri}')
         endpoints = set(str(endpoint_iri) for endpoint_iri in red.sscan_iter(dataset_endpoint(ds_iri)))  # type: Set[str]
-        endpoints.update(_sanitize_list(Config.LOOKUP_ENDPOINTS))
+        endpoints.update(sanitize_list(Config.LOOKUP_ENDPOINTS))
         for endpoint_iri in endpoints:
             if check_iri(endpoint_iri):
                 graph += dereference_from_endpoint(iri, endpoint_iri)

@@ -1,6 +1,6 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
-from typing import Any, Collection, Generator, Iterable, List, Set, Tuple
+from typing import Any, Collection, Generator, List, Set, Tuple
 
 import rdflib
 import redis
@@ -35,7 +35,7 @@ def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Gener
                 parent_iri = str(parent['parent'])
                 yield str(parent_iri)
         except ValueError:
-            log.warning(f'Failed to query parent. Query was: {iri}')
+            log.warning(f'Failed to query parent. Query was: {query}')
 
 
 dcat = Namespace('http://www.w3.org/ns/dcat#')
