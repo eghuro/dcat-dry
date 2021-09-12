@@ -37,16 +37,16 @@ class Query(IntEnum):
 
 
 prepared_queries = {
-    Query.PARENT_A: 'SELECT ?parent WHERE {{ {0}  <http://purl.org/dc/terms/isPartOf> ?parent }}',
-    Query.PARENT_B: 'SELECT ?parent WHERE {{ {0} ?parent <http://purl.org/dc/terms/hasPart> ?dataset }}',
-    Query.PARENT_C: 'SELECT ?parent WHERE {{ {0} ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }}',
-    Query.MEDIA_TYPE: 'SELECT ?media WHERE {{ {0}  <http://www.w3.org/ns/dcat#mediaType> ?media }}',
-    Query.FORMAT: 'SELECT ?format WHERE {{  {0} <http://purl.org/dc/terms/format> ?format }}',
-    Query.NKOD_MEDIA_TYPE: 'SELECT ?format WHERE {{ {0} <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }}',
-    Query.DOWNLOAD_URL: 'SELECT ?download WHERE {{ {0} <http://www.w3.org/ns/dcat#downloadURL> ?download }}',
-    Query.ACCESS_SERVICE: 'SELECT ?access WHERE {{ {0} <http://www.w3.org/ns/dcat#accessService> ?access }}',
-    Query.ENDPOINT_URL: 'SELECT ?endpoint WHERE {{ {0} <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }}',
-    Query.DISTRIBUTION: 'SELECT ?distribution WHERE {{ {0} <http://www.w3.org/ns/dcat#distribution> ?distribution }}',
+    Query.PARENT_A: 'SELECT ?parent WHERE {{ <{0}>  <http://purl.org/dc/terms/isPartOf> ?parent }}',
+    Query.PARENT_B: 'SELECT ?parent WHERE {{ <{0}> ?parent <http://purl.org/dc/terms/hasPart> ?dataset }}',
+    Query.PARENT_C: 'SELECT ?parent WHERE {{ <{0}> ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }}',
+    Query.MEDIA_TYPE: 'SELECT ?media WHERE {{ <{0}>  <http://www.w3.org/ns/dcat#mediaType> ?media }}',
+    Query.FORMAT: 'SELECT ?format WHERE {{  <{0}> <http://purl.org/dc/terms/format> ?format }}',
+    Query.NKOD_MEDIA_TYPE: 'SELECT ?format WHERE {{ <{0}> <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }}',
+    Query.DOWNLOAD_URL: 'SELECT ?download WHERE {{ <{0}> <http://www.w3.org/ns/dcat#downloadURL> ?download }}',
+    Query.ACCESS_SERVICE: 'SELECT ?access WHERE {{ <{0}> <http://www.w3.org/ns/dcat#accessService> ?access }}',
+    Query.ENDPOINT_URL: 'SELECT ?endpoint WHERE {{ <{0}> <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }}',
+    Query.DISTRIBUTION: 'SELECT ?distribution WHERE {{ <{0}> <http://www.w3.org/ns/dcat#distribution> ?distribution }}',
     Query.DATASET: 'SELECT ?dataset WHERE { ?dataset a <http://www.w3.org/ns/dcat#Dataset> }'
 }
 
