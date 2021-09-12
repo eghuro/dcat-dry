@@ -4,6 +4,7 @@ import logging
 from rdflib import Graph
 from rdflib.parser import Parser
 from rdflib.plugin import register as register_plugin
+from rdflib.plugins.sparql.processor import prepareQuery
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
@@ -14,52 +15,41 @@ from tsa.util import check_iri
 
 class SparqlEndpointAnalyzer:
 
-    """Extract DCAT datasets from a SPARQL endpoint."""
-
-    @staticmethod
-    def __query(named=None):
-        str1 = """
+    query = prepareQuery('''
         construct {
-          ?ds a <http://www.w3.org/ns/dcat#Dataset>;
-          <http://purl.org/dc/terms/title> ?title;
-          <http://www.w3.org/ns/dcat#keyword> ?keyword;
-          <http://www.w3.org/ns/dcat#distribution> ?d.
+            ?ds a <http://www.w3.org/ns/dcat#Dataset>;
+            <http://purl.org/dc/terms/title> ?title;
+            <http://www.w3.org/ns/dcat#keyword> ?keyword;
+            <http://www.w3.org/ns/dcat#distribution> ?d.
 
-          ?d a <http://www.w3.org/ns/dcat#Distribution>;
-          <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
-          <http://purl.org/dc/terms/format> ?format;
-          <http://www.w3.org/ns/dcat#mediaType> ?media;
-          <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod.
+            ?d a <http://www.w3.org/ns/dcat#Distribution>;
+            <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
+            <http://purl.org/dc/terms/format> ?format;
+            <http://www.w3.org/ns/dcat#mediaType> ?media;
+            <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod.
 
-          ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
-          ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
-          <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
-       }
-       """
+            ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
+            ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
+            <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
+        } from ?named where {
+            ?ds a <http://www.w3.org/ns/dcat#Dataset>.
+            ?ds <http://purl.org/dc/terms/title> ?title.
+            OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
+            ?ds <http://www.w3.org/ns/dcat#distribution> ?d.
+            OPTIONAL { ?d <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL. }
+            OPTIONAL { ?d <http://purl.org/dc/terms/format> ?format. }
+            OPTIONAL { ?d <http://www.w3.org/ns/dcat#mediaType> ?media. }
+            OPTIONAL { ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
+                OPTIONAL { ?d  <http://www.w3.org/ns/dcat#accessService> ?accessService.
+                    ?accessService <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl.
+                    OPTIONAL { ?accessService <http://www.w3.org/ns/dcat#endpointDescription> ?sd. }
+                }
+            }
+            OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
+        }
+    ''')
 
-        str3 = """
-       where {
-         ?ds a <http://www.w3.org/ns/dcat#Dataset>.
-         ?ds <http://purl.org/dc/terms/title> ?title.
-         OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
-         ?ds <http://www.w3.org/ns/dcat#distribution> ?d.
-         OPTIONAL { ?d <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL. }
-         OPTIONAL { ?d <http://purl.org/dc/terms/format> ?format. }
-         OPTIONAL { ?d <http://www.w3.org/ns/dcat#mediaType> ?media. }
-         OPTIONAL { ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
-             OPTIONAL { ?d  <http://www.w3.org/ns/dcat#accessService> ?accessService.
-                ?accessService <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl.
-                OPTIONAL { ?accessService <http://www.w3.org/ns/dcat#endpointDescription> ?sd. }
-             }
-         }
-         OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
-       }
-       """
-
-        if named is not None:
-            return f'{str1} from <{named}> {str3}'
-        logging.getLogger(__name__).warning('No named graph when constructing catalog from {self.__endpoint!s}')
-        return f'{str1} {str3}'
+    """Extract DCAT datasets from a SPARQL endpoint."""
 
     def __init__(self, endpoint):
         if not check_iri(endpoint):
@@ -83,11 +73,9 @@ class SparqlEndpointAnalyzer:
         graph = Graph(store=self.store, identifier=graph_iri)
         graph.open(self.__endpoint)
 
-        query = self.__query(graph_iri)
-
         try:
             with TimedBlock('process_graph'):
-                return graph.query(query).graph  # implementation detail for CONSTRUCT!
+                return graph.query(SparqlEndpointAnalyzer.query, initBindings={'named': graph_iri}).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
             logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(exc)}')
 
