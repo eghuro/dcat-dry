@@ -35,7 +35,7 @@ def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Gener
                 parent_iri = str(parent['parent'])
                 yield str(parent_iri)
         except ValueError:
-            log.warning(f'Failed to query parent. Query was: {query}')
+            log.debug('Failed to query parent. Query was: %s'. query)  # empty result - no parent
 
 
 dcat = Namespace('http://www.w3.org/ns/dcat#')
