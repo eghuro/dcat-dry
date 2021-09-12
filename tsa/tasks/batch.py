@@ -60,7 +60,7 @@ def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Gener
                 parent_iri = str(parent['parent'])
                 yield str(parent_iri)
         except ValueError:
-            log.debug('Failed to query parent. Query was: %s'. query)  # empty result - no parent
+            log.debug('Failed to query parent. Query was: %d, dataset: %s', int(query), dataset_iri)  # empty result - no parent
 
 
 media_priority = set([
@@ -150,7 +150,7 @@ def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: 
 def _dataset_extractor(dataset: Any, lookup_endpoint: str, graph: rdflib.Graph, log: logging.Logger, pipe: redis.client.Pipeline) -> bool:
     log.debug('DS: %s', str(dataset))
     effective_dataset = dataset
-    distribution = False
+    has_distribution = False
 
     for parent in _query_parent(dataset, lookup_endpoint, log):
         log.debug('%s is a series containing %s', parent, str(dataset))
@@ -163,13 +163,14 @@ def _dataset_extractor(dataset: Any, lookup_endpoint: str, graph: rdflib.Graph, 
         local_endpoints, local_downloads = _distribution_extractor(distribution, dataset, effective_dataset, graph, pipe, log)
         endpoints.update(local_endpoints)
         downloads.extend(local_downloads)
+        has_distribution = True
     for endpoint in endpoints:
         pipe.sadd(dataset_endpoint(str(effective_dataset)), endpoint)
 
     if not downloads and endpoints:
         log.warning('Only endpoint without distribution for %s', str(dataset))
 
-    return distribution
+    return has_distribution
 
 
 def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, force: bool, graph_iri: str, lookup_endpoint: str) -> None:
