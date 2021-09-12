@@ -15,41 +15,41 @@ from tsa.util import check_iri
 
 class SparqlEndpointAnalyzer:
 
-    query = prepareQuery('''
-        construct {
-            ?ds a <http://www.w3.org/ns/dcat#Dataset>;
-            <http://purl.org/dc/terms/title> ?title;
-            <http://www.w3.org/ns/dcat#keyword> ?keyword;
-            <http://www.w3.org/ns/dcat#distribution> ?d.
-
-            ?d a <http://www.w3.org/ns/dcat#Distribution>;
-            <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
-            <http://purl.org/dc/terms/format> ?format;
-            <http://www.w3.org/ns/dcat#mediaType> ?media;
-            <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod.
-
-            ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
-            ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
-            <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
-        } from ?named where {
-            ?ds a <http://www.w3.org/ns/dcat#Dataset>.
-            ?ds <http://purl.org/dc/terms/title> ?title.
-            OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
-            ?ds <http://www.w3.org/ns/dcat#distribution> ?d.
-            OPTIONAL { ?d <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL. }
-            OPTIONAL { ?d <http://purl.org/dc/terms/format> ?format. }
-            OPTIONAL { ?d <http://www.w3.org/ns/dcat#mediaType> ?media. }
-            OPTIONAL { ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
-                OPTIONAL { ?d  <http://www.w3.org/ns/dcat#accessService> ?accessService.
-                    ?accessService <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl.
-                    OPTIONAL { ?accessService <http://www.w3.org/ns/dcat#endpointDescription> ?sd. }
-                }
-            }
-            OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
-        }
-    ''')
-
     """Extract DCAT datasets from a SPARQL endpoint."""
+
+    prepared_query = prepareQuery('''
+    construct {
+        ?ds a <http://www.w3.org/ns/dcat#Dataset>;
+        <http://purl.org/dc/terms/title> ?title;
+        <http://www.w3.org/ns/dcat#keyword> ?keyword;
+        <http://www.w3.org/ns/dcat#distribution> ?d.
+
+        ?d a <http://www.w3.org/ns/dcat#Distribution>;
+        <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
+        <http://purl.org/dc/terms/format> ?format;
+        <http://www.w3.org/ns/dcat#mediaType> ?media;
+        <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod.
+
+        ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
+        ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
+        <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
+    } where {
+         ?ds a <http://www.w3.org/ns/dcat#Dataset>.
+         ?ds <http://purl.org/dc/terms/title> ?title.
+         OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
+         ?ds <http://www.w3.org/ns/dcat#distribution> ?d.
+         OPTIONAL { ?d <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL. }
+         OPTIONAL { ?d <http://purl.org/dc/terms/format> ?format. }
+         OPTIONAL { ?d <http://www.w3.org/ns/dcat#mediaType> ?media. }
+         OPTIONAL { ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
+             OPTIONAL { ?d  <http://www.w3.org/ns/dcat#accessService> ?accessService.
+                ?accessService <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl.
+                OPTIONAL { ?accessService <http://www.w3.org/ns/dcat#endpointDescription> ?sd. }
+             }
+         }
+         OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
+       }
+    ''')
 
     def __init__(self, endpoint):
         if not check_iri(endpoint):
@@ -75,7 +75,7 @@ class SparqlEndpointAnalyzer:
 
         try:
             with TimedBlock('process_graph'):
-                return graph.query(SparqlEndpointAnalyzer.query, initBindings={'named': graph_iri}).graph  # implementation detail for CONSTRUCT!
+                return graph.query(SparqlEndpointAnalyzer.prepared_query).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
             logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(exc)}')
 
