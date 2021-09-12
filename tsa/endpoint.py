@@ -1,9 +1,11 @@
 """SPARQL endpoint utilities."""
 import logging
+from typing import Optional
 
 from rdflib import Graph
 from rdflib.parser import Parser
 from rdflib.plugin import register as register_plugin
+from rdflib.plugins.sparql.processor import prepareQuery
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
@@ -16,29 +18,23 @@ class SparqlEndpointAnalyzer:
 
     """Extract DCAT datasets from a SPARQL endpoint."""
 
-    @staticmethod
-    def __query(named=None):
-        str1 = """
-        construct {
-          ?ds a <http://www.w3.org/ns/dcat#Dataset>;
-          <http://purl.org/dc/terms/title> ?title;
-          <http://www.w3.org/ns/dcat#keyword> ?keyword;
-          <http://www.w3.org/ns/dcat#distribution> ?d.
+    prepared_query = prepareQuery('''
+    construct {
+        ?ds a <http://www.w3.org/ns/dcat#Dataset>;
+        <http://purl.org/dc/terms/title> ?title;
+        <http://www.w3.org/ns/dcat#keyword> ?keyword;
+        <http://www.w3.org/ns/dcat#distribution> ?d.
 
-          ?d a <http://www.w3.org/ns/dcat#Distribution>;
-          <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
-          <http://purl.org/dc/terms/format> ?format;
-          <http://www.w3.org/ns/dcat#mediaType> ?media;
-          <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod.
+        ?d a <http://www.w3.org/ns/dcat#Distribution>;
+        <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
+        <http://purl.org/dc/terms/format> ?format;
+        <http://www.w3.org/ns/dcat#mediaType> ?media;
+        <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod.
 
-          ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
-          ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
-          <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
-       }
-       """
-
-        str3 = """
-       where {
+        ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
+        ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
+        <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
+    } where {
          ?ds a <http://www.w3.org/ns/dcat#Dataset>.
          ?ds <http://purl.org/dc/terms/title> ?title.
          OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
@@ -54,16 +50,11 @@ class SparqlEndpointAnalyzer:
          }
          OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
        }
-       """
+    ''')
 
-        if named is not None:
-            return f'{str1} from <{named}> {str3}'
-        logging.getLogger(__name__).warning('No named graph when constructing catalog from {self.__endpoint!s}')
-        return f'{str1} {str3}'
-
-    def __init__(self, endpoint):
+    def __init__(self, endpoint: str):
         if not check_iri(endpoint):
-            logging.getLogger(__name__).warning(f'{endpoint!s} is not a valid endpoint URL')
+            logging.getLogger(__name__).warning('%s is not a valid endpoint URL', endpoint)
             raise ValueError(endpoint)
         self.__endpoint = endpoint
         # workaround for https://github.com/RDFLib/rdflib/issues/1195
@@ -74,22 +65,20 @@ class SparqlEndpointAnalyzer:
                                  session=session,
                                  headers={'User-Agent': USER_AGENT})
 
-    def process_graph(self, graph_iri):
+    def process_graph(self, graph_iri: str) -> Optional[Graph]:
         """Extract DCAT datasets from the given named graph of an endpoint."""
         if not check_iri(graph_iri):
-            logging.getLogger(__name__).warning(f'{graph_iri!s} is not a valid graph URL')
+            logging.getLogger(__name__).warning('%s is not a valid graph URL', str(graph_iri))
             return None
 
         graph = Graph(store=self.store, identifier=graph_iri)
         graph.open(self.__endpoint)
 
-        query = self.__query(graph_iri)
-
         try:
             with TimedBlock('process_graph'):
-                return graph.query(query).graph  # implementation detail for CONSTRUCT!
+                return graph.query(SparqlEndpointAnalyzer.prepared_query).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
-            logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(exc)}')
+            logging.getLogger(__name__).error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
 
         return None
 
