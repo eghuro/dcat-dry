@@ -5,7 +5,6 @@ from typing import Optional
 from rdflib import Graph
 from rdflib.parser import Parser
 from rdflib.plugin import register as register_plugin
-from rdflib.plugins.sparql.processor import prepareQuery
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
@@ -18,7 +17,7 @@ class SparqlEndpointAnalyzer:
 
     """Extract DCAT datasets from a SPARQL endpoint."""
 
-    prepared_query = prepareQuery('''
+    query = '''
     construct {
         ?ds a <http://www.w3.org/ns/dcat#Dataset>;
         <http://purl.org/dc/terms/title> ?title;
@@ -50,7 +49,7 @@ class SparqlEndpointAnalyzer:
          }
          OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
        }
-    ''')
+    '''
 
     def __init__(self, endpoint: str):
         if not check_iri(endpoint):
@@ -76,7 +75,7 @@ class SparqlEndpointAnalyzer:
 
         try:
             with TimedBlock('process_graph'):
-                return graph.query(SparqlEndpointAnalyzer.prepared_query).graph  # implementation detail for CONSTRUCT!
+                return graph.query(SparqlEndpointAnalyzer.query).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
             logging.getLogger(__name__).error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
 
