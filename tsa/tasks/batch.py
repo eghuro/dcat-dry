@@ -8,7 +8,6 @@ import redis
 from celery import group
 from celery.result import AsyncResult
 from rdflib import Graph
-from rdflib.plugins.sparql.processor import prepareQuery
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 from requests.exceptions import HTTPError
 
@@ -38,17 +37,17 @@ class Query(IntEnum):
 
 
 prepared_queries = {
-    Query.PARENT_A: prepareQuery('SELECT ?parent WHERE { ?dataset <http://purl.org/dc/terms/isPartOf> ?parent }'),
-    Query.PARENT_B: prepareQuery('SELECT ?parent WHERE { ?parent <http://purl.org/dc/terms/hasPart> ?dataset }'),
-    Query.PARENT_C: prepareQuery('SELECT ?parent WHERE { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }'),
-    Query.MEDIA_TYPE: prepareQuery('SELECT ?media WHERE { ?distribution <http://www.w3.org/ns/dcat#mediaType> ?media }'),
-    Query.FORMAT: prepareQuery('SELECT ?format WHERE { ?distribution <http://purl.org/dc/terms/format> ?format }'),
-    Query.NKOD_MEDIA_TYPE: prepareQuery('SELECT ?format WHERE { ?distribution <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }'),
-    Query.DOWNLOAD_URL: prepareQuery('SELECT ?download WHERE { ?distribution <http://www.w3.org/ns/dcat#downloadURL> ?download }'),
-    Query.ACCESS_SERVICE: prepareQuery('SELECT ?access WHERE { ?distribution <http://www.w3.org/ns/dcat#accessService> ?access }'),
-    Query.ENDPOINT_URL: prepareQuery('SELECT ?endpoint WHERE { ?access <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }'),
-    Query.DISTRIBUTION: prepareQuery('SELECT ?distribution WHERE { ?dataset <http://www.w3.org/ns/dcat#distribution> ?distribution }'),
-    Query.DATASET: prepareQuery('SELECT ?dataset WHERE { ?dataset a <http://www.w3.org/ns/dcat#Dataset> }')
+    Query.PARENT_A: 'SELECT ?parent WHERE { ?dataset <http://purl.org/dc/terms/isPartOf> ?parent }',
+    Query.PARENT_B: 'SELECT ?parent WHERE { ?parent <http://purl.org/dc/terms/hasPart> ?dataset }',
+    Query.PARENT_C: 'SELECT ?parent WHERE { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }',
+    Query.MEDIA_TYPE: 'SELECT ?media WHERE { ?distribution <http://www.w3.org/ns/dcat#mediaType> ?media }',
+    Query.FORMAT: 'SELECT ?format WHERE { ?distribution <http://purl.org/dc/terms/format> ?format }',
+    Query.NKOD_MEDIA_TYPE: 'SELECT ?format WHERE { ?distribution <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }',
+    Query.DOWNLOAD_URL: 'SELECT ?download WHERE { ?distribution <http://www.w3.org/ns/dcat#downloadURL> ?download }',
+    Query.ACCESS_SERVICE: 'SELECT ?access WHERE { ?distribution <http://www.w3.org/ns/dcat#accessService> ?access }',
+    Query.ENDPOINT_URL: 'SELECT ?endpoint WHERE { ?access <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }',
+    Query.DISTRIBUTION: 'SELECT ?distribution WHERE { ?dataset <http://www.w3.org/ns/dcat#distribution> ?distribution }',
+    Query.DATASET: 'SELECT ?dataset WHERE { ?dataset a <http://www.w3.org/ns/dcat#Dataset> }'
 }
 
 
