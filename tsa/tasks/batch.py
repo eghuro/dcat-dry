@@ -47,7 +47,7 @@ prepared_queries = {
     Query.DOWNLOAD_URL: prepareQuery('SELECT ?download WHERE { ?distribution <http://www.w3.org/ns/dcat#downloadURL> ?download }'),
     Query.ACCESS_SERVICE: prepareQuery('SELECT ?access WHERE { ?distribution <http://www.w3.org/ns/dcat#accessService> ?access }'),
     Query.ENDPOINT_URL: prepareQuery('SELECT ?endpoint WHERE { ?access <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }'),
-    Query.DISTRIBUTION: prepareQuery('SELECT ?distribution WHERE { /dataset <http://www.w3.org/ns/dcat#distribution> ?distribution }'),
+    Query.DISTRIBUTION: prepareQuery('SELECT ?distribution WHERE { ?dataset <http://www.w3.org/ns/dcat#distribution> ?distribution }'),
     Query.DATASET: prepareQuery('SELECT ?dataset WHERE { ?dataset a <http://www.w3.org/ns/dcat#Dataset> }')
 }
 
