@@ -2,7 +2,8 @@
 import os
 
 broker_url = os.environ.get('REDIS_CELERY', None)
-broker_pool_limit = 100
+ROKER_POOL_LIMIT = 0
+CELERY_REDIS_MAX_CONNECTIONS = 20
 result_backend = os.environ.get('REDIS_CELERY', None)
 task_serializer = 'json'
 result_serializer = 'json'
@@ -15,7 +16,8 @@ task_time_limit = 6000  # smaller limits applied on some tasks
 include = ['tsa.tasks.batch', 'tsa.tasks.process', 'tsa.tasks.query', 'tsa.tasks.system']
 broker_transport_options = {
     'fanout_prefix': True,
-    'fanout_patterns': True
+    'fanout_patterns': True,
+    'max_connections': 20
 }
 task_create_missing_queues = True
 task_default_queue = 'default'
