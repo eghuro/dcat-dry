@@ -1,14 +1,14 @@
 ===============================
-NKOD TSA
+DCAT DRY
 ===============================
 
-.. |github| image:: https://img.shields.io/github/release-pre/eghuro/nkod-ts.svg
-.. |licence| image:: https://img.shields.io/github/license/eghuro/nkod-ts.svg
+.. |github| image:: https://img.shields.io/github/release-pre/eghuro/dcat-dry.svg
+.. |licence| image:: https://img.shields.io/github/license/eghuro/dcat-dry.svg
 
 |github|  |licence|
 
 
-Indexing linked data and relationships between datasets.
+DCAT-AP Dataset Relationship Indexer. Indexing linked data and relationships between datasets.
 
 Features:
  - index a distribution or a SPARQL endpoint
@@ -22,7 +22,7 @@ Features:
 Build & run with Docker
 ----------
 
-For NKOD-TS service only:
+For DCAT-DRY service only:
 
 .. code-block:: bash
 
@@ -43,8 +43,8 @@ Install redis server first. In following example we will assume it runs on local
 
 Run the following commands to bootstrap your environment ::
 
-    git clone https://github.com/eghuro/nkod-ts
-    cd nkod-ts
+    git clone https://github.com/eghuro/dcat-dry
+    cd dcat-dry
     pip install -r requirements.txt
     # Start redis server
     # Run concurrently

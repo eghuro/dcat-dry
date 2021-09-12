@@ -1,5 +1,6 @@
 """SPARQL endpoint utilities."""
 import logging
+from typing import Optional
 
 from rdflib import Graph
 from rdflib.parser import Parser
@@ -51,9 +52,9 @@ class SparqlEndpointAnalyzer:
        }
     ''')
 
-    def __init__(self, endpoint):
+    def __init__(self, endpoint: str):
         if not check_iri(endpoint):
-            logging.getLogger(__name__).warning(f'{endpoint!s} is not a valid endpoint URL')
+            logging.getLogger(__name__).warning('%s is not a valid endpoint URL', endpoint)
             raise ValueError(endpoint)
         self.__endpoint = endpoint
         # workaround for https://github.com/RDFLib/rdflib/issues/1195
@@ -64,10 +65,10 @@ class SparqlEndpointAnalyzer:
                                  session=session,
                                  headers={'User-Agent': USER_AGENT})
 
-    def process_graph(self, graph_iri):
+    def process_graph(self, graph_iri: str) -> Optional[Graph, None]:
         """Extract DCAT datasets from the given named graph of an endpoint."""
         if not check_iri(graph_iri):
-            logging.getLogger(__name__).warning(f'{graph_iri!s} is not a valid graph URL')
+            logging.getLogger(__name__).warning('%s is not a valid graph URL', str(graph_iri))
             return None
 
         graph = Graph(store=self.store, identifier=graph_iri)
@@ -77,7 +78,7 @@ class SparqlEndpointAnalyzer:
             with TimedBlock('process_graph'):
                 return graph.query(SparqlEndpointAnalyzer.prepared_query).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
-            logging.getLogger(__name__).error(f'Failed to process {graph_iri} in {self.__endpoint}: {str(exc)}')
+            logging.getLogger(__name__).error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
 
         return None
 

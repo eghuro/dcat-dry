@@ -1,6 +1,6 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
-from enum import Enum
+from enum import IntEnum
 from typing import Any, Collection, Generator, List, Set, Tuple
 
 import rdflib
@@ -23,7 +23,7 @@ from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import check_iri
 
 
-class Query(Enum):
+class Query(IntEnum):
     PARENT_A = 0
     PARENT_B = 9
     PARENT_C = 10

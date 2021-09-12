@@ -113,6 +113,15 @@ pipeline {
 				}
 			}
 		}
+		
+		stage ('Deploy database') {
+			agent { none}
+			when {
+				branch 'master'
+			}
+			steps {
+			} 	
+		}
 	}
 	post {
         always {
