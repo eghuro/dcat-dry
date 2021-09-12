@@ -10,7 +10,10 @@ from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 from tsa.extensions import same_as_index
-from tsa.report import import_labels, import_profiles, import_related
+from tsa.report import import_interesting as import_interesting_impl
+from tsa.report import import_labels as import_labels_impl
+from tsa.report import import_profiles as import_profiles_impl
+from tsa.report import import_related as import_related_impl
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
@@ -50,7 +53,7 @@ def batch(graphs=None, sparql=None):
 def import_labels(file):
     with open(file, 'r', encoding='utf-8') as labels_file:
         labels = json.load(labels_file)
-        import_labels(labels)
+        import_labels_impl(labels)
 
 
 @click.command()
@@ -66,7 +69,7 @@ def import_sameas(file):
 def import_related(file):
     with open(file, 'r', encoding='utf-8') as related_file:
         related = json.load(related_file)
-        import_related(related)
+        import_related_impl(related)
 
 
 @click.command()
@@ -74,7 +77,7 @@ def import_related(file):
 def import_profiles(file):
     with open(file, 'r', encoding='utf-8') as profiles_file:
         profiles = json.load(profiles_file)
-        import_profiles(profiles)
+        import_profiles_impl(profiles)
 
 
 @click.command()
@@ -83,7 +86,7 @@ def import_interesting(file):
     with open(file, 'r', encoding='utf-8') as interesting_file:
         interesting_datasets = json.load(interesting_file)
         if isinstance(interesting_datasets, list):
-            import_interesting(interesting_datasets)
+            import_interesting_impl(interesting_datasets)
         else:
             logging.getLogger(__name__).error('Incorrect file')
 
