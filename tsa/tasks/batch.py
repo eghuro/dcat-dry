@@ -37,16 +37,16 @@ class Query(IntEnum):
 
 
 prepared_queries = {
-    Query.PARENT_A: 'SELECT ?parent WHERE { ?dataset <http://purl.org/dc/terms/isPartOf> ?parent }',
-    Query.PARENT_B: 'SELECT ?parent WHERE { ?parent <http://purl.org/dc/terms/hasPart> ?dataset }',
-    Query.PARENT_C: 'SELECT ?parent WHERE { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }',
-    Query.MEDIA_TYPE: 'SELECT ?media WHERE { ?distribution <http://www.w3.org/ns/dcat#mediaType> ?media }',
-    Query.FORMAT: 'SELECT ?format WHERE { ?distribution <http://purl.org/dc/terms/format> ?format }',
-    Query.NKOD_MEDIA_TYPE: 'SELECT ?format WHERE { ?distribution <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }',
-    Query.DOWNLOAD_URL: 'SELECT ?download WHERE { ?distribution <http://www.w3.org/ns/dcat#downloadURL> ?download }',
-    Query.ACCESS_SERVICE: 'SELECT ?access WHERE { ?distribution <http://www.w3.org/ns/dcat#accessService> ?access }',
-    Query.ENDPOINT_URL: 'SELECT ?endpoint WHERE { ?access <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }',
-    Query.DISTRIBUTION: 'SELECT ?distribution WHERE { ?dataset <http://www.w3.org/ns/dcat#distribution> ?distribution }',
+    Query.PARENT_A: 'SELECT ?parent WHERE {{ {0}  <http://purl.org/dc/terms/isPartOf> ?parent }}',
+    Query.PARENT_B: 'SELECT ?parent WHERE {{ {0} ?parent <http://purl.org/dc/terms/hasPart> ?dataset }}',
+    Query.PARENT_C: 'SELECT ?parent WHERE {{ {0} ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }}',
+    Query.MEDIA_TYPE: 'SELECT ?media WHERE {{ {0}  <http://www.w3.org/ns/dcat#mediaType> ?media }}',
+    Query.FORMAT: 'SELECT ?format WHERE {{  {0} <http://purl.org/dc/terms/format> ?format }}',
+    Query.NKOD_MEDIA_TYPE: 'SELECT ?format WHERE {{ {0} <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }}',
+    Query.DOWNLOAD_URL: 'SELECT ?download WHERE {{ {0} <http://www.w3.org/ns/dcat#downloadURL> ?download }}',
+    Query.ACCESS_SERVICE: 'SELECT ?access WHERE {{ {0} <http://www.w3.org/ns/dcat#accessService> ?access }}',
+    Query.ENDPOINT_URL: 'SELECT ?endpoint WHERE {{ {0} <http://www.w3.org/ns/dcat#endpointURL> ?endpoint }}',
+    Query.DISTRIBUTION: 'SELECT ?distribution WHERE {{ {0} <http://www.w3.org/ns/dcat#distribution> ?distribution }}',
     Query.DATASET: 'SELECT ?dataset WHERE { ?dataset a <http://www.w3.org/ns/dcat#Dataset> }'
 }
 
@@ -55,7 +55,7 @@ def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Gener
     graph = Graph(SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT}, session=session))
     for query in [Query.PARENT_A, Query.PARENT_B, Query.PARENT_C]:
         try:
-            for parent in graph.query(prepared_queries[query], initBindings={'dataset': dataset_iri}):
+            for parent in graph.query(prepared_queries[query].format(dataset_iri)):
                 parent_iri = str(parent['parent'])
                 yield str(parent_iri)
         except ValueError:
@@ -90,20 +90,20 @@ distributions_priority: List[str] = []
 def _get_queue(distribution: Any, graph: rdflib.Graph) -> List[str]:
     # put RDF distributions into a priority queue
     priority = False
-    for row in graph.query(prepared_queries[Query.MEDIA_TYPE], initBindings={'distribution': distribution}):
+    for row in graph.query(prepared_queries[Query.MEDIA_TYPE].format(distribution)):
         media = str(row['media'])
         if media in media_priority:
             return distributions_priority
 
     if not priority:
-        for row in graph.query(prepared_queries[Query.FORMAT], initBindings={'distribution': distribution}):
+        for row in graph.query(prepared_queries[Query.FORMAT].format(distribution)):
             distribution_format = str(row['format'])
             if distribution_format in format_priority:
                 return distributions_priority
 
     # data.gov.cz specific
     if not priority:
-        for row in graph.query(prepared_queries[Query.NKOD_MEDIA_TYPE], initBindings={'distribution': distribution}):
+        for row in graph.query(prepared_queries[Query.NKOD_MEDIA_TYPE].format(distribution)):
             distribution_format = str(row['format'])
             if 'rdf' in str(distribution_format):
                 return distributions_priority
@@ -117,7 +117,7 @@ def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: 
     # download URL to files
     downloads = []
     endpoints = set()
-    for row in graph.query(prepared_queries[Query.DOWNLOAD_URL], initBindings={'distribution': distribution}):
+    for row in graph.query(prepared_queries[Query.DOWNLOAD_URL].format(distribution)):
         download_url = str(row['download'])
         # log.debug(f'Down: {download_url!s}')
         if check_iri(str(download_url)) and not filter_iri(str(download_url)):
@@ -135,10 +135,10 @@ def _distribution_extractor(distribution: Any, dataset: Any, effective_dataset: 
             log.debug('%s is not a valid download URL', str(download_url))
 
     # scan for DCAT2 data services here as well
-    for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
+    for row in graph.query(prepared_queries[Query.ACCESS_SERVICE].format(distribution)):
         access = str(row['access'])
         log.debug('Service: %s', str(access))
-        for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'access': access}):
+        for row in graph.query(prepared_queries[Query.ENDPOINT_URL].format(access)):
             endpoint = str(row['endpoint'])
             if check_iri(str(endpoint)):
                 log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
@@ -157,7 +157,7 @@ def _dataset_extractor(dataset: Any, lookup_endpoint: str, graph: rdflib.Graph, 
 
     # DCAT Distribution
     endpoints, downloads = set(), []
-    for row in graph.query(prepared_queries[Query.DISTRIBUTION], initBindings={'dataset': dataset}):
+    for row in graph.query(prepared_queries[Query.DISTRIBUTION].format(dataset)):
         distribution = str(row['distribution'])
         local_endpoints, local_downloads = _distribution_extractor(distribution, dataset, effective_dataset, graph, pipe, log)
         endpoints.update(local_endpoints)
