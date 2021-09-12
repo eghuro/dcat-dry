@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Query endpoints."""
 import json
-import uuid
 from collections import defaultdict
 
 from bson.json_util import dumps as dumps_bson
@@ -10,10 +9,8 @@ from flask_rdf.flask import returns_rdf
 
 import tsa
 from tsa.cache import cached
-from tsa.extensions import csrf, mongo_db, same_as_index
-from tsa.query import query
-from tsa.report import (export_interesting, export_labels, export_profile, export_related, import_interesting,
-                        import_labels, import_profiles, import_related, list_datasets, query_dataset)
+from tsa.extensions import mongo_db, same_as_index
+from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.util import check_iri
 
@@ -38,62 +35,32 @@ def dcat_viewer_index_query():  # noqa: inconsistent-return-statements
     abort(400)
 
 
-@blueprint.route('/api/v1/query/sameas', methods=['GET'])
-@cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
-def same_as():  # noqa: inconsistent-return-statements
-    iri = request.args.get('iri', None)
-    if check_iri(iri):
-        return jsonify(list(same_as_index.lookup(iri)))
-    abort(400)
-
-
-@blueprint.route('/api/v1/query/analysis', methods=['POST'])  # noqa: unused-function
-@csrf.exempt
-def batch_analysis():
-    """Get a big report for all required distributions."""
-    result_id = str(uuid.uuid4())
-    query(result_id)
-    return result_id
-
-
-@blueprint.route('/api/v1/query/analysis/result', methods=['GET'])  # noqa: unused-function
+@blueprint.route('/api/v1/query/analysis', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def fetch_analysis():  # noqa: inconsistent-return-statements
-    batch_id = request.args.get('id', None)
-    if batch_id is not None:
-        analyses = defaultdict(list)
-        for analysis in mongo_db.dsanalyses.find({'batch_id': batch_id}):
-            res = {}
-            for key in analysis.keys():
-                res[key] = analysis[key]
-            del res['_id']
-            del res['batch_id']
-            ds_iri = res['ds_iri']
-            del res['ds_iri']
-            analyses[ds_iri].append(res)
-        if len(analyses.keys()) > 0:
-            related = mongo_db.related.find({})
-            if related is not None:
-                related = json.loads(dumps_bson(related))[0]
-                del related['_id']
-                return jsonify({'analyses': analyses, 'related': related})
-            return jsonify({'analyses': analyses})
-        abort(404)
-    abort(400)
+    analyses = defaultdict(list)
+    for analysis in mongo_db.dsanalyses.find({}):
+        res = {}
+        for key in analysis.keys():
+            res[key] = analysis[key]
+        del res['_id']
+        ds_iri = res['ds_iri']
+        del res['ds_iri']
+        analyses[ds_iri].append(res)
+    if len(analyses.keys()) > 0:
+        related = mongo_db.related.find({})
+        if related is not None:
+            related = json.loads(dumps_bson(related))[0]
+            del related['_id']
+            return jsonify({'analyses': analyses, 'related': related})
+        return jsonify({'analyses': analyses})
+    abort(204)
 
 
 @blueprint.route('/api/v1/export/labels', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def export_labels_endpoint():
     return jsonify(export_labels())
-
-
-@blueprint.route('/api/v1/import/labels', methods=['PUT'])
-@csrf.exempt
-def import_labels_endpoint():
-    labels = request.get_json()
-    import_labels(labels)
-    return 'OK'
 
 
 @blueprint.route('/api/v1/export/related', methods=['GET'])  # noqa: unused-function
@@ -116,46 +83,13 @@ def export_profile_endpoint():
 
 @blueprint.route('/api/v1/export/sameas', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
-def export_sameas_endpoint():
+def export_sameas_endpoint():  # noqa: inconsistent-return-statements
     return jsonify(same_as_index.export_index())
-
-
-@blueprint.route('/api/v1/import/sameas', methods=['PUT'])
-@csrf.exempt
-def import_sameas_endpoint():
-    index = request.get_json()
-    same_as_index.import_index(index)
-    return 'OK'
-
-
-@blueprint.route('/api/v1/import/related', methods=['PUT'])
-@csrf.exempt
-def import_related_endpoint():
-    related = request.get_json()
-    import_related(related)
-    return 'OK'
-
-
-@blueprint.route('/api/v1/import/profile', methods=['PUT'])
-@csrf.exempt
-def import_profile_endpoint():
-    profiles = request.get_json()
-    import_profiles(profiles)
-    return 'OK'
 
 
 @blueprint.route('/api/v1/export/interesting', methods=['GET'])  # noqa: unused-function
 def export_interesting_endpoint():
     return jsonify(export_interesting())
-
-
-@blueprint.route('/api/v1/import/interesting', methods=['POST'])
-def import_interesting_endpoint():
-    interesting_datasets = request.get_json()
-    if isinstance(interesting_datasets, list):
-        import_interesting(interesting_datasets)
-        return 'OK'
-    abort(400)
 
 
 @blueprint.route('/list', methods=['GET'])  # noqa: unused-function
@@ -170,20 +104,26 @@ def view_list():
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def view_detail():
     iri = request.args.get('iri', None)
-    profile = query_dataset(iri)
-    return render_template('detail.html', dataset=profile)
+    if test_iri(iri):
+        profile = query_dataset(iri)
+        return render_template('detail.html', dataset=profile)
+    else:
+        abort(400)
 
 
-@blueprint.route('/sd')  # noqa: unused-function
+@blueprint.route('/sd', methods=['GET'])  # noqa: unused-function
 @returns_rdf
 def service_description():
     endpoint_iri = request.args.get('endpoint', None)
     graph_iri = request.args.get('graph', None)
     query_string = request.query_string.decode('utf-8')
-    return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
+    if test_iri(endpoint_iri) and test_iri(graph_iri):
+        return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
+    else:
+        abort(400)
 
 
-@blueprint.route('/api/v1/version')  # noqa: unused-function
+@blueprint.route('/api/v1/version', methods=['GET'])  # noqa: unused-function
 def version():
     doc = {
         'app': tsa.__version__

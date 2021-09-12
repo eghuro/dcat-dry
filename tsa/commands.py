@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Click commands."""
+import json
 import logging
 import os
 
@@ -8,6 +9,8 @@ from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
+from tsa.extensions import same_as_index
+from tsa.report import import_labels, import_profiles, import_related
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
@@ -23,8 +26,8 @@ def divide_chunks(list_to_split, chunk_size):
 @click.option('-g', '--graphs', required=True, help='List of graphs')
 @click.option('-s', '--sparql', required=True, help='IRI of the SPARQL endpoint')
 def batch(graphs=None, sparql=None):
-    """Take a list of graphs in a text file and IRI of a SPARQL Endpoint and our API.
-    Trigger a batch execution.
+    """Trigger a batch execution.
+    Take a list of graphs in a text file and IRI of a SPARQL Endpoint and our API.
     """
     log = logging.getLogger(__name__)
     print(graphs)
@@ -40,6 +43,49 @@ def batch(graphs=None, sparql=None):
         for iris in divide_chunks(lines, 1000):
             graphs = [iri.strip() for iri in iris if check_iri(iri)]
             batch_inspect.si(sparql, graphs, False, 10).apply_async()
+
+
+@click.command()
+@click.option('-f', '--file', required=True, help="JSON file with labels from export labels endpoint")
+def import_labels(file):
+    with open(file, 'r', encoding='utf-8') as labels_file:
+        labels = json.load(labels_file)
+        import_labels(labels)
+
+
+@click.command()
+@click.option('-f', '--file', required=True, help="JSON file from export sameAs endpoint")
+def import_sameas(file):
+    with open(file, 'r', encoding='utf-8') as index_file:
+        index = json.load(index_file)
+        same_as_index.import_index(index)
+
+
+@click.command()
+@click.option('-f', '--file', required=True, help="JSON file from export related endpoint")
+def import_related(file):
+    with open(file, 'r', encoding='utf-8') as related_file:
+        related = json.load(related_file)
+        import_related(related)
+
+
+@click.command()
+@click.option('-f', '--file', required=True, help="JSON file from export profiles endpoint")
+def import_profiles(file):
+    with open(file, 'r', encoding='utf-8') as profiles_file:
+        profiles = json.load(profiles_file)
+        import_profiles(profiles)
+
+
+@click.command()
+@click.option('-f', '--file', required=True, help="JSON file from export interesting endpoint")
+def import_interesting(file):
+    with open(file, 'r', encoding='utf-8') as interesting_file:
+        interesting_datasets = json.load(interesting_file)
+        if isinstance(interesting_datasets, list):
+            import_interesting(interesting_datasets)
+        else:
+            logging.getLogger(__name__).error('Incorrect file')
 
 
 @click.command()

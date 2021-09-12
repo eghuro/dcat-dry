@@ -8,13 +8,13 @@ from tsa.tasks.query import (cache_labels, compile_analyses, concept_definition,
                              store_to_mongo)
 
 
-def query(result_id):
+def query():
     log = logging.getLogger(__name__)
     log.info('query: build celery canvas')
     message_to_mattermost('building query canvas')
     return chain([
         finalize_sameas.si(),  # no dependecies
-        compile_analyses.si(result_id), store_to_mongo.s(result_id),
+        compile_analyses.si(result_id), store_to_mongo.s(),
 
         cross_dataset_sameas.si(),
         ruian_reference.si(),  # mongo + sameas

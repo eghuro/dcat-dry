@@ -1,6 +1,7 @@
 """Celery tasks for querying."""
 import json
 import logging
+import uuid
 from json import JSONEncoder
 
 import redis
@@ -41,10 +42,11 @@ def _gen_iris(red, log):
 
 
 @celery.task
-def compile_analyses(batch_id):
+def compile_analyses():
     log = logging.getLogger(__name__)
     log.info('Compile analyzes')
     red = redis.Redis(connection_pool=redis_pool)
+    batch_id = str(uuid.uuid4())
 
     dataset_iris = set()
     for distr_iri, content in _gen_iris(red, log):
@@ -69,7 +71,7 @@ def compile_analyses(batch_id):
                 pipe.execute()
             dataset_iris.add(ds_iri)
 
-    return list(dataset_iris)
+    return list(dataset_iris), batch_id
 
 
 def gen_analyses(batch_id, dataset_iris, red):
@@ -81,7 +83,7 @@ def gen_analyses(batch_id, dataset_iris, red):
             for analyses_json in [json.loads(analysis_json_string) for analysis_json_string in red.lrange(key_in, 0, -1)]:
                 for analysis_json in analyses_json:  # flatten
                     for key in analysis_json.keys():  # 1 element
-                        analysis = {'ds_iri': ds_iri, 'batch_id': batch_id}
+                        analysis = {'ds_iri': ds_iri}
                         analysis[key] = analysis_json[key]  # merge dicts
                         yield analysis
 
