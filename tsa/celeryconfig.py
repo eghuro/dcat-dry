@@ -2,8 +2,8 @@
 import os
 
 broker_url = os.environ.get('REDIS_CELERY', None)
-ROKER_POOL_LIMIT = 0
-CELERY_REDIS_MAX_CONNECTIONS = 20
+broker_pool_limit = 0
+redis_max_connections = 20
 result_backend = os.environ.get('REDIS_CELERY', None)
 task_serializer = 'json'
 result_serializer = 'json'
