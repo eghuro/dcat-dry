@@ -102,25 +102,23 @@ def view_list():
 
 @blueprint.route('/detail', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
-def view_detail():
+def view_detail():  # noqa: inconsistent-return-statements
     iri = request.args.get('iri', None)
-    if test_iri(iri):
+    if check_iri(iri):
         profile = query_dataset(iri)
         return render_template('detail.html', dataset=profile)
-    else:
-        abort(400)
+    abort(400)
 
 
 @blueprint.route('/sd', methods=['GET'])  # noqa: unused-function
 @returns_rdf
-def service_description():
+def service_description():  # noqa: inconsistent-return-statements
     endpoint_iri = request.args.get('endpoint', None)
     graph_iri = request.args.get('graph', None)
     query_string = request.query_string.decode('utf-8')
-    if test_iri(endpoint_iri) and test_iri(graph_iri):
+    if check_iri(endpoint_iri) and check_iri(graph_iri):
         return generate_service_description(create_sd_iri(query_string), endpoint_iri, graph_iri)
-    else:
-        abort(400)
+    abort(400)
 
 
 @blueprint.route('/api/v1/version', methods=['GET'])  # noqa: unused-function
