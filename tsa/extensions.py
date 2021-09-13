@@ -29,6 +29,9 @@ class StatsdMockClient:
     def timing(self, *args):
         pass
 
+    def delta(self, *args):
+        pass
+
 
 class StatsdMock:
     """Mock of statsd library returning mock client above."""
