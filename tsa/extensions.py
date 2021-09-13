@@ -29,7 +29,7 @@ class StatsdMockClient:
     def timing(self, *args):
         pass
 
-    def delta(self, *args):
+    def delta(self, *args, **kwargs):
         pass
 
 
