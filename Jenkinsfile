@@ -131,10 +131,5 @@ pipeline {
         always {
             mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
         }
-        cleanup {
-			node { label 'use' } { 
-	        	
-	        }
-	    }
     }
 }
