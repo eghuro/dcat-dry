@@ -23,7 +23,7 @@ class TrackableTask(Task):
         return super().__call__(*args, **kwargs)
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def monitor(*args):
     log = logging.getLogger(__name__)
     redis_cfg = os.environ.get('REDIS_CELERY', None)
