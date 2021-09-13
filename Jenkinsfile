@@ -82,8 +82,6 @@ pipeline {
 			steps {
 				script {
 					'''#!/usr/bin/env bash
-						source /opt/conda/etc/profile.d/conda.sh
-						conda env remove -p "${WORKSPACE}@tmp/${BUILD_NUMBER}" --all
 						rm -rf "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 					'''
 				}
