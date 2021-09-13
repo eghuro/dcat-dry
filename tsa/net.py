@@ -72,7 +72,7 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
         'text/plain;q=0.9',
         '*/*;q=0.8'
     ])
-    request = session.get(iri, stream=True, timeout=timeout, verify=False, headers={'Accept': accept})
+    request = session.get(iri, stream=True, timeout=timeout, verify=False, allow_redirects=True, headers={'Accept': accept})
     request.raise_for_status()
 
     if delay is not None:
