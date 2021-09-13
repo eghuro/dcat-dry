@@ -87,14 +87,14 @@ distributions: List[str] = []
 distributions_priority: List[str] = []
 
 
-def _is_priority(distribution: Any, graph: rdflib.Graph) -> bool:
+def _is_priority(distribution: str, graph: rdflib.Graph) -> bool:
     # put RDF distributions into a priority queue
     for row in graph.query(prepared_queries[Query.MEDIA_TYPE], initBindings={'distribution': distribution}):  # .format(distribution)):
         media = str(row['media'])
         if media in media_priority:
             return True
 
-    for row in graph.query(prepared_queries[Query], initBindings={'distribution': distribution}):
+    for row in graph.query(prepared_queries[Query.FORMAT], initBindings={'distribution': distribution}):
         distribution_format = str(row['format'])
         if distribution_format in format_priority:
             return True
