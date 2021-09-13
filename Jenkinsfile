@@ -119,6 +119,7 @@ pipeline {
 		}
 	}
 	post {
+		agent { label 'use' }
         always {
         	dir("${env.WORKSPACE}@tmp") {
          	   deleteDir()
