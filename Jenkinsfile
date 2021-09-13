@@ -73,6 +73,18 @@ pipeline {
 			}
 		}
 
+		stage('Cleanup') {
+			agent { label 'use' }
+			steps {
+				script {
+					'''#!/usr/bin/env bash
+						source /opt/conda/etc/profile.d/conda.sh
+						conda env remove -n ${BUILD_TAG}
+					'''
+				}
+			}
+		}
+
 		stage('Build docker') {
 			agent { label 'docker' }
 			when {
