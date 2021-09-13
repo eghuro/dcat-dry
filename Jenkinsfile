@@ -12,6 +12,7 @@ pipeline {
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
 					pip list --outdated
+					conda deactivate
 					'''
 				}
 			}
@@ -27,6 +28,7 @@ pipeline {
 						conda activate ${BUILD_TAG}
 						pip install pytest-cov WebTest
 						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
+						conda deactivate
 					'''
 					}
 				}
@@ -48,6 +50,7 @@ pipeline {
 						conda activate ${BUILD_TAG}
 						pip install prospector[with_everything] types-requests types-redis
 						prospector -0
+						conda deactivate
 					'''
 				}
 			}
@@ -63,6 +66,7 @@ pipeline {
 						conda activate ${BUILD_TAG}
 						pip install prospector[with_everything] types-requests types-redis
 						prospector -0 -o pylint:prospector.txt
+						conda deactivate
 					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
