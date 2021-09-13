@@ -79,10 +79,10 @@ pipeline {
 		
 		stage('Cleanup') {
 			agent { label 'use' }
-			post {
-				cleanup {
+			steps {
+				post {
 					dir("${env.WORKSPACE}@tmp") {
-		         	   deleteDir()
+			         	   deleteDir()
 			        }
 		        }
 			}
