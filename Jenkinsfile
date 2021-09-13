@@ -7,8 +7,8 @@ pipeline {
 				script {
 					sh '''#!/usr/bin/env bash
 					source /opt/conda/etc/profile.d/conda.sh
-					conda create --yes -p "${WORKSPACE}/${BUILD_TAG}"  python=3.8.8
-                	conda activate ${BUILD_TAG}
+					conda create --yes -p "${WORKSPACE}/${BUILD_NUMBER}" python=3.8.8
+                	conda activate -p "${WORKSPACE}/${BUILD_NUMBER}"
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
 					pip list --outdated
@@ -25,7 +25,7 @@ pipeline {
 					script {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
-						conda activate -p "${WORKSPACE}/${BUILD_TAG}"
+						conda activate -p "${WORKSPACE}/${BUILD_NUMBER}"
 						pip install pytest-cov WebTest
 						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
 						conda deactivate
@@ -47,7 +47,7 @@ pipeline {
 				script {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
-						conda activate -p "${WORKSPACE}/${BUILD_TAG}"
+						conda activate -p "${WORKSPACE}/${BUILD_NUMBER}"
 						pip install prospector[with_everything] types-requests types-redis
 						prospector -0
 						conda deactivate
@@ -63,7 +63,7 @@ pipeline {
 				script {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
-						conda activate -p "${WORKSPACE}/${BUILD_TAG}"
+						conda activate -p "${WORKSPACE}/${BUILD_NUMBER}"
 						pip install prospector[with_everything] types-requests types-redis
 						prospector -0 -o pylint:prospector.txt
 						conda deactivate
@@ -83,7 +83,7 @@ pipeline {
 				script {
 					'''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
-						conda env remove -p "${WORKSPACE}/${BUILD_TAG}" --all
+						conda env remove -p -p "${WORKSPACE}/${BUILD_NUMBER}" --all
 					'''
 				}
 			}
