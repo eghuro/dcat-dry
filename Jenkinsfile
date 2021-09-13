@@ -76,6 +76,16 @@ pipeline {
 				}
 			}
 		}
+		
+		stage('Cleanup') {
+			agent { label 'use' }
+			post {
+				cleanup {
+					dir("${env.WORKSPACE}@tmp") {
+		         	   deleteDir()
+			        }
+		        }
+			}
 
 		stage('Build docker') {
 			agent { label 'docker' }
@@ -124,9 +134,7 @@ pipeline {
         }
         cleanup {
 			node { label 'use' } { 
-	        	dir("${env.WORKSPACE}@tmp") {
-	         	   deleteDir()
-		        }
+	        	
 	        }
 	    }
     }
