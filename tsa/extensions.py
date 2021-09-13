@@ -3,6 +3,7 @@
 import logging
 
 import redis
+import statsd
 from atenvironment import environment
 from flask_caching import Cache
 from flask_cors import CORS
@@ -15,27 +16,26 @@ from tsa.ddr import DataDrivenRelationshipIndex as DDR
 from tsa.redis import same_as as sameas_key
 from tsa.sameas import Index
 
-try:
-    import statsd
-except ImportError:
 
-    class StatsdMockClient:
-        """Mock client for statsd with empty method implemenntations."""
+class StatsdMockClient:
+    """Mock client for statsd with empty method implemenntations."""
 
-        def gauge(self, *args):
-            pass
+    def gauge(self, *args):
+        pass
 
-        def set(self, *args):
-            pass
+    def set(self, *args):
+        pass
 
-        def timing(self, *args):
-            pass
+    def timing(self, *args):
+        pass
 
-    class StatsdMock:
-        """Mock of statsd library returning mock client above."""
 
-        def StatsClient(self, *args):
-            return StatsdMockClient()
+class StatsdMock:
+    """Mock of statsd library returning mock client above."""
+
+    def StatsClient(self, *args):
+        return StatsdMockClient()
+
 
 cache = Cache()
 cors = CORS()
