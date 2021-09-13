@@ -12,6 +12,9 @@ from tsa.monitor import TimedBlock
 from tsa.robots import USER_AGENT, session
 from tsa.util import check_iri
 
+# workaround for https://github.com/RDFLib/rdflib/issues/1195
+register_plugin('application/rdf+xml; charset=UTF-8', Parser, 'rdflib.plugins.parsers.rdfxml', 'RDFXMLParser')
+
 
 class SparqlEndpointAnalyzer:
 
@@ -56,9 +59,6 @@ class SparqlEndpointAnalyzer:
             logging.getLogger(__name__).warning('%s is not a valid endpoint URL', endpoint)
             raise ValueError(endpoint)
         self.__endpoint = endpoint
-        # workaround for https://github.com/RDFLib/rdflib/issues/1195
-        register_plugin('application/rdf+xml; charset=UTF-8', Parser, 'rdflib.plugins.parsers.rdfxml', 'RDFXMLParser')
-
         self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
                                  'application/rdf+xml',
                                  session=session,
