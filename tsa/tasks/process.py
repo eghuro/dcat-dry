@@ -30,12 +30,12 @@ from tsa.util import check_iri
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
 # Time limit on process priority is to ensure we will do postprocessing after a while
-@celery.task(bind=True, time_limit=3600, base=TrackableTask)
+@celery.task(bind=True, time_limit=3600, base=TrackableTask, ignore_result=True)
 def process_priority(self, iri, force):
     do_process(iri, self, True, force)
 
 
-@celery.task(bind=True, time_limit=600, base=TrackableTask)
+@celery.task(bind=True, time_limit=600, base=TrackableTask, ignore_result=True)
 def process(self, iri, force):
     do_process(iri, self, False, force)
 
@@ -130,6 +130,10 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
     log.debug(f'Dereference: {iri_to_dereference}')
     if not check_iri(iri_to_dereference):
         raise FailedDereference()
+    key = root_name[KeyRoot.DISTRIBUTIONS]
+    if red.pfadd(key, iri_to_dereference) == 0:
+        log.error(f'Skipping distribution as it was recently processed - but we should have it in cache: {iri_to_dereference!s}')
+        raise FailedDereference()
     monitor.log_dereference_request()
     try:
         response = fetch(iri_to_dereference, log, red)
@@ -183,24 +187,31 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
         raise FailedDereference() from sys.exc_info()[1]
 
 
-def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion: int=0) -> rdflib.ConjunctiveGraph:
+def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion: int=0, dereferenced: set=None) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     if recursion == Config.MAX_RECURSION_LEVEL:
-        log.warning(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
+        log.debug(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
         return graph
+    if dereferenced == None:
+        dereferenced = set()
     for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
+        if iri_to_dereference in dereferenced:
+            continue
         try:
             sub_graph, should_continue = dereference_one(iri_to_dereference, iri_distr)
             if should_continue:
                 log.info(f'Continue dereferencing: now at {iri_distr}, dereferenced {iri_to_dereference}')
-                sub_graph += expand_graph_with_dereferences(sub_graph, iri_to_dereference, recursion + 1)
+                dereferenced.add(iri_to_dereference)
+                g, x = expand_graph_with_dereferences(sub_graph, iri_to_dereference, recursion + 1, dereferenced)
+                dereferenced.update(x)
+                sub_graph += g
             if sub_graph is not None:
                 graph += sub_graph
         except UnicodeDecodeError:
             log.exception(f'Failed to dereference {iri_to_dereference} (UnicodeDecodeError)')
         except FailedDereference:
             pass
-    return graph
+    return graph, dereferenced
 
 
 def store_pure_subjects(iri, graph, red):
