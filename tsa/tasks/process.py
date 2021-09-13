@@ -192,7 +192,7 @@ def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: st
     dereferenced = set()
     queue = [(iri_distr, 0)]
     while len(queue) > 0:
-        (iri, level) = queue.lpop()
+        (iri, level) = queue.pop(0)
         for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri)):
             if iri_to_dereference in dereferenced:
                 continue
@@ -203,7 +203,7 @@ def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: st
 
                 if should_continue and level < Config.MAX_RECURSION_LEVEL:
                     log.info(f'Continue dereferencing: now at {iri_distr}, dereferenced {iri_to_dereference}')
-                    queue.rpush((iri_to_dereference, level + 1))
+                    queue.append((iri_to_dereference, level + 1))
 
             except UnicodeDecodeError:
                 log.exception(f'Failed to dereference {iri_to_dereference} (UnicodeDecodeError)')
