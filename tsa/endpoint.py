@@ -21,7 +21,7 @@ class SparqlEndpointAnalyzer:
     """Extract DCAT datasets from a SPARQL endpoint."""
 
     @staticmethod
-    def __query(named=None):
+    def __query(named: str) -> str:
         str1 = """
         construct {
           ?ds a <http://www.w3.org/ns/dcat#Dataset>;
