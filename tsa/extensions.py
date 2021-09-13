@@ -28,6 +28,9 @@ except ImportError:
         def set(self, *args):
             pass
 
+        def timing(self, *args):
+            pass
+
     class StatsdMock:
         """Mock of statsd library returning mock client above."""
 
