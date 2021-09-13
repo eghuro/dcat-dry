@@ -86,6 +86,7 @@ pipeline {
 			        }
 		        }
 			}
+		}
 
 		stage('Build docker') {
 			agent { label 'docker' }
