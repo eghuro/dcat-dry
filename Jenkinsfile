@@ -77,17 +77,6 @@ pipeline {
 			}
 		}
 
-		stage('Cleanup') {
-			agent { label 'use' }
-			steps {
-				script {
-					'''#!/usr/bin/env bash
-						rm -rf "${WORKSPACE}@tmp/${BUILD_NUMBER}"
-					'''
-				}
-			}
-		}
-
 		stage('Build docker') {
 			agent { label 'docker' }
 			when {
@@ -131,6 +120,9 @@ pipeline {
 	}
 	post {
         always {
+        	dir("${env.WORKSPACE}@tmp") {
+         	   deleteDir()
+	        }
             mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
         }
     }
