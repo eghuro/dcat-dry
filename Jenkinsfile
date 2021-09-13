@@ -128,7 +128,7 @@ pipeline {
 		}
 		
 		stage ('Deploy') {
-			agent { label 'app' }
+			agent { label 'use' }
 			when {
 				allOf {
 					branch 'master'
