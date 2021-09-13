@@ -123,7 +123,7 @@ pipeline {
             mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
         }
         cleanup {
-			node { 'db' } { 
+			node { label 'use' } { 
 	        	dir("${env.WORKSPACE}@tmp") {
 	         	   deleteDir()
 		        }
