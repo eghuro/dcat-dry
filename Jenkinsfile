@@ -84,6 +84,7 @@ pipeline {
 					'''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda env remove -n ${BUILD_TAG}
+						rm -rf "/opt/conda/envs/${BUILD_TAG}"
 					'''
 				}
 			}
