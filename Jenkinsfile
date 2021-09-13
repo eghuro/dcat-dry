@@ -7,7 +7,7 @@ pipeline {
 				script {
 					sh '''#!/usr/bin/env bash
 					source /opt/conda/etc/profile.d/conda.sh
-					conda create --yes -n ${BUILD_TAG} python=3.8.8
+					conda create --yes -n ${BUILD_TAG} -p ${workspace}  python=3.8.8
                 	conda activate ${BUILD_TAG}
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip check
@@ -83,8 +83,7 @@ pipeline {
 				script {
 					'''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
-						conda env remove -n ${BUILD_TAG}
-						rm -rf "/opt/conda/envs/${BUILD_TAG}"
+						conda env remove --name ${BUILD_TAG} --all
 					'''
 				}
 			}
