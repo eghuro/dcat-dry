@@ -119,12 +119,14 @@ pipeline {
 		}
 	}
 	post {
-		agent { label 'use' }
         always {
+            mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
+        }
+        cleanup {
+			agent { label 'use' }
         	dir("${env.WORKSPACE}@tmp") {
          	   deleteDir()
 	        }
-            mattermostSend "Completed ${env.JOB_NAME} ${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
-        }
+	    }
     }
 }
