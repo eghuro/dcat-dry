@@ -158,7 +158,7 @@ def _dataset_extractor(dataset: str, lookup_endpoint: str, graph: rdflib.Graph, 
 
     # DCAT Distribution
     endpoints, downloads = set(), []
-    for row in graph.query(prepared_queries[Query.DISTRIBUTION].format(dataset)):
+    for row in graph.query(prepared_queries[Query.DISTRIBUTION], initBindings={'dataset': dataset}):
         distribution = str(row['distribution'])
         local_endpoints, local_downloads, local_has_distribution = _distribution_extractor(distribution, dataset, effective_dataset, graph, red, log)
         endpoints.update(local_endpoints)
