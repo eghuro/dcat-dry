@@ -39,6 +39,7 @@ pipeline {
 			agent { label 'use' }
 			when {
 				anyOf  {
+					branch 'develop'
 					branch pattern: "hotfix/.+", comparator: "REGEXP"
 				}
 			}
