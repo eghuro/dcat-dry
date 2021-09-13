@@ -27,8 +27,7 @@ pipeline {
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 						pip install pytest-cov WebTest
-						rm -rf __pycache__
-						pytest --verbose
+						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
 						conda deactivate
 					'''
 					}
