@@ -142,7 +142,7 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
     for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
         access = str(row['access'])
         log.debug('Service: %s', str(access))
-        for row in graph.query(prepared_queries[Query.ENDPOINT_URL].format(access)):
+        for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  #  .format(access)):
             endpoint = str(row['endpoint'])
             if check_iri(str(endpoint)):
                 log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
