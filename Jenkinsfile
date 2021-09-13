@@ -139,14 +139,15 @@ pipeline {
 			}
 			steps {
 				script {
-					def remote = [:]
-				    remote.name = 'app'
-				    remote.host = 'app.dry.dev.eghuro.com'
-				    remote.user = 'alex'
-				    remote.identity = '35639fef-7bb1-4f1c-b98b-fcc5127dc8c5'
-				    
-				    remote.allowAnyHosts = true
-					sshCommand remote: remote, command: "cd /home/alex/NKOD-TS; docker-compose down; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up; docker exec nkod-ts_web_1 flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql"
+					withCredentials([sshUserPrivateKey(credentialsId: '35639fef-7bb1-4f1c-b98b-fcc5127dc8c5', keyFileVariable: 'identity', passphraseVariable: '', usernameVariable: 'userName')]) {
+						def remote = [:]
+					    remote.name = 'app'
+					    remote.host = 'app.dry.dev.eghuro.com'
+					    remote.user = userName
+					    remote.identityFile = identity
+					    remote.allowAnyHosts = true
+						sshCommand remote: remote, command: "cd /home/alex/NKOD-TS; docker-compose down; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up; docker exec nkod-ts_web_1 flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql"
+					}
 				}
 			}
 		} 
