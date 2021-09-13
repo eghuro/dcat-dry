@@ -168,7 +168,7 @@ def _dataset_extractor(dataset: str, lookup_endpoint: str, graph: rdflib.Graph, 
     if not downloads and endpoints:
         log.warning('Only endpoint without distribution for %s', str(dataset))
 
-    if has_distribution or len(local_endpoints) > 0:
+    if has_distribution or len(endpoints) > 0:
         for parent in _query_parent(dataset, lookup_endpoint, log):
             log.debug('%s is a series containing %s', parent, str(dataset))
             effective_dataset = parent
