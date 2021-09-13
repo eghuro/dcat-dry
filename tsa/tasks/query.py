@@ -117,7 +117,7 @@ def store_to_mongo(dataset_iris, batch_id):
 reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension', 'crossSameas']
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def gen_related_ds():
     log = logging.getLogger(__name__)
     log.warning('Generate related datasets')
@@ -161,7 +161,7 @@ def gen_related_ds():
     return related_ds
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def finalize_sameas():
     log = logging.getLogger(__name__)
     log.info('Finalize sameAs index')
@@ -171,7 +171,7 @@ def finalize_sameas():
     log.info('Successfully finalized sameAs index')
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def cache_labels():
     log = logging.getLogger(__name__)
     log.info('Cache labels in mongo')
@@ -197,7 +197,7 @@ def iter_generic(mongo_db):
         yield doc
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def ruian_reference():
     log = logging.getLogger(__name__)
     log.info('Look for RUIAN references')
@@ -220,7 +220,7 @@ def report_relationship(red, rel_type, resource_iri, distr_iri):
     red.sadd(key, distr_iri)
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def concept_usage():
     log = logging.getLogger(__name__)
     log.info('Concept usage')
@@ -257,7 +257,7 @@ def concept_usage():
     log.info(f'Found relationships: {counter}')
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def concept_definition():
     count = 0
     dsdistr, _ = ds_distr()
@@ -277,7 +277,7 @@ def concept_definition():
     log.info(f'Found {count} relationship candidates')
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def cross_dataset_sameas():
     dsdistr, _ = ds_distr()
     red = redis.Redis(connection_pool=redis_pool)
@@ -289,7 +289,7 @@ def cross_dataset_sameas():
                     report_relationship(red, 'crossSameas', iri, distr_iri)
 
 
-@celery.task
+@celery.task(ignore_result=True)
 def data_driven_relationships():
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
