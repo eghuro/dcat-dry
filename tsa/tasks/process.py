@@ -173,7 +173,7 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
             if data is not None:
                 graph = load_graph(iri_to_dereference, data, 'n3')
             else:
-                return None, False
+                return rdflib.Graph(), False
         else:
             graph = dereference_one_impl(iri_to_dereference, iri_distr)
             if graph is not None:
@@ -182,35 +182,33 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
                 red.set(key, '')
 
         return graph, has_same_as(graph)
-    except:
+    except FailedDereference:
         logging.getLogger(__name__).exception(f'All attempts to dereference failed: {iri_to_dereference}')
-        raise FailedDereference() from sys.exc_info()[1]
+        raise
 
 
-def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str, recursion: int=0, dereferenced: set=None) -> rdflib.ConjunctiveGraph:
+def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
-    if recursion == Config.MAX_RECURSION_LEVEL:
-        log.debug(f'Reached max recursion level {recursion} when dereferencing {iri_distr}')
-        return graph
-    if dereferenced == None:
-        dereferenced = set()
-    for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
-        if iri_to_dereference in dereferenced:
-            continue
-        try:
-            sub_graph, should_continue = dereference_one(iri_to_dereference, iri_distr)
-            if should_continue:
-                log.info(f'Continue dereferencing: now at {iri_distr}, dereferenced {iri_to_dereference}')
+    dereferenced = set()
+    queue = [(iri_distr, 0)]
+    while len(queue) > 0:
+        (iri, level) = queue.lpop()
+        for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri)):
+            if iri_to_dereference in dereferenced:
+                continue
+            try:
+                sub_graph, should_continue = dereference_one(iri_to_dereference, iri_distr)
                 dereferenced.add(iri_to_dereference)
-                g, x = expand_graph_with_dereferences(sub_graph, iri_to_dereference, recursion + 1, dereferenced)
-                dereferenced.update(x)
-                sub_graph += g
-            if sub_graph is not None:
                 graph += sub_graph
-        except UnicodeDecodeError:
-            log.exception(f'Failed to dereference {iri_to_dereference} (UnicodeDecodeError)')
-        except FailedDereference:
-            pass
+
+                if should_continue and level < Config.MAX_RECURSION_LEVEL:
+                    log.info(f'Continue dereferencing: now at {iri_distr}, dereferenced {iri_to_dereference}')
+                    queue.rpush((iri_to_dereference, level + 1))
+
+            except UnicodeDecodeError:
+                log.exception(f'Failed to dereference {iri_to_dereference} (UnicodeDecodeError)')
+            except FailedDereference:
+                pass
     return graph, dereferenced
 
 
