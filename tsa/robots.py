@@ -8,6 +8,8 @@ import requests
 import requests_toolbelt
 
 import tsa
+from requests_cache import CachedSession
+from requests_cache.backends.redis import RedisCache
 from tsa.extensions import redis_pool
 
 try:
@@ -16,9 +18,8 @@ except ImportError:
     from tsa.mocks import Robots  # type: ignore
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-
 USER_AGENT = requests_toolbelt.user_agent('DCAT DRY', tsa.__version__, extras=[('requests', requests.__version__)])
-session = requests.Session()
+session = CachedSession('dry_dereference', backend=RedisCache(connection_pool=redis_pool))
 session.headers.update({'User-Agent': USER_AGENT})
 adapter = requests.adapters.HTTPAdapter(pool_connections=1000, pool_maxsize=(soft - 10), max_retries=3, pool_block=True)
 session.mount('http://', adapter)
