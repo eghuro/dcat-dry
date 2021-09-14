@@ -78,6 +78,7 @@ class SparqlEndpointAnalyzer:
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
         """Extract DCAT datasets from the given named graph of an endpoint."""
+        graph_iri = graph_iri.strip()
         if not check_iri(graph_iri):
             logging.getLogger(__name__).warning('%s is not a valid graph URL', str(graph_iri))
             return None

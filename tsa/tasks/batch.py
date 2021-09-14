@@ -20,8 +20,6 @@ from tsa.util import check_iri
 
 class Query(IntEnum):
     PARENT_A = 0
-    PARENT_B = 9
-    PARENT_C = 10
     MEDIA_TYPE = 1
     FORMAT = 2
     NKOD_MEDIA_TYPE = 3
