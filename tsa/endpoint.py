@@ -36,6 +36,7 @@ class SparqlEndpointAnalyzer:
           ?d <http://www.w3.org/ns/dcat#accessURL> ?accessPoint.
           ?accessPoint <http://www.w3.org/ns/dcat#endpointURL> ?endpointUrl;
           <http://www.w3.org/ns/dcat#endpointDescription> ?sd.
+          ?ds  <http://purl.org/dc/terms/isPartOf> ?parent.
        }
        """
 
@@ -56,9 +57,9 @@ class SparqlEndpointAnalyzer:
          }
          OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
          OPTIONAL { 
-            {?dataset  <http://purl.org/dc/terms/isPartOf> ?parent. }
-            UNION { ?parent <http://purl.org/dc/terms/hasPart> ?dataset. }
-            UNION { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent. }
+            {?ds  <http://purl.org/dc/terms/isPartOf> ?parent. }
+            UNION { ?parent <http://purl.org/dc/terms/hasPart> ?ds. }
+            UNION { ?ds <http://www.w3.org/ns/dcat#inSeries> ?parent. }
         }
        }
        """

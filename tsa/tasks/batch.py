@@ -34,8 +34,8 @@ class Query(IntEnum):
 
 prepared_queries = {
     Query.PARENT_A: prepareQuery('SELECT ?parent WHERE { ?dataset  <http://purl.org/dc/terms/isPartOf> ?parent }'),
-    Query.PARENT_B: prepareQuery('SELECT ?parent WHERE { ?parent <http://purl.org/dc/terms/hasPart> ?dataset }'),
-    Query.PARENT_C: prepareQuery('SELECT ?parent WHERE { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }'),
+    # Query.PARENT_B: prepareQuery('SELECT ?parent WHERE { ?parent <http://purl.org/dc/terms/hasPart> ?dataset }'),
+    # Query.PARENT_C: prepareQuery('SELECT ?parent WHERE { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent }'),
     Query.MEDIA_TYPE: prepareQuery('SELECT ?media WHERE { ?distribution  <http://www.w3.org/ns/dcat#mediaType> ?media }'),
     Query.FORMAT: prepareQuery('SELECT ?format WHERE {  ?distribution <http://purl.org/dc/terms/format> ?format }'),
     Query.NKOD_MEDIA_TYPE: prepareQuery('SELECT ?format WHERE { ?distribution <https://data.gov.cz/slovník/nkod/mediaTyp> ?format }'),
@@ -63,7 +63,7 @@ class Context:
 
 
 def _query_parent(dataset_iri: str, graph: Graph, log: logging.Logger) -> Generator[str, None, None]:
-    for query in [Query.PARENT_A, Query.PARENT_B, Query.PARENT_C]:
+    for query in [Query.PARENT_A]:
         try:
             for parent in graph.query(prepared_queries[query], initBindings={'dataset': dataset_iri}):
                 yield str(parent['parent'])
