@@ -48,12 +48,11 @@ prepared_queries = {
 class Context:
     distributions: List[str] = []
     distributions_priority: List[str] = []
-    has_distribution = False
     graph_iri: str = ''
     red = None
     log = None
-    downloads = []
-    endpoints = set()
+    downloads: List[str] = []
+    endpoints: Set[str] = set()
 
     def __init__(self, red, log):
         self.red = red
@@ -126,7 +125,6 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
                     context.log.info('Guessing %s is a SPARQL endpoint, will use for dereferences from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                     context.endpoints.add(download_url)
                 else:
-                    context.downloads.append(download_url)
                     context.log.debug('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                     queue.append(download_url)
                     pipe.sadd(f'{dsdistr}:{str(effective_dataset)}', str(download_url))
