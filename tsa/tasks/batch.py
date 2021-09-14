@@ -54,7 +54,6 @@ class Context:
     distributions: List[str] = []
     distributions_priority: List[str] = []
     has_distribution = False
-    endpoint_iri: str = ''
     graph_iri: str = ''
     red = None
     log = None
@@ -66,8 +65,7 @@ class Context:
         self.log = log
 
 
-def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Generator[str, None, None]:
-    graph = Graph(SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT}, session=session))
+def _query_parent(dataset_iri: str, graph: Graph, log: logging.Logger) -> Generator[str, None, None]:
     for query in [Query.PARENT_A, Query.PARENT_B, Query.PARENT_C]:
         try:
             for parent in graph.query(prepared_queries[query], initBindings={'dataset': dataset_iri}):
@@ -157,7 +155,7 @@ def _dataset_extractor(dataset: str, graph: rdflib.Graph, context: Context) -> N
     context.log.debug('DS: %s', str(dataset))
     effective_dataset = dataset
 
-    for parent in _query_parent(dataset, context.endpoint_iri, context.log):
+    for parent in _query_parent(dataset, graph, context.log):
         context.log.debug('%s is a series containing %s', parent, str(dataset))
         effective_dataset = parent
 
