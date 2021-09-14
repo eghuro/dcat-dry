@@ -200,8 +200,8 @@ def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, 
     group(tasks).apply_async()
 
 
-@celery.task(base=TrackableTask, ignore_result=True, bind=True)
-def inspect_graph(self, endpoint_iri: str, graph_iri: str, force: bool) -> None:
+@celery.task(base=TrackableTask, ignore_result=True)
+def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
     red = inspect_graph.redis
     log = logging.getLogger(__name__)
     try:
@@ -209,8 +209,6 @@ def inspect_graph(self, endpoint_iri: str, graph_iri: str, force: bool) -> None:
         _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
     except (rdflib.query.ResultException, HTTPError):
         log.error('Failed to inspect graph %s: ResultException or HTTP Error', graph_iri)
-    except ValueError as exc:
-        raise self.retry(exc=exc, countdown=60)
 
 
 def _multiply(item: Any, times: int):
