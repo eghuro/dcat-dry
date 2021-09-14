@@ -83,7 +83,7 @@ class SparqlEndpointAnalyzer:
             with TimedBlock('process_graph'):
                 constructed = graph.query(SparqlEndpointAnalyzer.__query(graph_iri)).graph  # implementation detail for CONSTRUCT!
                 product = Graph()
-                for (s, p, o) in constructed:
+                for s, p, o in constructed:
                     product.add((s, p, o))
                 return product
         except ResultException as exc:
