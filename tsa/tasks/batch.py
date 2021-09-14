@@ -1,10 +1,9 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
 from enum import IntEnum
-from typing import Any, Collection, Generator, List, Set, Tuple
+from typing import Any, Collection, Generator, List
 
 import rdflib
-import redis
 from celery import group
 from celery.result import AsyncResult
 from rdflib import Graph
@@ -51,6 +50,22 @@ prepared_queries = {
 }
 
 
+class Context:
+    distributions: List[str] = []
+    distributions_priority: List[str] = []
+    has_distribution = False
+    endpoint_iri: str
+    graph_iri: str
+    red = None
+    log = None
+    downloads = []
+    endpoints = set()
+
+    def __init__(self, red, log):
+        self.red = red
+        self.log = log
+
+
 def _query_parent(dataset_iri: str, endpoint: str, log: logging.Logger) -> Generator[str, None, None]:
     graph = Graph(SPARQLStore(endpoint, headers={'User-Agent': USER_AGENT}, session=session))
     for query in [Query.PARENT_A, Query.PARENT_B, Query.PARENT_C]:
@@ -82,121 +97,95 @@ format_priority = set([
     'http://publications.europa.eu/resource/authority/file-type/N3'
 ])  # EU
 dsdistr, distrds = ds_distr()
-distributions: List[str] = []
-distributions_priority: List[str] = []
 
 
-def _is_priority(distribution: str, graph: rdflib.Graph) -> bool:
+def _get_queue(distribution: str, graph: rdflib.Graph, context: Context) -> List:
     # put RDF distributions into a priority queue
     for row in graph.query(prepared_queries[Query.MEDIA_TYPE], initBindings={'distribution': distribution}):  # .format(distribution)):
         media = str(row['media'])
         if media in media_priority:
-            return True
+            return context.distributions_priority
 
     for row in graph.query(prepared_queries[Query.FORMAT], initBindings={'distribution': distribution}):
         distribution_format = str(row['format'])
         if distribution_format in format_priority:
-            return True
+            return context.distributions_priority
 
     # data.gov.cz specific
     for row in graph.query(prepared_queries[Query.NKOD_MEDIA_TYPE], initBindings={'distribution': distribution}):
         distribution_format = str(row['format'])
         if 'rdf' in str(distribution_format):
-            return True
+            return context.distributions_priority
 
-    return False
+    return context.distributions
 
 
-def _distribution_extractor(distribution: str, dataset: str, effective_dataset: str, graph: rdflib.Graph, red: redis.Redis, log: logging.Logger) -> Tuple[Set[str], List[str], bool]:
-    log.debug('Distr: %s', str(distribution))
-    if _is_priority(distribution, graph):
-        queue = distributions_priority
-    else:
-        queue = distributions
+def _distribution_extractor(distribution: str, dataset: str, effective_dataset: str, graph: rdflib.Graph, context: Context) -> None:
+    context.log.debug('Distr: %s', str(distribution))
+    queue = _get_queue(distribution, graph, context)
 
-    # download URL to files
-    downloads = []
-    endpoints = set()
-    has_distribution = False
-    with red.pipeline() as pipe:
+    with context.red.pipeline() as pipe:
         for row in graph.query(prepared_queries[Query.DOWNLOAD_URL], initBindings={'distribution': distribution}):
             download_url = str(row['download'])
             # log.debug(f'Down: {download_url!s}')
             if check_iri(str(download_url)) and not filter_iri(str(download_url)):
-                has_distribution = True
                 if download_url.endswith('/sparql'):
-                    log.info('Guessing %s is a SPARQL endpoint, will use for dereferences from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
-                    endpoints.add(download_url)
+                    context.log.info('Guessing %s is a SPARQL endpoint, will use for dereferences from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
+                    context.endpoints.add(download_url)
                 else:
-                    downloads.append(download_url)
-                    log.debug('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
+                    context.downloads.append(download_url)
+                    context.log.debug('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                     queue.append(download_url)
                     pipe.sadd(f'{dsdistr}:{str(effective_dataset)}', str(download_url))
                     pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_dataset))
             else:
-                log.debug('%s is not a valid download URL', str(download_url))
+                context.log.debug('%s is not a valid download URL', str(download_url))
         pipe.execute()
 
     # scan for DCAT2 data services here as well
     for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
         access = str(row['access'])
-        log.debug('Service: %s', str(access))
+        context.log.debug('Service: %s', str(access))
         for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  #  .format(access)):
             endpoint = str(row['endpoint'])
             if check_iri(str(endpoint)):
-                log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
-                endpoints.add(endpoint)
-                has_distribution = True
-    return endpoints, downloads, has_distribution
+                context.log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
+                context.endpoints.add(endpoint)
 
 
-def _dataset_extractor(dataset: str, lookup_endpoint: str, graph: rdflib.Graph, log: logging.Logger, red: redis.Redis) -> bool:
-    log.debug('DS: %s', str(dataset))
+def _dataset_extractor(dataset: str, graph: rdflib.Graph, context: Context) -> None:
+    context.log.debug('DS: %s', str(dataset))
     effective_dataset = dataset
-    has_distribution = False
+
+    for parent in _query_parent(dataset, context.lookup_endpoint, context.log):
+        context.log.debug('%s is a series containing %s', parent, str(dataset))
+        effective_dataset = parent
 
     # DCAT Distribution
-    endpoints, downloads = set(), []
     for row in graph.query(prepared_queries[Query.DISTRIBUTION], initBindings={'dataset': dataset}):
         distribution = str(row['distribution'])
-        before = len(distributions) + len(distributions_priority)
-        local_endpoints, local_downloads, local_has_distribution = _distribution_extractor(distribution, dataset, effective_dataset, graph, red, log)
-        after = len(distributions) + len(distributions_priority)
-        if before == after:
-            log.warning('No distributions extracted from %s', dataset)
-        endpoints.update(local_endpoints)
-        downloads.extend(local_downloads)
-        has_distribution = has_distribution or local_has_distribution
+        _distribution_extractor(distribution, dataset, effective_dataset, graph, context)
 
-    if not downloads and endpoints:
-        log.warning('Only endpoint without distribution for %s', str(dataset))
+    if len(context.downloads) == 0 and len(context.endpoints) == 0:
+        context.log.warning('Only endpoint without distribution for %s', str(dataset))
 
-    if has_distribution or len(endpoints) > 0:
-        for parent in _query_parent(dataset, lookup_endpoint, log):
-            log.debug('%s is a series containing %s', parent, str(dataset))
-            effective_dataset = parent
-
-    with red.pipeline() as pipe:
-        for endpoint in endpoints:
+    with context.red.pipeline() as pipe:
+        for endpoint in context.endpoints:
             pipe.sadd(dataset_endpoint(str(effective_dataset)), endpoint)
         pipe.execute()
 
-    return has_distribution
 
-
-def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, force: bool, graph_iri: str, lookup_endpoint: str) -> None:
-    log.debug('Extracting distributions from %s', graph_iri)
+def _dcat_extractor(graph: rdflib.Graph, context: Context) -> None:
+    context.log.debug('Extracting distributions from %s', context.graph_iri)
     # DCAT dataset
-    distribution = False
     for row in graph.query(prepared_queries[Query.DATASET]):
         dataset = str(row['dataset'])
-        distribution_local = _dataset_extractor(dataset, lookup_endpoint, graph, log, red)
-        distribution = distribution or distribution_local
+        _dataset_extractor(dataset, graph, context)
+
 # TODO: possibly scan for service description as well
-    if distribution:
-        GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
-    tasks = [process_priority.si(a, force) for a in distributions_priority]
-    tasks.extend(process.si(a, force) for a in distributions)
+    GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
+    tasks = [process_priority.si(a, False) for a in context.distributions_priority]
+    tasks.extend(process.si(a, False) for a in context.distributions)
     group(tasks).apply_async()
 
 
@@ -204,9 +193,10 @@ def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, 
 def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
     red = inspect_graph.redis
     log = logging.getLogger(__name__)
+    context = Context(red, log)
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
+        _dcat_extractor(inspector.process_graph(graph_iri), context)
     except (rdflib.query.ResultException, HTTPError):
         log.error('Failed to inspect graph %s: ResultException or HTTP Error', graph_iri)
 
