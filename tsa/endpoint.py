@@ -78,23 +78,28 @@ class SparqlEndpointAnalyzer:
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
         """Extract DCAT datasets from the given named graph of an endpoint."""
+        log = logging.getLogger(__name__)
         graph_iri = graph_iri.strip()
         if not check_iri(graph_iri):
-            logging.getLogger(__name__).warning('%s is not a valid graph URL', str(graph_iri))
+            log.warning('%s is not a valid graph URL', str(graph_iri))
             return None
 
         graph = Graph(store=self.store, identifier=graph_iri)
         graph.open(self.__endpoint)
 
+        query = None
         try:
             with TimedBlock('process_graph'):
-                constructed = graph.query(SparqlEndpointAnalyzer.__query(graph_iri)).graph  # implementation detail for CONSTRUCT!
+                query = SparqlEndpointAnalyzer.__query(graph_iri)
+                constructed = graph.query(query).graph  # implementation detail for CONSTRUCT!
                 product = Graph()
                 for s, p, o in constructed:
                     product.add((s, p, o))
                 return product
         except ResultException as exc:
-            logging.getLogger(__name__).error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
+            log.error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
+        except ValueError as exc:
+            log.exception('Error in query: %s', query)
 
         return None
 
