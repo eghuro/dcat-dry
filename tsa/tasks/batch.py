@@ -1,7 +1,7 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
 from enum import IntEnum
-from typing import Generator, List
+from typing import Generator, List, Set
 
 import rdflib
 from celery import group
