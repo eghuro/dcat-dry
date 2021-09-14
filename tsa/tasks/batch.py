@@ -51,7 +51,6 @@ class Context:
     graph_iri: str = ''
     red = None
     log = None
-    downloads: List[str] = []
     endpoints: Set[str] = set()
 
     def __init__(self, red, log):
