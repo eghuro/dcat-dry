@@ -157,7 +157,7 @@ def _dataset_extractor(dataset: str, graph: rdflib.Graph, context: Context) -> N
     context.log.debug('DS: %s', str(dataset))
     effective_dataset = dataset
 
-    for parent in _query_parent(dataset, context.lookup_endpoint, context.log):
+    for parent in _query_parent(dataset, context.endpoint_iri, context.log):
         context.log.debug('%s is a series containing %s', parent, str(dataset))
         effective_dataset = parent
 
