@@ -15,7 +15,6 @@ from requests.exceptions import HTTPError
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
-from tsa.monitor import TimedBlock, monitor
 from tsa.redis import dataset_endpoint, ds_distr
 from tsa.robots import USER_AGENT, session
 from tsa.tasks.common import TrackableTask
@@ -136,7 +135,7 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
                     pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_dataset))
             else:
                 log.debug('%s is not a valid download URL', str(download_url))
-            pipe.execute()
+        pipe.execute()
 
     # scan for DCAT2 data services here as well
     for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
@@ -160,7 +159,11 @@ def _dataset_extractor(dataset: str, lookup_endpoint: str, graph: rdflib.Graph, 
     endpoints, downloads = set(), []
     for row in graph.query(prepared_queries[Query.DISTRIBUTION], initBindings={'dataset': dataset}):
         distribution = str(row['distribution'])
+        before = len(distributions) + len(distributions_priority)
         local_endpoints, local_downloads, local_has_distribution = _distribution_extractor(distribution, dataset, effective_dataset, graph, red, log)
+        after = len(distributions) + len(distributions_priority)
+        if before == after:
+            log.warning('No distributions extracted from %s', dataset)
         endpoints.update(local_endpoints)
         downloads.extend(local_downloads)
         has_distribution = has_distribution or local_has_distribution
@@ -184,18 +187,16 @@ def _dataset_extractor(dataset: str, lookup_endpoint: str, graph: rdflib.Graph, 
 def _dcat_extractor(graph: rdflib.Graph, red: redis.Redis, log: logging.Logger, force: bool, graph_iri: str, lookup_endpoint: str) -> None:
     log.debug('Extracting distributions from %s', graph_iri)
     # DCAT dataset
-    with TimedBlock('dcat_extractor'):
-        distribution = False
-        for row in graph.query(prepared_queries[Query.DATASET]):
-            dataset = str(row['dataset'])
-            distribution_local = _dataset_extractor(dataset, lookup_endpoint, graph, log, red)
-            distribution = distribution or distribution_local
-    # TODO: possibly scan for service description as well
-        if distribution:
-            GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
+    distribution = False
+    for row in graph.query(prepared_queries[Query.DATASET]):
+        dataset = str(row['dataset'])
+        distribution_local = _dataset_extractor(dataset, lookup_endpoint, graph, log, red)
+        distribution = distribution or distribution_local
+# TODO: possibly scan for service description as well
+    if distribution:
+        GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
     tasks = [process_priority.si(a, force) for a in distributions_priority]
     tasks.extend(process.si(a, force) for a in distributions)
-    monitor.log_tasks(len(tasks))
     group(tasks).apply_async()
 
 
@@ -206,7 +207,6 @@ def inspect_graph(self, endpoint_iri: str, graph_iri: str, force: bool) -> None:
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
         _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
-        monitor.log_inspected()
     except (rdflib.query.ResultException, HTTPError):
         log.error('Failed to inspect graph %s: ResultException or HTTP Error', graph_iri)
     except ValueError as exc:
@@ -221,7 +221,6 @@ def _multiply(item: Any, times: int):
 @celery.task(base=TrackableTask, ignore_result=True)
 def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunks: int) -> AsyncResult:
     items = len(graphs)
-    monitor.log_graph_count(items)
     logging.getLogger(__name__).info('Batch of %d graphs in %s', items, endpoint_iri)
     return inspect_graph.chunks(zip(_multiply(endpoint_iri, items), graphs, _multiply(force, items)), chunks).apply_async()
     # 1000 graphs into 10 chunks of 100
