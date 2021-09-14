@@ -159,9 +159,6 @@ def _dataset_extractor(dataset: str, graph: rdflib.Graph, context: Context) -> N
         distribution = str(row['distribution'])
         _distribution_extractor(distribution, dataset, effective_dataset, graph, context)
 
-    if len(context.downloads) == 0 and len(context.endpoints) == 0:
-        context.log.warning('Only endpoint without distribution for %s', str(dataset))
-
     with context.red.pipeline() as pipe:
         for endpoint in context.endpoints:
             pipe.sadd(dataset_endpoint(str(effective_dataset)), endpoint)
