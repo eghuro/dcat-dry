@@ -57,7 +57,7 @@ class SparqlEndpointAnalyzer:
          OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
          OPTIONAL { ?dataset  <http://purl.org/dc/terms/isPartOf> ?parent. }
          OPTIONAL { ?parent <http://purl.org/dc/terms/hasPart> ?dataset. }
-         OPTIONAL { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent. } 
+         OPTIONAL { ?dataset <http://www.w3.org/ns/dcat#inSeries> ?parent. }
        }
        """
 

@@ -14,15 +14,9 @@ from tsa.report import import_interesting as import_interesting_impl
 from tsa.report import import_labels as import_labels_impl
 from tsa.report import import_profiles as import_profiles_impl
 from tsa.report import import_related as import_related_impl
-from tsa.tasks.batch import batch_inspect, inspect_graph
+from tsa.tasks.batch import inspect_graph
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
-
-
-def divide_chunks(list_to_split, chunk_size):
-    # looping till length of the list_to_split
-    for i in range(0, len(list_to_split), chunk_size):
-        yield list_to_split[i:i + chunk_size]
 
 
 @click.command()
@@ -39,9 +33,6 @@ def batch(graphs=None, sparql=None):
         return
     log.info('Analyzing endpoint %s', sparql)
     with open(graphs, 'r', encoding='utf-8') as graphs_file:
-        # for iris in divide_chunks(lines, 1000):
-        #    graphs = [iri.strip() for iri in iris if check_iri(iri)]
-        #    batch_inspect.si(sparql, graphs, False, 10).apply_async()
         for iri in graphs_file:
             inspect_graph.si(sparql, iri, False).apply_async()
 

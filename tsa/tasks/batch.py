@@ -1,11 +1,10 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
 from enum import IntEnum
-from typing import Any, Collection, Generator, List
+from typing import Generator, List
 
 import rdflib
 from celery import group
-from celery.result import AsyncResult
 from rdflib import Graph
 from rdflib.plugins.sparql.processor import prepareQuery
 from requests.exceptions import HTTPError
@@ -198,16 +197,3 @@ def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
         _dcat_extractor(inspector.process_graph(graph_iri), context)
     except (rdflib.query.ResultException, HTTPError):
         log.error('Failed to inspect graph %s: ResultException or HTTP Error', graph_iri)
-
-
-def _multiply(item: Any, times: int):
-    for _ in range(times):
-        yield item
-
-
-@celery.task(base=TrackableTask, ignore_result=True)
-def batch_inspect(endpoint_iri: str, graphs: Collection[str], force: bool, chunks: int) -> AsyncResult:
-    items = len(graphs)
-    logging.getLogger(__name__).info('Batch of %d graphs in %s', items, endpoint_iri)
-    return inspect_graph.chunks(zip(_multiply(endpoint_iri, items), graphs, _multiply(force, items)), chunks).apply_async()
-    # 1000 graphs into 10 chunks of 100
