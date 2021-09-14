@@ -8,14 +8,12 @@ from celery import group
 from celery.result import AsyncResult
 from rdflib import Graph
 from rdflib.plugins.sparql.processor import prepareQuery
-from rdflib.plugins.stores.sparqlstore import SPARQLStore
 from requests.exceptions import HTTPError
 
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.redis import dataset_endpoint, ds_distr
-from tsa.robots import USER_AGENT, session
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import check_iri
@@ -192,6 +190,9 @@ def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
     red = inspect_graph.redis
     log = logging.getLogger(__name__)
     context = Context(red, log)
+    endpoint_iri = endpoint_iri.strip()
+    if not check_iri(endpoint_iri):
+        return
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
         _dcat_extractor(inspector.process_graph(graph_iri), context)
