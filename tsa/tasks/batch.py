@@ -54,8 +54,8 @@ class Context:
     distributions: List[str] = []
     distributions_priority: List[str] = []
     has_distribution = False
-    endpoint_iri: str
-    graph_iri: str
+    endpoint_iri: str = ''
+    graph_iri: str = ''
     red = None
     log = None
     downloads = []
