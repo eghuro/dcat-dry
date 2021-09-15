@@ -27,7 +27,7 @@ def query_parent(ds, g, log):
         log.warning(f'Failed to query parent. Query was: {query}')
 
 
-def _dcat_extractor(g, red, log, force, graph_iri, endpoint):
+def _dcat_extractor(g, red, log, force, graph_iri):
     distributions, distributions_priority = [], []
     dcat = Namespace('http://www.w3.org/ns/dcat#')
     dcterms = Namespace('http://purl.org/dc/terms/')
@@ -156,7 +156,7 @@ def do_inspect_graph(graph_iri, force, red, endpoint_iri):
     result = None
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        result = _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri, endpoint_iri)
+        result = _dcat_extractor(inspector.process_graph(graph_iri), red, log, force, graph_iri)
     except (rdflib.query.ResultException, HTTPError):
         log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
     monitor.log_inspected()
