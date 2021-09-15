@@ -9,7 +9,7 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
 from tsa.monitor import TimedBlock
-from tsa.robots import USER_AGENT
+from tsa.robots import USER_AGENT, session
 from tsa.util import check_iri
 
 # workaround for https://github.com/RDFLib/rdflib/issues/1195
@@ -73,6 +73,7 @@ class SparqlEndpointAnalyzer:
         self.__endpoint = endpoint
         self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
                                  'application/rdf+xml',
+                                 session=session,
                                  headers={'User-Agent': USER_AGENT})
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
