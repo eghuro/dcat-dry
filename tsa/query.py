@@ -14,7 +14,7 @@ def query():
     message_to_mattermost('building query canvas')
     return chain([
         finalize_sameas.si(),  # no dependecies
-        compile_analyses.si(result_id), store_to_mongo.s(),
+        compile_analyses.si(), store_to_mongo.s(),
 
         cross_dataset_sameas.si(),
         ruian_reference.si(),  # mongo + sameas
