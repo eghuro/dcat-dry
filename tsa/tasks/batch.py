@@ -140,11 +140,11 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
         pipe.execute()
 
     # scan for DCAT2 data services here as well
-    for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
-        access = str(row['access'])
+    for row_service in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
+        access = str(row_service['access'])
         context.log.info('Service: %s', str(access))
-        for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  # .format(access)):
-            endpoint = str(row['endpoint'])
+        for row_endpoint in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  # .format(access)):
+            endpoint = str(row_endpoint['endpoint'])
             if check_iri(str(endpoint)):
                 context.log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
                 context.endpoints.add(endpoint)
