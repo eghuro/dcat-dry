@@ -13,7 +13,7 @@ from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
 from tsa.redis import dataset_endpoint, ds_distr
 from tsa.tasks.common import TrackableTask
-from tsa.tasks.process import process, process_priority
+from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import check_iri
 
 
@@ -90,7 +90,7 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                     endpoints = set()
                     for download_url in g.objects(d, dcat.downloadURL):
                         # log.debug(f'Down: {download_url!s}')
-                        if check_iri(str(download_url)) and not filter(str(download_url)):
+                        if check_iri(str(download_url)) and not filter_iri(str(download_url)):
                             if download_url.endswith('/sparql'):
                                 log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
                                 endpoints.add(download_url)
