@@ -97,7 +97,7 @@ format_priority = set([
 dsdistr, distrds = ds_distr()
 
 
-def _get_queue(distribution: str, graph: rdflib.Graph, context: Context) -> QueueType:
+def _get_queue(distribution: str, graph: rdflib.Graph) -> QueueType:
     # put RDF distributions into a priority queue
     for row in graph.query(prepared_queries[Query.MEDIA_TYPE], initBindings={'distribution': distribution}):  # .format(distribution)):
         media = str(row['media'])
@@ -120,7 +120,7 @@ def _get_queue(distribution: str, graph: rdflib.Graph, context: Context) -> Queu
 
 def _distribution_extractor(distribution: str, dataset: str, effective_dataset: str, graph: rdflib.Graph, context: Context) -> None:
     context.log.debug('Distr: %s', str(distribution))
-    queue = _get_queue(distribution, graph, context)
+    queue = _get_queue(distribution, graph)
 
     with context.red.pipeline() as pipe:
         for row in graph.query(prepared_queries[Query.DOWNLOAD_URL], initBindings={'distribution': distribution}):
