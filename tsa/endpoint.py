@@ -91,11 +91,7 @@ class SparqlEndpointAnalyzer:
         try:
             with TimedBlock('process_graph'):
                 query = SparqlEndpointAnalyzer.__query(graph_iri)
-                constructed = graph.query(query).graph  # implementation detail for CONSTRUCT!
-                product = Graph()
-                for s, p, o in constructed:
-                    product.add((s, p, o))
-                return product
+                return graph.query(query).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
             log.error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
         except ValueError as exc:

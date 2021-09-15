@@ -45,9 +45,16 @@ prepared_queries = {
 }
 
 
+class QueueType(IntEnum):
+    DISTRIBUTIONS = 0
+    PRIORITY = 1
+
+
 class Context:
-    distributions: List[str] = []
-    distributions_priority: List[str] = []
+    queues = {
+        QueueType.DISTRIBUTIONS: [],
+        QueueType.PRIORITY: []
+    }
     graph_iri: str = ''
     red = None
     log = None
@@ -90,25 +97,25 @@ format_priority = set([
 dsdistr, distrds = ds_distr()
 
 
-def _get_queue(distribution: str, graph: rdflib.Graph, context: Context) -> List:
+def _get_queue(distribution: str, graph: rdflib.Graph, context: Context) -> QueueType:
     # put RDF distributions into a priority queue
     for row in graph.query(prepared_queries[Query.MEDIA_TYPE], initBindings={'distribution': distribution}):  # .format(distribution)):
         media = str(row['media'])
         if media in media_priority:
-            return context.distributions_priority
+            return QueueType.PRIORITY
 
     for row in graph.query(prepared_queries[Query.FORMAT], initBindings={'distribution': distribution}):
         distribution_format = str(row['format'])
         if distribution_format in format_priority:
-            return context.distributions_priority
+            return QueueType.PRIORITY
 
     # data.gov.cz specific
     for row in graph.query(prepared_queries[Query.NKOD_MEDIA_TYPE], initBindings={'distribution': distribution}):
         distribution_format = str(row['format'])
         if 'rdf' in str(distribution_format):
-            return context.distributions_priority
+            return QueueType.PRIORITY
 
-    return context.distributions
+    return QueueType.DISTRIBUTIONS
 
 
 def _distribution_extractor(distribution: str, dataset: str, effective_dataset: str, graph: rdflib.Graph, context: Context) -> None:
@@ -125,7 +132,7 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
                     context.endpoints.add(download_url)
                 else:
                     context.log.debug('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
-                    queue.append(download_url)
+                    context.queues[queue].append(download_url)
                     pipe.sadd(f'{dsdistr}:{str(effective_dataset)}', str(download_url))
                     pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_dataset))
             else:
@@ -170,10 +177,13 @@ def _dcat_extractor(graph: rdflib.Graph, context: Context) -> None:
         _dataset_extractor(dataset, graph, context)
 
 # TODO: possibly scan for service description as well
-    GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
-    tasks = [process_priority.si(a, False) for a in context.distributions_priority]
-    tasks.extend(process.si(a, False) for a in context.distributions)
-    group(tasks).apply_async()
+    if len(context.queues[QueueType.PRIORITY]) + len(context.queues[QueueType.DISTRIBUTIONS]) == 0:
+        context.log.warning('No distributions in queue for %s', context.graph_iri)
+    else:
+        GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
+        tasks = [process_priority.si(a, False) for a in context.queues[QueueType.PRIORITY]]
+        tasks.extend(process.si(a, False) for a in context.queues[QueueType.DISTRIBUTIONS])
+        group(tasks).apply_async()
 
 
 @celery.task(base=TrackableTask, ignore_result=True)
@@ -181,6 +191,7 @@ def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
     red = inspect_graph.redis
     log = logging.getLogger(__name__)
     context = Context(red, log)
+    context.graph_iri = graph_iri
     endpoint_iri = endpoint_iri.strip()
     if not check_iri(endpoint_iri):
         return
