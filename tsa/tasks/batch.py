@@ -1,9 +1,10 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
 from enum import IntEnum
-from typing import Generator, List, Set
+from typing import Dict, Generator, List, Set
 
 import rdflib
+import redis
 from celery import group
 from rdflib import Graph
 from rdflib.plugins.sparql.processor import prepareQuery
@@ -51,16 +52,14 @@ class QueueType(IntEnum):
 
 
 class Context:
-    queues = {
+    queues: Dict[QueueType, List[str]] = {
         QueueType.DISTRIBUTIONS: [],
         QueueType.PRIORITY: []
     }
     graph_iri: str = ''
-    red = None
-    log = None
     endpoints: Set[str] = set()
 
-    def __init__(self, red, log):
+    def __init__(self, red: redis.Redis, log: logging.Logger):
         self.red = red
         self.log = log
 
@@ -143,7 +142,7 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
     for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
         access = str(row['access'])
         context.log.debug('Service: %s', str(access))
-        for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  #  .format(access)):
+        for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  # .format(access)):
             endpoint = str(row['endpoint'])
             if check_iri(str(endpoint)):
                 context.log.debug('Endpoint %s from DCAT dataset %s', str(endpoint), str(dataset))
@@ -188,9 +187,8 @@ def _dcat_extractor(graph: rdflib.Graph, context: Context) -> None:
 
 @celery.task(base=TrackableTask, ignore_result=True)
 def inspect_graph(endpoint_iri: str, graph_iri: str, force: bool) -> None:
-    red = inspect_graph.redis
     log = logging.getLogger(__name__)
-    context = Context(red, log)
+    context = Context(inspect_graph.redis, log)
     context.graph_iri = graph_iri
     endpoint_iri = endpoint_iri.strip()
     if not check_iri(endpoint_iri):

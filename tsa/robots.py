@@ -6,10 +6,10 @@ from typing import Tuple, Union
 import redis
 import requests
 import requests_toolbelt
-
-import tsa
 from requests_cache import CachedSession
 from requests_cache.backends.redis import RedisCache
+
+import tsa
 from tsa.extensions import redis_pool
 
 try:

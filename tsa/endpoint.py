@@ -56,7 +56,7 @@ class SparqlEndpointAnalyzer:
              }
          }
          OPTIONAL { ?d <https://data.gov.cz/slovník/nkod/mediaType> ?mediaNkod. }
-         OPTIONAL { 
+         OPTIONAL {
             {?ds  <http://purl.org/dc/terms/isPartOf> ?parent. }
             UNION { ?parent <http://purl.org/dc/terms/hasPart> ?ds. }
             UNION { ?ds <http://www.w3.org/ns/dcat#inSeries> ?parent. }
@@ -95,7 +95,7 @@ class SparqlEndpointAnalyzer:
         except ResultException as exc:
             log.error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
         except ValueError as exc:
-            log.exception('Error in query: %s', query)
+            log.exception('Error in query: %s - %s', query, str(exc))
 
         return None
 
