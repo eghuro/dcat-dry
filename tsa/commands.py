@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from typing import Any, Generator, List, import
 
 import click
 from flask import current_app
@@ -19,7 +20,7 @@ from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
 
 
-def divide_chunks(list_to_split, chunk_size):
+def divide_chunks(list_to_split: List[Any], chunk_size: int) -> Generator[Any, None, None]:
     # looping till length of the list_to_split
     for i in range(0, len(list_to_split), chunk_size):
         yield list_to_split[i:i + chunk_size]
