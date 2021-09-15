@@ -123,14 +123,14 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
 
     with context.red.pipeline() as pipe:
         for row in graph.query(prepared_queries[Query.DOWNLOAD_URL], initBindings={'distribution': distribution}):
-            download_url = str(row['download'])
+            download_url = str(row['download']).strip()
             # log.debug(f'Down: {download_url!s}')
             if check_iri(str(download_url)) and not filter_iri(str(download_url)):
                 if download_url.endswith('/sparql'):
                     context.log.info('Guessing %s is a SPARQL endpoint, will use for dereferences from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                     context.endpoints.add(download_url)
                 else:
-                    context.log.debug('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
+                    context.log.info('Distribution %s from DCAT dataset %s (effective: %s)', str(download_url), str(dataset), str(effective_dataset))
                     context.queues[queue].append(download_url)
                     pipe.sadd(f'{dsdistr}:{str(effective_dataset)}', str(download_url))
                     pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_dataset))
@@ -141,7 +141,7 @@ def _distribution_extractor(distribution: str, dataset: str, effective_dataset: 
     # scan for DCAT2 data services here as well
     for row in graph.query(prepared_queries[Query.ACCESS_SERVICE], initBindings={'distribution': distribution}):
         access = str(row['access'])
-        context.log.debug('Service: %s', str(access))
+        context.log.info('Service: %s', str(access))
         for row in graph.query(prepared_queries[Query.ENDPOINT_URL], initBindings={'distribution': access}):  # .format(access)):
             endpoint = str(row['endpoint'])
             if check_iri(str(endpoint)):
@@ -176,9 +176,7 @@ def _dcat_extractor(graph: rdflib.Graph, context: Context) -> None:
         _dataset_extractor(dataset, graph, context)
 
 # TODO: possibly scan for service description as well
-    if len(context.queues[QueueType.PRIORITY]) + len(context.queues[QueueType.DISTRIBUTIONS]) == 0:
-        context.log.warning('No distributions in queue for %s', context.graph_iri)
-    else:
+    if len(context.queues[QueueType.PRIORITY]) + len(context.queues[QueueType.DISTRIBUTIONS]) > 0:
         GenericAnalyzer().get_details(graph)  # extrakce labelu - heavy!
         tasks = [process_priority.si(a, False) for a in context.queues[QueueType.PRIORITY]]
         tasks.extend(process.si(a, False) for a in context.queues[QueueType.DISTRIBUTIONS])
