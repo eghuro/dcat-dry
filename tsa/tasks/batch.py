@@ -1,7 +1,7 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
 from enum import IntEnum
-from typing import Dict, Generator, List, Set
+from typing import Any, Dict, Generator, List, Set
 
 import rdflib
 import redis
@@ -185,9 +185,8 @@ def _dcat_extractor(graph: rdflib.Graph, context: Context) -> None:
 
 
 @celery.task(base=TrackableTask)
-def inspect_graph(endpoint_iri, graph_iri):
+def inspect_graph(endpoint_iri: str, graph_iri: str) -> None:
     log = logging.getLogger(__name__)
-    result = None
     context = Context(inspect_graph.redis, log)
     context.graph_iri = graph_iri
     endpoint_iri = endpoint_iri.strip()
@@ -195,26 +194,20 @@ def inspect_graph(endpoint_iri, graph_iri):
         return
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        result = _dcat_extractor(inspector.process_graph(graph_iri), context)
+        _dcat_extractor(inspector.process_graph(graph_iri), context)
     except (rdflib.query.ResultException, HTTPError):
         log.error(f'Failed to inspect graph {graph_iri}: ResultException or HTTP Error')
     monitor.log_inspected()
-    return result
 
 
-def multiply(item, times):
+def multiply(item: Any, times: int) -> Generator[Any, None, None]:
     for _ in range(times):
         yield item
 
 
-def split(a, n):
-    k, m = divmod(len(a), n)
-    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-
-
 @celery.task(base=TrackableTask)
-def batch_inspect(endpoint_iri, graphs, chunks):
+def batch_inspect(endpoint_iri: str, graphs: List[str], chunks: int) -> None:
     items = len(graphs)
     monitor.log_graph_count(items)
     logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
-    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs), chunks).apply_async()
+    inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs), chunks).apply_async()
