@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from typing import Any, Generator, List, import
+from typing import Any, Generator, List
 
 import click
 from flask import current_app
