@@ -220,7 +220,7 @@ def store_pure_subjects(iri, graph, red):
 
 
 def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: logging.Logger) -> None:
-    log.debug(f'Analyze and index {iri}')
+    log.info(f'Analyze and index {iri}')
     with TimedBlock('process.load'):
         graph = load_graph(iri, content, guess)
 
