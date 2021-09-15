@@ -184,8 +184,8 @@ def split(a, n):
 
 
 @celery.task(base=TrackableTask)
-def batch_inspect(endpoint_iri, graphs, force, batch_id, chunks):
+def batch_inspect(endpoint_iri, graphs, chunks):
     items = len(graphs)
     monitor.log_graph_count(items)
     logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
-    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(force, items)), chunks).apply_async()
+    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(False, items)), chunks).apply_async()

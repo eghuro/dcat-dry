@@ -46,7 +46,7 @@ def batch(graphs=None, sparql=None):
             print('.')
             graphs = [iri.strip() for iri in iris if check_iri(iri)]
             # inspect_graphs.si(graphs, sparql, False).apply_async()
-            batch_inspect.si(sparql, graphs, False, 10).apply_async()
+            batch_inspect.si(sparql, graphs, 10).apply_async()
 
 
 @click.command()
