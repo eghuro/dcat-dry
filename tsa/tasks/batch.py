@@ -18,7 +18,7 @@ from tsa.util import check_iri
 
 
 def query_parent(ds, g, log):
-    query = f'SELECT ?parent WHERE {{ <{ds!s> <http://purl.org/dc/terms/isPartOf> ?parent }}'
+    query = f'SELECT ?parent WHERE {{ <{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent }}'
     try:
         for parent in g.query(query):
             parent_iri = str(parent['parent'])
