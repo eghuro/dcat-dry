@@ -5,8 +5,13 @@ import random
 import rdflib
 from rdflib.term import URIRef
 
-from tsa.commands import divide_chunks
 from tsa.tasks.process import get_iris_to_dereference, has_same_as
+
+
+def divide_chunks(list_to_split, chunk_size):
+    # looping till length of the list_to_split
+    for i in range(0, len(list_to_split), chunk_size):
+        yield list_to_split[i:i + chunk_size]
 
 
 def test_expand_none():
