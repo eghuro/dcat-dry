@@ -282,11 +282,13 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)
 
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
-            with TimedBlock('process.decompress'):
-                do_decompress(red, iri, 'zip', response)
+            return
+            # with TimedBlock('process.decompress'):
+            #    do_decompress(red, iri, 'zip', response)
         elif guess in ['application/gzip', 'application/x-gzip']:
-            with TimedBlock('process.decompress'):
-                do_decompress(red, iri, 'gzip', response)
+            return
+            # with TimedBlock('process.decompress'):
+            #    do_decompress(red, iri, 'gzip', response)
         else:
             try:
                 log.debug(f'Get content of {iri}')
