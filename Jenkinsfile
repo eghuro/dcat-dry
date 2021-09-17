@@ -126,6 +126,27 @@ pipeline {
 				}
 			}
 		}
+		
+		stage('Deploy') {
+			agent { label 'dry-prod' }
+		 	options { skipDefaultCheckout() }
+			when {
+				allOf {
+					branch 'master'
+					expression {
+						currentBuild.result == null || currentBuild.result == 'SUCCESS'
+					}
+				}
+			}
+			steps {
+				script {
+					sh 'docker-compose down'
+					sh 'redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb'
+					sh 'docker-compose up'
+					sh 'docker exec nkod-ts_web_1 flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql'
+				}
+			}
+		}
 	}
 	post {
         always {
