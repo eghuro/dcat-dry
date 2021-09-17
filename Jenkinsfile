@@ -126,6 +126,21 @@ pipeline {
 				}
 			}
 		}
+		
+		stage('Deploy') {
+			when {
+				allOf {
+					expression {
+						currentBuild.result == null || currentBuild.result == 'SUCCESS'
+					}
+				}
+			}
+			steps {
+				script {
+					sh 'docker exec nkod-ts_web_1 echo Hello world'
+				}
+			}
+		}
 	}
 	post {
         always {
