@@ -109,7 +109,7 @@ def clean():
         for filename in filenames:
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
                 full_pathname = os.path.join(dirpath, filename)
-                click.echo('Removing {}'.format(full_pathname))
+                click.echo(f'Removing {full_pathname}')
                 os.remove(full_pathname)
 
 
@@ -137,7 +137,7 @@ def urls(url, order):
             rows.append((rule.rule, rule.endpoint, arguments))
             column_length = 3
         except (NotFound, MethodNotAllowed) as exc:
-            rows.append(('<{}>'.format(exc), None, None))
+            rows.append((f'<{exc!s}>', None, None))
             column_length = 1
     else:
         rules = sorted(

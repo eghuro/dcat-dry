@@ -281,7 +281,7 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     red = task.redis
 
     try:
-        with red.lock('notifiedFirstProcessLock', blocking_timeout=5) as lock:
+        with red.lock('notifiedFirstProcessLock', blocking_timeout=5):
             notified = red.get('notifiedFirstProcess')
             if notified == "0":
                 # notify
