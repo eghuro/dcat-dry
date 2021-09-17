@@ -12,6 +12,7 @@ timezone = 'Europe/Prague'
 enable_utc = False
 task_acks_late = True
 worker_prefetch_multiplier = 1
+worker_cancel_long_running_tasks_on_connection_loss = True
 task_time_limit = 6000  # smaller limits applied on some tasks
 include = ['tsa.tasks.batch', 'tsa.tasks.process', 'tsa.tasks.query', 'tsa.tasks.system']
 broker_transport_options = {
