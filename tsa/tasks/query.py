@@ -89,7 +89,8 @@ def gen_analyses(batch_id, dataset_iris, red):
 
 
 @celery.task(ignore_result=True)
-def store_to_mongo(dataset_iris, batch_id):
+def store_to_mongo(dataset_iris_and_batch_id):
+    dataset_iris, batch_id = dataset_iris_and_batch_id
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
     log.info('Cleaning mongo')
