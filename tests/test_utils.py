@@ -67,10 +67,10 @@ def test_store_pure():
             self.__list = []
 
     red = RedisMock()
+
     g = Graph()
     store_pure_subjects('a', g, red)
-
-    assert red.key == pure_subject('a')
+    assert red.key == None
     assert red.list == []
 
     ns = Namespace('file://localhost/')
