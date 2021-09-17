@@ -128,6 +128,7 @@ pipeline {
 		}
 		
 		stage('Deploy') {
+			agent { name 'app' }
 			when {
 				allOf {
 					expression {
