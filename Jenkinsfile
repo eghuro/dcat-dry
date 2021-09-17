@@ -140,6 +140,7 @@ pipeline {
 			}
 			steps {
 				script {
+					sh 'cd /home/alex/NKOD-TS'
 					sh 'docker-compose down'
 					sh 'redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb'
 					sh 'docker-compose up'
