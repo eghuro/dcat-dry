@@ -1,9 +1,9 @@
 ARG PYTHON_VERSION=3.8.7
 FROM python:${PYTHON_VERSION}-slim
 WORKDIR /tmp
-RUN at-get install libstdc++ libarchive-dev binutils libxml2-dev libxslt-dev #do not remove, as it's needed on runtime
+RUN apt-get install libstdc++ libarchive-dev binutils libxml2-dev libxslt-dev #do not remove, as it's needed on runtime
 COPY requirements.txt .
-RUN apk --no-cache add g++ gcc libffi-dev openssl-dev make && pip install -r requirements.txt && apk del g++ gcc libffi-dev openssl-dev make
+RUN apt-get install g++ gcc libffi-dev openssl-dev make && pip install -r requirements.txt && apt-geet purge g++ gcc libffi-dev openssl-dev make
 
 COPY . .
 
