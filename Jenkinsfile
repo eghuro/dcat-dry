@@ -128,7 +128,7 @@ pipeline {
 		}
 		
 		stage('Deploy') {
-			agent { name 'app' }
+			agent { label 'dry-prod' }
 			when {
 				allOf {
 					expression {
