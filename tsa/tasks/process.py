@@ -217,7 +217,8 @@ def store_pure_subjects(iri, graph, red):
     subjects_pure = set()
     for s, _, _ in graph:
         subjects_pure.add(str(s))
-    red.lpush(pure_subject(iri), *list(subjects_pure))
+    if len(subjects_pure) > 0:
+        red.lpush(pure_subject(iri), *list(subjects_pure))
 
 
 def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: logging.Logger) -> None:
@@ -294,13 +295,13 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)
 
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
-            return
-            # with TimedBlock('process.decompress'):
-            #    do_decompress(red, iri, 'zip', response)
+            if Config.COMPRESSED:
+                with TimedBlock('process.decompress'):
+                    do_decompress(red, iri, 'zip', response)
         elif guess in ['application/gzip', 'application/x-gzip']:
-            return
-            # with TimedBlock('process.decompress'):
-            #    do_decompress(red, iri, 'gzip', response)
+            if Config.COMPRESSED:
+                with TimedBlock('process.decompress'):
+                    do_decompress(red, iri, 'gzip', response)
         else:
             try:
                 log.debug(f'Get content of {iri}')

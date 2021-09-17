@@ -15,6 +15,7 @@ from tsa.redis import expiration
 from tsa.robots import USER_AGENT
 from tsa.robots import allowed as robots_allowed
 from tsa.robots import session
+from tsa.settings import Config
 
 urllib3.disable_warnings()
 
@@ -135,15 +136,15 @@ def guess_format(iri: str, response: requests.Response, log: logging.Logger) -> 
 
     priority = set(['hturtle', 'n3', 'nquads', 'nt',
                     'trix', 'trig', 'turtle', 'xml', 'json-ld',
-                    'application/x-7z-compressed',
                     'application/rdf+xml',
                     'application/ld+json', 'application/rss+xml',
                     'text/turtle'])
     regular = set(['text/xml', 'application/json', 'text/plain',
-                   'application/gzip', 'application/x-zip-compressed',
-                   'application/zip', 'application/x-gzip',
                    'html', 'text/html'
                    ])
+    if Config.COMPRESSED:
+        priority.add('application/x-7z-compressed')
+        regular.update(['application/gzip', 'application/x-zip-compressed', 'application/zip', 'application/x-gzip'])
     if guess not in priority.union(regular):
         log.info(f'Skipping this distribution: {iri}')
         raise Skip()

@@ -23,6 +23,7 @@ class Config:
     MAX_RECURSION_LEVEL = 3
     MATTERMOST_CHANNEL = os.environ.get('CHANNEL', None)
     MATTERMOST_HOOK = os.environ.get('MATTERMOST', None)
+    COMPRESSED = False
 
 
 class ProdConfig(Config):
