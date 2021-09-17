@@ -27,7 +27,7 @@ pipeline {
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 						pip install pytest-cov WebTest
-						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
+						pytest --verbose --junitxml=/tmp/pytest.xml --cov-report xml:/tmp/cov.xml --cov=tsa
 						conda deactivate
 					'''
 					}
@@ -65,13 +65,13 @@ pipeline {
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 						pip install prospector[with_everything] types-requests types-redis
-						prospector -0 -o pylint:prospector.txt tsa
+						prospector -0 -o pylint:/tmp/prospector.txt tsa
 						conda deactivate
 					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
 					withSonarQubeEnv('sonar') {
 						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
-						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY -Dsonar.projectVersion=${GIT_COMMIT_HASH} -Dsonar.python.pylint.reportPaths=prospector.txt -Dsonar.junit.reportsPath=pytest.xml -Dsonar.python.coverage.reportPaths=cov.xml -Dsonar.coverage.dtdVerification=false -Dsonar.coverage.exclusions=**/__init__.py"
+						sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=DCAT-DRY -Dsonar.projectVersion=${GIT_COMMIT_HASH} -Dsonar.python.pylint.reportPaths=/tmp/prospector.txt -Dsonar.junit.reportsPath=/tmp/pytest.xml -Dsonar.python.coverage.reportPaths=/tmp/cov.xml -Dsonar.coverage.dtdVerification=false -Dsonar.coverage.exclusions=**/__init__.py"
 					}
 				}
 			}
