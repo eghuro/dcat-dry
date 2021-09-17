@@ -276,11 +276,7 @@ def do_fetch(iri: str, task: Task, is_prio: bool, force: bool, log: logging.Logg
     raise Skip()
 
 
-def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
-    """Analyze an RDF distribution under given IRI."""
-    log = logging.getLogger(__name__)
-    red = task.redis
-
+def notify_first_process(red: redis.Redis, log: logging.Logger) -> None:
     try:
         with red.lock('notifiedFirstProcessLock', blocking_timeout=5):
             notified = red.get('notifiedFirstProcess')
@@ -288,8 +284,17 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
                 # notify
                 message_to_mattermost('First process task started')
                 red.set('notifiedFirstProcess', "1")
-    except redis.LockError:
+    except redis.exceptions.LockError:
         log.error('Failed to lock notification block in do_process')
+        # do nothing: we don't care really if some notification won't get through, it's a best effort service
+
+
+def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
+    """Analyze an RDF distribution under given IRI."""
+    log = logging.getLogger(__name__)
+    red = task.redis
+
+    notify_first_process(red, log)
 
     try:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)
