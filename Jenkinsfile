@@ -129,6 +129,7 @@ pipeline {
 		
 		stage('Deploy') {
 			agent { label 'dry-prod' }
+		 	options { skipDefaultCheckout() }
 			when {
 				allOf {
 					expression {
