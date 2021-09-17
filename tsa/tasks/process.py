@@ -15,6 +15,7 @@ from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import NoContent, RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
+from tsa.notification import message_to_mattermost
 from tsa.redis import KeyRoot
 from tsa.redis import data as data_key
 from tsa.redis import dataset_endpoint
@@ -278,6 +279,17 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     """Analyze an RDF distribution under given IRI."""
     log = logging.getLogger(__name__)
     red = task.redis
+
+    try:
+        with red.lock('notifiedFirstProcessLock', blocking_timeout=5) as lock:
+            notified = red.get('notifiedFirstProcess')
+            if notified == "0":
+                # notify
+                message_to_mattermost('First process task started')
+                red.set('notifiedFirstProcess', "1")
+    except redis.LockError:
+        log.error('Failed to lock notification block in do_process')
+
     try:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)
 

@@ -2,6 +2,7 @@
 import logging
 
 import rdflib
+import redis
 from celery import group
 from rdflib import Namespace
 from rdflib.namespace import RDF
@@ -187,5 +188,12 @@ def split(a, n):
 def batch_inspect(endpoint_iri, graphs, chunks):
     items = len(graphs)
     monitor.log_graph_count(items)
-    logging.getLogger(__name__).info(f'Batch of {items} graphs in {endpoint_iri}')
+    log = logging.getLogger(__name__)
+    log.info(f'Batch of {items} graphs in {endpoint_iri}')
+    red = batch_inspect.redis
+    try:
+        with red.lock('notifiedFirstProcessLock', blocking_timeout=5):
+            red.set('notifiedFirstProcess', "0")
+    except redis.LockError:
+        log.error('Failed to lock notification block in do_process')
     return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(False, items)), chunks).apply_async()
