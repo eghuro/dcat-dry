@@ -11,6 +11,7 @@ from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 from tsa.extensions import same_as_index
+from tsa.query import query
 from tsa.report import import_interesting as import_interesting_impl
 from tsa.report import import_labels as import_labels_impl
 from tsa.report import import_profiles as import_profiles_impl
@@ -111,6 +112,11 @@ def clean():
                 full_pathname = os.path.join(dirpath, filename)
                 click.echo(f'Removing {full_pathname}')
                 os.remove(full_pathname)
+
+
+@click.command()
+def finalize():
+    query()
 
 
 @click.command()
