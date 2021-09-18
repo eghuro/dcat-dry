@@ -62,11 +62,11 @@ def get_iris_to_dereference(graph: rdflib.Graph, iri: str) -> Generator[str, Non
         obj = str(o)
         sub = str(s)
 
-        if check_iri(pred):
+        if check_iri(pred) and not filter_iri(pred):
             yield pred
-        if check_iri(obj):
+        if check_iri(obj) and not filter_iri(obj):
             yield obj
-        if check_iri(sub):
+        if check_iri(sub) and not filter_iri(sub):
             yield sub
 
 
