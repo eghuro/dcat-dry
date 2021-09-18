@@ -153,36 +153,36 @@ pipeline {
 					}
 
 					final String url_test1 = "https://app.dry.dev.eghuro.com/api/v1/test/base"
-					final def (String response, int code) = sh(script: "curl -s $url_test1", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_1, int code_1) = sh(script: "curl -s $url_test1", returnStdout: true).trim().tokenize('\n')
+					assert code_1 == 200
 
 					final String url_test2 = "https://app.dry.dev.eghuro.com/api/v1/test/job"
-					final def (String response, int code) = sh(script: "curl -s $url_test2", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_2, int code_2) = sh(script: "curl -s $url_test2", returnStdout: true).trim().tokenize('\n')
+					assert code_2 == 200
 
 					final String url_test3 = "https://app.dry.dev.eghuro.com/api/v1/test/system"
-					final def (String response, int code) = sh(script: "curl -s $url_test3", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_3, int code_3) = sh(script: "curl -s $url_test3", returnStdout: true).trim().tokenize('\n')
+					assert code_3 == 200
 
 					final String url_test4 = "https://app.dry.dev.eghuro.com/api/v1/test/analyze"
-					final def (String response, int code) = sh(script: "curl -s $url_test4", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_4, int code_4) = sh(script: "curl -s $url_test4", returnStdout: true).trim().tokenize('\n')
+					assert code_4 == 200
 
 					final String url_test5 = "https://app.dry.dev.eghuro.com/api/v1/test/process"
-					final def (String response, int code) = sh(script: "curl -s $url_test5", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_5, int code_5) = sh(script: "curl -s $url_test5", returnStdout: true).trim().tokenize('\n')
+					assert code_5 == 200
 
 					final String url_test6 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/1"
 					final def (String response, int code) = sh(script: "curl -s $url_test6", returnStdout: true).trim().tokenize('\n')
 					assert code == 200
 
 					final String url_test7 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/2"
-					final def (String response, int code) = sh(script: "curl -s $url_test7", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_7, int code_7) = sh(script: "curl -s $url_test7", returnStdout: true).trim().tokenize('\n')
+					assert code_7 == 200
 
 					final String url_test8 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/3"
-					final def (String response, int code) = sh(script: "curl -s $url_test8", returnStdout: true).trim().tokenize('\n')
-					assert code == 200
+					final def (String response_8, int code_8) = sh(script: "curl -s $url_test8", returnStdout: true).trim().tokenize('\n')
+					assert code_8 == 200
 				}
 			}
 		}
