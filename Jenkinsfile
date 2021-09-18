@@ -164,10 +164,6 @@ pipeline {
 					final def (String response_3, int code_3) = sh(script: "curl -s $url_test3", returnStdout: true).trim().tokenize('\n')
 					println(code_3)
 
-					final String url_test4 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/analyze"
-					final def (String response_4, int code_4) = sh(script: "curl -s $url_test4", returnStdout: true).trim().tokenize('\n')
-					println(code_4)
-
 					final String url_test5 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/process"
 					final def (String response_5, int code_5) = sh(script: "curl -s $url_test5", returnStdout: true).trim().tokenize('\n')
 					println(code_5)
