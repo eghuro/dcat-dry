@@ -32,7 +32,7 @@ def logging_setup(token=None, url=None):
         },
         'loggers': {
             'tsa': {
-                'level': 'DEBUG',
+                'level': 'WARNING',
                 'handlers': ['logzio'],
             },
             'app.logger': {
