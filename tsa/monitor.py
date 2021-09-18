@@ -12,7 +12,7 @@ class Monitor:
     @staticmethod
     def __increment(key, value, delta=1):
         name = f'tsa.{key}.{value}'
-        # statsd_client.gauge(name, delta, delta=True)
+        statsd_client.gauge(name, delta, delta=True)
 
     @staticmethod
     def log_format(guess):
