@@ -101,8 +101,6 @@ class NoContent(ValueError):
 
 def get_content(iri: str, response: requests.Response, red: redis.Redis) -> str:
     """Load content in memory."""
-    key = data_key(iri)
-
     chsize = 1024
     conlen = 0
     data = BytesIO()
@@ -110,10 +108,6 @@ def get_content(iri: str, response: requests.Response, red: redis.Redis) -> str:
         if chunk:
             data.write(chunk)
             conlen = conlen + len(chunk)
-    with red.pipeline() as pipe:
-        pipe.set(key, 'MEMORY')
-        pipe.expire(key, expiration[KeyRoot.DATA])
-        pipe.execute()
     monitor.log_size(conlen)
     try:
         return data.getvalue().decode('utf-8')

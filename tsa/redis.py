@@ -3,7 +3,6 @@ from typing import Tuple
 
 
 class KeyRoot(Enum):
-    DATA = 0
     ANALYSIS = 1
     RELATED = 2
     DISTRIBUTIONS = 3
@@ -22,7 +21,6 @@ class KeyRoot(Enum):
 
 
 root_name = {
-    KeyRoot.DATA: 'data',
     KeyRoot.ANALYSIS: 'analyze',
     KeyRoot.RELATED: 'related',
     KeyRoot.DISTRIBUTIONS: 'distributions',
@@ -47,7 +45,6 @@ MAX_CONTENT_LENGTH = 512 * 1024 * 1024
 
 
 expiration = {
-    KeyRoot.DATA: EXPIRATION_CACHED,
     KeyRoot.ANALYSIS: EXPIRATION_CACHED,
     KeyRoot.RELATED: EXPIRATION_CACHED,
     KeyRoot.DISTRIBUTIONS: EXPIRATION_CACHED,
@@ -59,18 +56,6 @@ def sanitize_key(key: str) -> str:
     if key is None:
         return key
     return '_'.join(key.split(':'))
-
-
-def data(*args) -> str:
-    if len(args) == 1:
-        iri = sanitize_key(args[0])
-        return f'{root_name[KeyRoot.DATA]}:{iri}'
-    if len(args) == 2:
-        (endpoint, graph_iri) = args
-        endpoint = sanitize_key(endpoint)
-        graph_iri = sanitize_key(graph_iri)
-        return f'{root_name[KeyRoot.DATA]}:{endpoint}:{graph_iri}'
-    raise TypeError('Submit only one (distribution IRI) or two (endpoint + graph IRIs) positional arguments')
 
 
 def analysis_dataset(iri: str) -> str:

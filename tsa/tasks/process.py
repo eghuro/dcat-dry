@@ -16,9 +16,7 @@ from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import NoContent, RobotsRetry, Skip, fetch, get_content, guess_format, test_content_length
 from tsa.notification import message_to_mattermost
-from tsa.redis import KeyRoot
-from tsa.redis import data as data_key
-from tsa.redis import dataset_endpoint
+from tsa.redis import KeyRoot, dataset_endpoint
 from tsa.redis import dereference as dereference_key
 from tsa.redis import ds_distr, pure_subject, root_name
 from tsa.robots import USER_AGENT
@@ -178,6 +176,7 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
                 red.set(key, graph.serialize(format='n3'))
             else:
                 red.set(key, '')
+            red.expire(key, 10800)
 
         return graph, has_same_as(graph)
     except FailedDereference:
@@ -353,7 +352,6 @@ def do_decompress(red, iri, archive_type, request):
                 continue
             if guess is None:
                 log.warning(f'Unknown format after decompression: {sub_iri}')
-                red.expire(data_key(sub_iri), 1)
             else:
                 process_content(data, sub_iri, guess, red, log)
     except (TypeError, ValueError):
