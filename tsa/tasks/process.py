@@ -227,6 +227,9 @@ def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: l
     if graph is None:
         log.warning('Graph is none')
         return
+    if len(graph) == 0:
+        log.warning('Graph is empty')
+        return
 
     store_pure_subjects(iri, graph, red)
 
