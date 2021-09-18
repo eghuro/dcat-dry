@@ -44,10 +44,11 @@ def process(self, iri, force):
 def filter_iri(iri):
     return iri.endswith('csv.zip') or iri.endswith('csv') or iri.endswith('csv.gz') or iri.endswith('xls') or \
         iri.endswith('docx') or iri.endswith('xlsx') or iri.endswith('pdf') or \
+        (iri.startswith('https://isdv.upv.cz') and iri.endswith('zip')) or  \
         ((iri.startswith('http://vdp.cuzk.cz') or iri.startswith('https://vdp.cuzk.cz')) and (iri.endswith('xml.zip') or iri.endswith('xml'))) or \
         ((iri.startswith('http://dataor.justice.cz') or iri.startswith('https://dataor.justice.cz')) and (iri.endswith('xml') or iri.endswith('xml.gz'))) or \
         iri.startswith('https://apl.czso.cz/iSMS/cisexp.jsp') or iri.startswith('https://eagri.cz') or \
-        iri.startswith('https://volby.cz/pls/ps2017/vysledky_okres') or \
+        iri.startswith('https://volby.cz/pls/ps2017/vysledky_okres') or iri.startswith('https://volby.cz/pls/kz2020/vysledky_okres') or \
         iri.startswith('http://services.cuzk.cz/') or iri.startswith('https://services.cuzk.cz/')
 
 
