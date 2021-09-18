@@ -48,8 +48,8 @@ def filter_iri(iri):
         ((iri.startswith('http://vdp.cuzk.cz') or iri.startswith('https://vdp.cuzk.cz')) and (iri.endswith('xml.zip') or iri.endswith('xml'))) or \
         ((iri.startswith('http://dataor.justice.cz') or iri.startswith('https://dataor.justice.cz')) and (iri.endswith('xml') or iri.endswith('xml.gz'))) or \
         iri.startswith('https://apl.czso.cz/iSMS/cisexp.jsp') or iri.startswith('https://eagri.cz') or \
-        iri.startswith('https://volby.cz/pls/ps2017/vysledky_okres') or iri.startswith('https://volby.cz/pls/kz2020/vysledky_okres') or \
-        iri.startswith('http://services.cuzk.cz/') or iri.startswith('https://services.cuzk.cz/')
+        iri.startswith('https://gis.nature.cz/arcgis/') or iri.startswith('https://gis-aopkcr.opendata.arcgis.com/datasets/') or \
+        iri.startswith('https://volby.cz/pls/') or iri.startswith('http://services.cuzk.cz/') or iri.startswith('https://services.cuzk.cz/')
 
 
 def get_iris_to_dereference(graph: rdflib.Graph, iri: str) -> Generator[str, None, None]:
