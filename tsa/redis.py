@@ -44,14 +44,6 @@ EXPIRATION_TEMPORARY = 10 * 60 * 60  # 10H
 MAX_CONTENT_LENGTH = 512 * 1024 * 1024
 
 
-expiration = {
-    KeyRoot.ANALYSIS: EXPIRATION_CACHED,
-    KeyRoot.RELATED: EXPIRATION_CACHED,
-    KeyRoot.DISTRIBUTIONS: EXPIRATION_CACHED,
-    KeyRoot.GRAPHS: 24 * 60 * 60,
-}
-
-
 def sanitize_key(key: str) -> str:
     if key is None:
         return key
@@ -72,12 +64,6 @@ def graph(endpoint: str, iri: str) -> str:
 def delay(robots_url: str) -> str:
     robots_url = sanitize_key(robots_url)
     return f'delay_{robots_url!s}'
-
-
-def ds_title(unsafe_label: str, unsafe_language: str) -> str:
-    sanitized_label = sanitize_key(unsafe_label)
-    sanitized_language = sanitize_key(unsafe_language)
-    return f'{root_name[KeyRoot.DS_TITLE]}:{sanitized_label!s}:{sanitized_language}' if sanitized_language is not None else f'{root_name[KeyRoot.DS_TITLE]}:{sanitized_label!s}'
 
 
 def label(unsafe_label: str, unsafe_language: str) -> str:

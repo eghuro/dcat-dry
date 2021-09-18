@@ -136,7 +136,7 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
         response = fetch(iri_to_dereference, log, red)
         test_content_length(iri_to_dereference, response, log)
         guess, _ = guess_format(iri_to_dereference, response, log)
-        content = get_content(iri_to_dereference, response, red)
+        content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
         return load_graph(iri_to_dereference, content, guess)
     except RobotsRetry as err:
@@ -310,7 +310,7 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         else:
             try:
                 log.debug(f'Get content of {iri}')
-                content = get_content(iri, response, red)
+                content = get_content(iri, response)
                 process_content(content, iri, guess, red, log)
             except requests.exceptions.ChunkedEncodingError as err:
                 task.retry(exc=err)

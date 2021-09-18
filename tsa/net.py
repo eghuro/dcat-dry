@@ -97,7 +97,7 @@ class NoContent(ValueError):
     pass
 
 
-def get_content(iri: str, response: requests.Response, red: redis.Redis) -> str:
+def get_content(iri: str, response: requests.Response) -> str:
     """Load content in memory."""
     chsize = 1024
     conlen = 0
