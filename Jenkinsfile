@@ -173,7 +173,7 @@ pipeline {
 					assert code_5 == 200
 
 					final String url_test6 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/1"
-					final def (String response, int code) = sh(script: "curl -s $url_test6", returnStdout: true).trim().tokenize('\n')
+					final def (String response_6, int code_6) = sh(script: "curl -s $url_test6", returnStdout: true).trim().tokenize('\n')
 					assert code == 200
 
 					final String url_test7 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/2"
