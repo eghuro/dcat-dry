@@ -140,7 +140,66 @@ pipeline {
 			}
 			steps {
 				script {
-					sh 'cd /home/alex/NKOD-TS; docker-compose down; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up -d'
+					sh 'cd /home/alex/NKOD-TS; docker-compose down; docker-compose pull; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up -d --remove-orphans; docker image prune'
+					sh 'sleep 120'
+					sh 'docker exec nkod-ts_web_1 echo hello from docker'
+					sh 'docker exec nkod-ts_celery_1 pip freeze'
+					final String url_version = "https://app.dry.dev.eghuro.com/api/v1/version"
+					final def (String response, int code) = sh(script: "curl -s $url_version", returnStdout: true).trim().tokenize('\n')
+					if (code == 200) {
+						GIT_COMMIT_HASH = sh (script: "git log -n 1 --pretty=format:'%H'", returnStdout: true)
+						def json = new groovy.json.JsonSlurperClassic().parseText(response)
+						assert json.revision == GIT_COMMIT_HASH
+					}
+
+					final String url_test1 = "https://app.dry.dev.eghuro.com/api/v1/test/base"
+					final def (String response, int code) = sh(script: "curl -s $url_test1", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test2 = "https://app.dry.dev.eghuro.com/api/v1/test/job"
+					final def (String response, int code) = sh(script: "curl -s $url_test2", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test3 = "https://app.dry.dev.eghuro.com/api/v1/test/system"
+					final def (String response, int code) = sh(script: "curl -s $url_test3", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test4 = "https://app.dry.dev.eghuro.com/api/v1/test/analyze"
+					final def (String response, int code) = sh(script: "curl -s $url_test4", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test5 = "https://app.dry.dev.eghuro.com/api/v1/test/process"
+					final def (String response, int code) = sh(script: "curl -s $url_test5", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test6 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/1"
+					final def (String response, int code) = sh(script: "curl -s $url_test6", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test7 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/2"
+					final def (String response, int code) = sh(script: "curl -s $url_test7", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+
+					final String url_test8 = "https://app.dry.dev.eghuro.com/api/v1/test/dereference/3"
+					final def (String response, int code) = sh(script: "curl -s $url_test8", returnStdout: true).trim().tokenize('\n')
+					assert code == 200
+				}
+			}
+		}
+
+		stage('Execute') {
+			agent { label 'dry-prod' }
+			options { skipDefaultCheckout() }
+			when {
+				allOf {
+					branch 'master'
+					expression {
+						currentBuild.result == null || currentBuild.result == 'SUCCESS'
+					}
+				}
+			}
+			steps {
+				script {
 					sh 'docker exec nkod-ts_web_1 flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql'
 				}
 			}
