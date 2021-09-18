@@ -140,7 +140,7 @@ pipeline {
 			}
 			steps {
 				script {
-					sh 'cd /home/alex/NKOD-TS; docker-compose down; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up'
+					sh 'cd /home/alex/NKOD-TS; docker-compose down; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up -d'
 					sh 'docker exec nkod-ts_web_1 flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql'
 				}
 			}
