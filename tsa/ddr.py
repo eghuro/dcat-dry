@@ -3,7 +3,7 @@ from typing import Dict, Generator, List, Tuple
 
 import redis
 import rfc3987
-from redis.client import ConnectionPool
+from redis import ConnectionPool
 
 from tsa.redis import KeyRoot, root_name
 
