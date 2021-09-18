@@ -8,10 +8,8 @@ import requests
 import urllib3
 
 from tsa.monitor import monitor
-from tsa.redis import MAX_CONTENT_LENGTH, KeyRoot
-from tsa.redis import data as data_key
+from tsa.redis import MAX_CONTENT_LENGTH
 from tsa.redis import delay as delay_key
-from tsa.redis import expiration
 from tsa.robots import USER_AGENT
 from tsa.robots import allowed as robots_allowed
 from tsa.robots import session
