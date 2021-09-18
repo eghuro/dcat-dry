@@ -1,7 +1,7 @@
 """Celery tasks for running analyses."""
 import logging
 import sys
-from typing import Generator, List, Optional, Set, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import rdflib
 import redis
@@ -31,12 +31,12 @@ from tsa.util import check_iri
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
 # Time limit on process priority is to ensure we will do postprocessing after a while
-@celery.task(bind=True, time_limit=3600, base=TrackableTask, ignore_result=True)
+@celery.task(bind=True, time_limit=3600, base=TrackableTask, ignore_result=True, autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError))
 def process_priority(self, iri, force):
     do_process(iri, self, True, force)
 
 
-@celery.task(bind=True, time_limit=600, base=TrackableTask, ignore_result=True)
+@celery.task(bind=True, time_limit=600, base=TrackableTask, ignore_result=True, autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError))
 def process(self, iri, force):
     do_process(iri, self, False, force)
 
@@ -200,7 +200,8 @@ def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: st
             try:
                 sub_graph, should_continue = dereference_one(iri_to_dereference, iri_distr)
                 dereferenced.add(iri_to_dereference)
-                graph += sub_graph
+                if sub_graph is not None:
+                    graph += sub_graph
 
                 if should_continue and level < Config.MAX_RECURSION_LEVEL:
                     log.info(f'Continue dereferencing: now at {iri_distr}, dereferenced {iri_to_dereference}')
@@ -273,6 +274,8 @@ def do_fetch(iri: str, task: Task, is_prio: bool, force: bool, log: logging.Logg
         log.warning(f'HTTP Error processsing {iri}: {err!s}')  # this is a 404 or similar, not worth retrying
     except requests.exceptions.RequestException as err:
         task.retry(exc=err)
+    except OverflowError:
+        log.warning('Overflow error fetching %s', iri)
     raise Skip()
 
 
