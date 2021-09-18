@@ -131,10 +131,6 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
     log.debug(f'Dereference: {iri_to_dereference}')
     if not check_iri(iri_to_dereference):
         raise FailedDereference()
-    key = root_name[KeyRoot.DISTRIBUTIONS]
-    if red.pfadd(key, iri_to_dereference) == 0:
-        log.error(f'Skipping distribution as it was recently processed - but we should have it in cache: {iri_to_dereference!s}')
-        raise FailedDereference()
     monitor.log_dereference_request()
     try:
         response = fetch(iri_to_dereference, log, red)
