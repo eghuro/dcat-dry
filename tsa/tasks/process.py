@@ -1,7 +1,7 @@
 """Celery tasks for running analyses."""
 import logging
 import sys
-from typing import Generator, List, Optional, Tuple
+from typing import Generator, List, Optional, Set, Tuple
 
 import rdflib
 import redis
