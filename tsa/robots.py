@@ -20,7 +20,7 @@ except ImportError:
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent('DCAT DRY', tsa.__version__, extras=[('requests', requests.__version__)])
 try:
-    session = CachedSession('dry_dereference', backend=RedisCache(connection_pool=redis_pool), urls_expire_after=3600)
+    session = CachedSession('dry_dereference', backend=RedisCache(connection_pool=redis_pool), expire_after=3600)
 except redis.exceptions.ConnectionError:
     session = requests.Session()
 session.headers.update({'User-Agent': USER_AGENT})
