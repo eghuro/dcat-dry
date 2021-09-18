@@ -53,6 +53,10 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
     wait = red.ttl(key)
     if wait > 0:
         log.info(f'Analyze {iri} in {wait} because of crawl-delay')
+        try:
+            session.remove_expired_responses()
+        except ValueError:
+            pass
         raise RobotsRetry(wait)
 
     timeout = 5243  # ~87 min
