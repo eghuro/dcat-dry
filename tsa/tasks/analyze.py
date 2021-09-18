@@ -24,7 +24,7 @@ def load_graph(iri: str, data: str, format_guess: str) -> rdflib.ConjunctiveGrap
     except UnicodeEncodeError:
         log.exception(f'Failed to parse graph for {iri}')
     except ValueError:
-        log.exception(f'Missing data, iri: {iri}, format: {format_guess}, data: {data}')
+        log.exception(f'Missing data, iri: {iri}, format: {format_guess}, data: {data[0:1000]}')
     return None
 
 
