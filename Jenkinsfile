@@ -140,7 +140,7 @@ pipeline {
 			}
 			steps {
 				script {
-					sh 'cd /home/alex/NKOD-TS; docker-compose down; docker-compose pull; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up -d --remove-orphans; docker image prune -y'
+					sh 'cd /home/alex/NKOD-TS; docker-compose down; docker-compose pull; redis-cli -h 10.114.0.2 -n 0 flushdb; redis-cli -h 10.114.0.2 -n 1 flushdb; docker-compose up -d --remove-orphans'
 					sh 'sleep 20'
 					sh 'docker exec nkod-ts_web_1 echo hello from docker'
 					sh 'docker exec nkod-ts_celery_1 pip freeze'
