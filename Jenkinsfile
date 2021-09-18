@@ -163,22 +163,6 @@ pipeline {
 					final String url_test3 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/system"
 					final def (String response_3, int code_3) = sh(script: "curl -s $url_test3", returnStdout: true).trim().tokenize('\n')
 					println(code_3)
-
-					final String url_test5 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/process"
-					final def (String response_5, int code_5) = sh(script: "curl -s $url_test5", returnStdout: true).trim().tokenize('\n')
-					println(code_5)
-
-					final String url_test6 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/dereference/1"
-					final def (String response_6, int code_6) = sh(script: "curl -s $url_test6", returnStdout: true).trim().tokenize('\n')
-					println(code_6)
-
-					final String url_test7 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/dereference/2"
-					final def (String response_7, int code_7) = sh(script: "curl -s $url_test7", returnStdout: true).trim().tokenize('\n')
-					println(code_7)
-
-					final String url_test8 = "http://app.dry.dev.eghuro.com:8088/api/v1/test/dereference/3"
-					final def (String response_8, int code_8) = sh(script: "curl -s $url_test8", returnStdout: true).trim().tokenize('\n')
-					println(code_8)
 				}
 			}
 		}
