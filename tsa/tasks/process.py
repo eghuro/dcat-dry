@@ -210,7 +210,7 @@ def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: st
                 log.exception(f'Failed to dereference {iri_to_dereference} (UnicodeDecodeError)')
             except FailedDereference:
                 pass
-    return graph, dereferenced
+    return graph
 
 
 def store_pure_subjects(iri, graph, red):
