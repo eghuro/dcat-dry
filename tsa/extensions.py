@@ -3,7 +3,6 @@
 import logging
 
 import redis
-import statsd
 from atenvironment import environment
 from flask_caching import Cache
 from flask_cors import CORS
@@ -16,29 +15,10 @@ from tsa.ddr import DataDrivenRelationshipIndex as DDR
 from tsa.redis import same_as as sameas_key
 from tsa.sameas import Index
 
-
-class StatsdMockClient:
-    """Mock client for statsd with empty method implemenntations."""
-
-    def gauge(self, *args):
-        pass
-
-    def set(self, *args):
-        pass
-
-    def timing(self, *args):
-        pass
-
-    def delta(self, *args, **kwargs):
-        pass
-
-
-class StatsdMock:
-    """Mock of statsd library returning mock client above."""
-
-    def StatsClient(self, *args):
-        return StatsdMockClient()
-
+try:
+    from statsd import StatsClient
+except ImportError:
+    from tsa.mocks import StatsClient  # type: ignore
 
 cache = Cache()
 cors = CORS()
@@ -72,7 +52,7 @@ def get_mongo(mongo_cfg=None, mongo_db_name=None):
 
 @environment('STATSD_HOST', 'STATSD_PORT', default=[None, 8125], onerror=on_error)
 def get_statsd(host=None, port=None):
-    return statsd.StatsClient(host=host, port=port)
+    return StatsClient(host=host, port=port)
 
 
 redis_pool = get_redis()
@@ -81,4 +61,4 @@ ddr_index = DDR(redis_pool)
 concept_index = ConceptIndex(redis_pool)
 dsd_index = DSD(redis_pool)
 _, mongo_db = get_mongo()
-statsd_client = StatsdMockClient()  # get_statsd()
+statsd_client = get_statsd()
