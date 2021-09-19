@@ -53,8 +53,8 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
         log.info(f'Analyze {iri} in {wait} because of crawl-delay')
         try:
             session.remove_expired_responses()
-        except:
-            pass
+        except (ValueError, redis.exceptions.RedisError):
+            log.exception('Failed to clean expired responses from cache')
         raise RobotsRetry(wait)
 
     timeout = 10800  # 3h

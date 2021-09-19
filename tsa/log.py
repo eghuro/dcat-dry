@@ -46,6 +46,9 @@ def logging_setup(token=None, url=None):
             'gunicorn.access': {
                 'level': 'WARNING',
                 'handlers': ['logzio'],
+            },
+            'requests_cache': {
+                'level': 'WARNING'
             }
         }
     })
