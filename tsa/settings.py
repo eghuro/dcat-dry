@@ -24,6 +24,7 @@ class Config:
     MATTERMOST_CHANNEL = os.environ.get('CHANNEL', None)
     MATTERMOST_HOOK = os.environ.get('MATTERMOST', None)
     COMPRESSED = False
+    LIMITED = True
 
 
 class ProdConfig(Config):
