@@ -39,6 +39,8 @@ def test_allowed(url: str) -> bool:
 
 
 def _dcat_extractor(g, red, log, force, graph_iri):
+    if g is None:
+        return
     distributions, distributions_priority = [], []
     dcat = Namespace('http://www.w3.org/ns/dcat#')
     dcterms = Namespace('http://purl.org/dc/terms/')
