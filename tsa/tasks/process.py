@@ -260,13 +260,16 @@ def _filter(iri: str, is_prio: bool, force: bool, log: logging.Logger, red: redi
 
 
 def do_fetch(iri: str, task: Task, is_prio: bool, force: bool, log: logging.Logger, red: redis.Redis) -> Tuple[str, requests.Response]:
+    if iri.endswith('trig') and not is_prio:
+        log.error('RDF TriG not in priority')
     try:
         _filter(iri, is_prio, force, log, red)
         log.info(f'Processing {iri!s}')
         response = fetch(iri, log, red)
         test_content_length(iri, response, log)
         guess, priority = guess_format(iri, response, log)
-        is_prio = is_prio | priority
+        if not is_prio and priority:
+            log.warn('Distribution is not in a priority channel: %s', iri)
         return guess, response
     except RobotsRetry as err:
         task.retry(countdown=err.delay)
@@ -299,20 +302,13 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
 
     notify_first_process(red, log)
 
-    if iri.endswith('trig') and not is_prio:
-        log.error('RDF TriG not in priority')
-
     try:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)
 
         if guess in ['application/x-7z-compressed', 'application/x-zip-compressed', 'application/zip']:
-            if Config.COMPRESSED:
-                with TimedBlock('process.decompress'):
-                    do_decompress(red, iri, 'zip', response)
+            do_decompress(red, iri, 'zip', response)
         elif guess in ['application/gzip', 'application/x-gzip']:
-            if Config.COMPRESSED:
-                with TimedBlock('process.decompress'):
-                    do_decompress(red, iri, 'gzip', response)
+            do_decompress(red, iri, 'gzip', response)
         else:
             try:
                 log.debug(f'Get content of {iri}')
@@ -334,32 +330,36 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
 
 
 def do_decompress(red, iri, archive_type, request):
+    if not Config.COMPRESSED:
+        return
+
     log = logging.getLogger(__name__)
 
     key = root_name[KeyRoot.DISTRIBUTIONS]
     log.debug(f'Decompress {iri}')
 
-    try:
-        deco = {
-            'zip': decompress_7z,
-            'gzip': decompress_gzip
-        }
-        for sub_iri, data in deco[archive_type](iri, request):
-            if red.pfadd(key, sub_iri) == 0:
-                log.debug(f'Skipping distribution as it was recently analyzed: {sub_iri!s}')
-                continue
+    with TimedBlock('process.decompress'):
+        try:
+            deco = {
+                'zip': decompress_7z,
+                'gzip': decompress_gzip
+            }
+            for sub_iri, data in deco[archive_type](iri, request):
+                if red.pfadd(key, sub_iri) == 0:
+                    log.debug(f'Skipping distribution as it was recently analyzed: {sub_iri!s}')
+                    continue
 
-            if sub_iri.endswith('/data'):  # extracted a file without a filename
-                process_content(data, sub_iri, 'text/plain', red, log)  # this will allow for analysis to happen
-                continue
+                if sub_iri.endswith('/data'):  # extracted a file without a filename
+                    process_content(data, sub_iri, 'text/plain', red, log)  # this will allow for analysis to happen
+                    continue
 
-            try:
-                guess, _ = guess_format(sub_iri, request, log)
-            except Skip:
-                continue
-            if guess is None:
-                log.warning(f'Unknown format after decompression: {sub_iri}')
-            else:
-                process_content(data, sub_iri, guess, red, log)
-    except (TypeError, ValueError):
-        log.exception(f'Failed to decompress. iri: {iri!s}, archive_type: {archive_type!s}')
+                try:
+                    guess, _ = guess_format(sub_iri, request, log)
+                except Skip:
+                    continue
+                if guess is None:
+                    log.warning(f'Unknown format after decompression: {sub_iri}')
+                else:
+                    process_content(data, sub_iri, guess, red, log)
+        except (TypeError, ValueError):
+            log.exception(f'Failed to decompress. iri: {iri!s}, archive_type: {archive_type!s}')
