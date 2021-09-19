@@ -129,7 +129,7 @@ def gen_related_ds():
 
     for rel_type in reltypes:
         related_ds[rel_type] = []
-        root = related_key(rel_type, '*')[:-2]
+        root = related_key(rel_type, '*')[:-1]
         for key in red.scan_iter(match=related_key(rel_type, '*')):
             token = key[len(root):].replace('_', ':', 1)  # common element
             log.warning(f'root: {root}, key: {key}, token: {token}')
