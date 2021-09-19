@@ -65,7 +65,7 @@ pipeline {
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 						pip install prospector[with_everything] types-requests types-redis
-						prospector -0 -o pylint:/tmp/prospector.txt tsa
+						prospector -0 -o pylint:prospector.txt tsa
 						conda deactivate
 					'''
 					def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation';
