@@ -137,7 +137,11 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
         guess, _ = guess_format(iri_to_dereference, response, log)
         content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
-        return load_graph(iri_to_dereference, content, guess, False)
+        g = load_graph(iri_to_dereference, content, guess, False)
+        if g is not None and len(g) > 0:
+            return g
+        log.debug('Loaded empty graph or none, will lookup in endpoint: %s', iri_to_dereference)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
     except RobotsRetry as err:
         log.warning('Should retry with delay of %s, will lookup in endpoint: %s', str(err.delay), iri_to_dereference)
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
