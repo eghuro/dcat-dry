@@ -128,6 +128,10 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                                 downloads.append(url)
                                 distribution = True
                                 log.debug(f'Distribution {url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})')
+                                if url.endswith('trig'):
+                                    distributions_priority.append(download_url)
+                                else:
+                                    queue.append(download_url)
                                 pipe.sadd(f'{dsdistr}:{str(effective_ds)}', url)
                                 pipe.sadd(f'{distrds}:{url}', str(effective_ds))
                             else:

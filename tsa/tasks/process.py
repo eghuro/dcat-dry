@@ -299,6 +299,9 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
 
     notify_first_process(red, log)
 
+    if iri.endswith('trig') and not is_prio:
+        log.error('RDF TriG not in priority')
+
     try:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)
 
