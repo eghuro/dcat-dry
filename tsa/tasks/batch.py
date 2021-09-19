@@ -13,6 +13,7 @@ from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
 from tsa.redis import dataset_endpoint, ds_distr
+from tsa.settings import Config
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import check_iri
@@ -26,6 +27,15 @@ def query_parent(ds, g, log):
             yield str(parent_iri)
     except ValueError:
         log.warning(f'Failed to query parent. Query was: {query}')
+
+
+def test_allowed(url: str) -> bool:
+    for prefix in ['https://data.cssz.cz', 'https://rpp-opendata.egon.gov.cz', 'https://data.mpsv.cz',
+                   'https://data.mvcr.gov.cz', 'https://cedropendata.mfcr.cz', 'https://opendata.praha.eu',
+                   'https://data.ctu.cz', 'https://www.isvavai.cz']:
+        if url.startswith(prefix):
+            return True
+    return False
 
 
 def _dcat_extractor(g, red, log, force, graph_iri):
@@ -91,19 +101,22 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                     endpoints = set()
                     for download_url in g.objects(d, dcat.downloadURL):
                         # log.debug(f'Down: {download_url!s}')
-                        if check_iri(str(download_url)) and not filter_iri(str(download_url)):
-                            if download_url.endswith('/sparql'):
-                                log.info(f'Guessing {download_url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
-                                endpoints.add(download_url)
-                            else:
-                                downloads.append(download_url)
+                        url = str(download_url)
+                        if check_iri(url) and not filter_iri(url):
+                            if url.endswith('/sparql'):
+                                log.info(f'Guessing {url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})')
+                                endpoints.add(url)
+                            elif test_allowed(url) or not Config.LIMITED:
+                                downloads.append(url)
                                 distribution = True
-                                log.debug(f'Distribution {download_url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})')
+                                log.debug(f'Distribution {url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})')
                                 queue.append(download_url)
-                                pipe.sadd(f'{dsdistr}:{str(effective_ds)}', str(download_url))
-                                pipe.sadd(f'{distrds}:{str(download_url)}', str(effective_ds))
+                                pipe.sadd(f'{dsdistr}:{str(effective_ds)}', url)
+                                pipe.sadd(f'{distrds}:{url}', str(effective_ds))
+                            else:
+                                log.warning(f'Skipping {url} due to filter')
                         else:
-                            log.debug(f'{download_url!s} is not a valid download URL')
+                            log.debug(f'{url} is not a valid download URL')
 
                     # scan for DCAT2 data services here as well
                     for access in g.objects(d, dcat.accessService):
