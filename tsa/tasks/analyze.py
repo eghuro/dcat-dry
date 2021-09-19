@@ -11,14 +11,14 @@ from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
 
 
-def load_graph(iri: str, data: str, format_guess: str, log_error_as_exception: bool=False) -> rdflib.ConjunctiveGraph:
+def load_graph(iri: str, data: str, format_guess: str, log_error_as_exception: bool=False) -> rdflib.ConjunctiveGraph:  # noqa: E252
     log = logging.getLogger(__name__)
     try:
         graph = rdflib.ConjunctiveGraph()
         graph.parse(data=data, format=format_guess.lower())
         return graph
     except (TypeError, rdflib.exceptions.ParserError):
-        log.warning(f'Failed to parse {iri} ({format_guess})')
+        log.warning('Failed to parse %s (%s)', iri, format_guess)
     except (rdflib.plugin.PluginException, UnicodeDecodeError, UnicodeEncodeError, json.decoder.JSONDecodeError):
         message = f'Failed to parse graph for {iri}'
         {
@@ -26,47 +26,47 @@ def load_graph(iri: str, data: str, format_guess: str, log_error_as_exception: b
             False: log.warning
         }[log_error_as_exception](message)
     except ValueError:
-        log.exception(f'Missing data, iri: {iri}, format: {format_guess}, data: {data[0:1000]}')
+        log.exception('Missing data, iri: %s, format: %s, data: %s', iri, format_guess, data[0:1000])
     return None
 
 
 def do_analyze_and_index(graph, iri, red):
     log = logging.getLogger(__name__)
     if graph is None:
-        log.debug(f'Graph is None for {iri}')
+        log.debug('Graph is None for %s', iri)
         return
 
-    log.info(f'Analyze and index - execution: {iri}')
+    log.info(f'Analyze and index - execution: %s', iri)
     analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, 'token')]
-    log.debug(f'Analyzers: {len(analyzers)}')
+    log.debug('Analyzers: %s', str(len(analyzers)))
 
     for analyzer_class in analyzers:
         analyzer_token = analyzer_class.token
-        log.debug(f'Analyze and index {iri} with {analyzer_token}')
+        log.debug('Analyze and index %s with %s', iri, analyzer_token)
         analyzer = analyzer_class()
 
         analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red)
-        log.debug(f'Done analyze and index {iri} with {analyzer_token}')
+        log.debug('Done analyze and index %s with %s', iri, analyzer_token)
 
-    log.debug(f'Done processing {iri}, now storing')
+    log.debug('Done processing %s, now storing', iri)
     store_analysis_result(iri, analyses, red)
-    log.debug(f'Done storing {iri}')
+    log.debug('Done storing %s', iri)
 
 
 def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red):
-    log.debug(f'Analyzing {iri} with {analyzer_class.token}')
+    log.debug('Analyzing %s with %s', iri, analyzer_class.token)
     with TimedBlock(f'analyze.{analyzer_class.token}'):
         res = analyzer.analyze(graph, iri)
-    log.debug(f'Done analyzing {iri} with {analyzer_class.token}')
+    log.debug('Done analyzing %s with %s', iri, analyzer_class.token)
     analyses.append({analyzer_class.token: res})
 
-    log.debug(f'Find relations of {analyzer_class.token} in {iri}')
+    log.debug('Find relations of %s in %s', analyzer_class.token, iri)
     try:
         iris_found = defaultdict(list)
         with TimedBlock(f'index.{analyzer_class.token}'):
             for common_iri, group, rel_type in analyzer.find_relation(graph):
-                log.debug(f'Distribution: {iri!s}, relationship type: {rel_type!s}, common resource: {common_iri!s}, significant resource: {group!s}')
+                log.debug('Distribution: %s, relationship type: %s, common resource: %s, significant resource: %s', iri, rel_type, common_iri, group)
                 # TODO: group IRI not used
                 iris_found[(rel_type, common_iri)].append(iri)  # this is so that we sadd whole list in one call
 
@@ -76,13 +76,13 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, r
             with red.pipeline() as pipe:
                 (rel_type, key) = item[0]
                 iris = item[1]
-                log.debug(f'Addding {len(iris)} items into set')
+                log.debug('Addding %s items into set', str(len(iris)))
 
                 key = related_key(rel_type, key)
                 pipe.sadd(key, *iris)
                 pipe.execute()
     except TypeError:
-        log.debug(f'Skip {analyzer_class.token} for {iri}')
+        log.debug('Skip %s for %s', analyzer_class.token, iri)
 
 
 def store_analysis_result(iri, analyses, red):
