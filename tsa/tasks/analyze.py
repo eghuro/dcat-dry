@@ -11,7 +11,7 @@ from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
 
 
-def load_graph(iri: str, data: str, format_guess: str) -> rdflib.ConjunctiveGraph:
+def load_graph(iri: str, data: str, format_guess: str, log_error_as_exception: bool=False) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     try:
         graph = rdflib.ConjunctiveGraph()
@@ -20,7 +20,11 @@ def load_graph(iri: str, data: str, format_guess: str) -> rdflib.ConjunctiveGrap
     except (TypeError, rdflib.exceptions.ParserError):
         log.warning(f'Failed to parse {iri} ({format_guess})')
     except (rdflib.plugin.PluginException, UnicodeDecodeError, UnicodeEncodeError, json.decoder.JSONDecodeError):
-        log.exception(f'Failed to parse graph for {iri}')
+        message = f'Failed to parse graph for {iri}'
+        {
+            True: log.exception,
+            False: log.warning
+        }[log_error_as_exception](message)
     except ValueError:
         log.exception(f'Missing data, iri: {iri}, format: {format_guess}, data: {data[0:1000]}')
     return None

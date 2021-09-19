@@ -138,7 +138,7 @@ def dereference_one_impl(iri_to_dereference: str, iri_distr: str) -> rdflib.Conj
         guess, _ = guess_format(iri_to_dereference, response, log)
         content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
-        return load_graph(iri_to_dereference, content, guess)
+        return load_graph(iri_to_dereference, content, guess, False)
     except RobotsRetry as err:
         log.warning(f'Should retry with delay of {err.delay}, will lookup in endpoint: {iri_to_dereference}')
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
@@ -168,7 +168,7 @@ def dereference_one(iri_to_dereference: str, iri_distr: str) -> Tuple[rdflib.Con
         if red.exists(key):
             data = red.get(key)
             if data is not None:
-                graph = load_graph(iri_to_dereference, data, 'n3')
+                graph = load_graph(iri_to_dereference, data, 'n3', False)
             else:
                 return rdflib.Graph(), False
         else:
@@ -222,7 +222,7 @@ def store_pure_subjects(iri, graph, red):
 def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: logging.Logger) -> None:
     log.info(f'Analyze and index {iri}')
     with TimedBlock('process.load'):
-        graph = load_graph(iri, content, guess)
+        graph = load_graph(iri, content, guess, True)
 
     if graph is None:
         log.warning('Graph is none: %s', iri)

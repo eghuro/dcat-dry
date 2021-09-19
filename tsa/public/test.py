@@ -113,7 +113,7 @@ def test_process():
         else:
             content.encode('utf-8')
 
-        graph = load_graph(iri_distr, content, guess)
+        graph = load_graph(iri_distr, content, guess, False)
         # zde ziskat resources k dereferenci a nafouknout graf
         for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
             log.info(f'Dereference: {iri_to_dereference}')
