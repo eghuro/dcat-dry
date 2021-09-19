@@ -29,7 +29,7 @@ from tsa.util import check_iri
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
 # Time limit on process priority is to ensure we will do postprocessing after a while
-@celery.task(bind=True, time_limit=3600, base=TrackableTask, ignore_result=True, autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError))
+@celery.task(bind=True, base=TrackableTask, ignore_result=True, autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError))
 def process_priority(self, iri, force):
     do_process(iri, self, True, force)
 

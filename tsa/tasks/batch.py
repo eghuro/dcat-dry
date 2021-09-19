@@ -114,7 +114,7 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                                 pipe.sadd(f'{dsdistr}:{str(effective_ds)}', url)
                                 pipe.sadd(f'{distrds}:{url}', str(effective_ds))
                             else:
-                                log.warning(f'Skipping {url} due to filter')
+                                log.debug(f'Skipping {url} due to filter')
                         else:
                             log.debug(f'{url} is not a valid download URL')
 
@@ -209,4 +209,4 @@ def batch_inspect(endpoint_iri, graphs, chunks):
             red.set('notifiedFirstProcess', "0")
     except redis.LockError:
         log.error('Failed to lock notification block in do_process')
-    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(False, items)), chunks).apply_async()
+    return inspect_graph.chunks(zip(multiply(endpoint_iri, items), graphs, multiply(True, items)), chunks).apply_async()
