@@ -2,8 +2,10 @@
 import json
 import logging
 from collections import defaultdict
+from typing import List
 
 import rdflib
+import redis
 
 from pyld import jsonld
 from tsa.analyzer import AbstractAnalyzer
@@ -12,10 +14,10 @@ from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
 
 
-def convert_jsonld(data: str):
+def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     json_data = json.loads(data)
     expanded = jsonld.expand(json_data)
-    g = rdflib.Graph()
+    g = rdflib.ConjunctiveGraph()
     g.parse(data=json.dumps(expanded), format="json-ld")
     return g
 
@@ -42,7 +44,7 @@ def load_graph(iri: str, data: str, format_guess: str, log_error_as_exception: b
     return None
 
 
-def do_analyze_and_index(graph, iri, red):
+def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> None:
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug('Graph is None for %s', iri)
@@ -66,7 +68,7 @@ def do_analyze_and_index(graph, iri, red):
     log.debug('Done storing %s', iri)
 
 
-def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red):
+def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red) -> None:
     log.debug('Analyzing %s with %s', iri, analyzer_class.token)
     with TimedBlock(f'analyze.{analyzer_class.token}'):
         res = analyzer.analyze(graph, iri)
@@ -97,7 +99,7 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, r
         log.debug('Skip %s for %s', analyzer_class.token, iri)
 
 
-def store_analysis_result(iri, analyses, red):
+def store_analysis_result(iri: str, analyses: List[dict], red: redis.Redis) -> None:
     with TimedBlock('analyze.store'):
         store = json.dumps({'analysis': [x for x in analyses if ((x is not None) and (len(x) > 0))], 'iri': iri})
         key_result = analysis_dataset(iri)
