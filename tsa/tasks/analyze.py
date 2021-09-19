@@ -5,17 +5,31 @@ from collections import defaultdict
 
 import rdflib
 
+from pyld import jsonld
 from tsa.analyzer import AbstractAnalyzer
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
+from tsa.robots import session
+
+jsonld.set_document_loader(jsonld.requests_document_loader(session=session))
+
+
+def convert_jsonld(data: str):
+    json_data = json.loads(data)
+    expanded = jsonld.expand(json_data)
+    g = rdflib.Graph()
+    g.parse(data=json.dumps(expanded), format="json-ld")
 
 
 def load_graph(iri: str, data: str, format_guess: str, log_error_as_exception: bool=False) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     try:
-        graph = rdflib.ConjunctiveGraph()
-        graph.parse(data=data, format=format_guess.lower())
+        if format_guess.lower() == "json-ld":
+            graph = convert_jsonld(data)
+        else:
+            graph = rdflib.ConjunctiveGraph()
+            graph.parse(data=data, format=format_guess.lower())
         return graph
     except (TypeError, rdflib.exceptions.ParserError):
         log.warning(f'Failed to parse {iri} ({format_guess})')
