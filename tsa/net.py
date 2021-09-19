@@ -1,5 +1,6 @@
 import logging
 from io import BytesIO
+from random import randint
 from typing import Tuple
 
 import rdflib
@@ -41,6 +42,14 @@ class RobotsRetry(Exception):
         super().__init__()
 
 
+def clear_cache(wait: int, log: logging.Logger) -> None:
+    if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):
+        try:
+            session.remove_expired_responses()
+        except (ValueError, redis.exceptions.RedisError):
+            log.exception('Failed to clean expired responses from cache')
+
+
 def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
     """Fetch the distribution. Mind robots.txt."""
     is_allowed, delay, robots_url = robots_allowed(iri)
@@ -49,12 +58,9 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
         log.warn(f'Not allowed to fetch {iri!s} as {USER_AGENT!s}')
         raise Skip()
     wait = red.ttl(key)
+    clear_cache(wait, log)
     if wait > 0:
         log.info(f'Analyze {iri} in {wait} because of crawl-delay')
-        try:
-            session.remove_expired_responses()
-        except (ValueError, redis.exceptions.RedisError):
-            log.exception('Failed to clean expired responses from cache')
         raise RobotsRetry(wait)
 
     timeout = 10800  # 3h
