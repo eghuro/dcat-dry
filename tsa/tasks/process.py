@@ -213,8 +213,8 @@ def expand_graph_with_dereferences(graph: rdflib.ConjunctiveGraph, iri_distr: st
 
 def store_pure_subjects(iri, graph, red):
     subjects_pure = set()
-    for s, _, _ in graph:
-        subjects_pure.add(str(s))
+    for sub, _, _ in graph:
+        subjects_pure.add(str(sub))
     if len(subjects_pure) > 0:
         red.lpush(pure_subject(iri), *list(subjects_pure))
 
