@@ -95,11 +95,10 @@ def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Conjunctive
 
 
 def sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
-    if list_in is None:
-        return []
-    for item in list_in:
-        if item is not None:
-            yield item
+    if list_in is not None:
+        for item in list_in:
+            if item is not None:
+                yield item
 
 
 def dereference_from_endpoints(iri: str, iri_distr: str, red: redis.Redis) -> rdflib.ConjunctiveGraph:
