@@ -43,7 +43,7 @@ class RobotsRetry(Exception):
 
 
 def clear_cache(wait: int, log: logging.Logger) -> None:
-    if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):
+    if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):  # nosec
         try:
             session.remove_expired_responses()
         except (ValueError, redis.exceptions.RedisError):
