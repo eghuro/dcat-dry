@@ -225,10 +225,10 @@ def process_content(content: str, iri: str, guess: str, red: redis.Redis, log: l
         graph = load_graph(iri, content, guess)
 
     if graph is None:
-        log.warning('Graph is none')
+        log.warning('Graph is none: %s', iri)
         return
     if len(graph) == 0:
-        log.warning('Graph is empty')
+        log.warning('Graph is empty: %s', iri)
         return
 
     store_pure_subjects(iri, graph, red)
