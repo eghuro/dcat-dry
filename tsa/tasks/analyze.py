@@ -36,7 +36,7 @@ def do_analyze_and_index(graph, iri, red):
         log.debug('Graph is None for %s', iri)
         return
 
-    log.info(f'Analyze and index - execution: %s', iri)
+    log.info('Analyze and index - execution: %s', iri)
     analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, 'token')]
     log.debug('Analyzers: %s', str(len(analyzers)))

@@ -362,4 +362,4 @@ def do_decompress(red, iri, archive_type, request):
                 else:
                     process_content(data, sub_iri, guess, red, log)
         except (TypeError, ValueError):
-            log.exception(f'Failed to decompress. iri: %s, archive_type: %s', iri, archive_type)
+            log.exception('Failed to decompress. iri: %s, archive_type: %s', iri, archive_type)
