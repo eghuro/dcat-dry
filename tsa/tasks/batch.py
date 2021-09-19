@@ -52,7 +52,14 @@ def _dcat_extractor(g, red, log, force, graph_iri):
         'https://www.iana.org/assignments/media-types/application/ld+json',
         'https://www.iana.org/assignments/media-types/application/n-triples',
         'https://www.iana.org/assignments/media-types/application/n-quads',
-        'https://www.iana.org/assignments/media-types/text/turtle'
+        'https://www.iana.org/assignments/media-types/text/turtle',
+        'http://www.iana.org/assignments/media-types/application/rdf+xml',
+        'http://www.iana.org/assignments/media-types/application/trig',
+        'http://www.iana.org/assignments/media-types/text/n3',
+        'http://www.iana.org/assignments/media-types/application/ld+json',
+        'http://www.iana.org/assignments/media-types/application/n-triples',
+        'http://www.iana.org/assignments/media-types/application/n-quads',
+        'http://www.iana.org/assignments/media-types/text/turtle'
     ])  # IANA
     format_priority = set([
         'http://publications.europa.eu/resource/authority/file-type/RDF',
@@ -63,7 +70,16 @@ def _dcat_extractor(g, red, log, force, graph_iri):
         'http://publications.europa.eu/resource/authority/file-type/RDF_TURTLE',
         'http://publications.europa.eu/resource/authority/file-type/RDF_XML',
         'http://publications.europa.eu/resource/authority/file-type/JSON_LD',
-        'http://publications.europa.eu/resource/authority/file-type/N3'
+        'http://publications.europa.eu/resource/authority/file-type/N3',
+        'https://publications.europa.eu/resource/authority/file-type/RDF',
+        'https://publications.europa.eu/resource/authority/file-type/RDFA',
+        'https://publications.europa.eu/resource/authority/file-type/RDF_N_QUADS',
+        'https://publications.europa.eu/resource/authority/file-type/RDF_N_TRIPLES',
+        'https://publications.europa.eu/resource/authority/file-type/RDF_TRIG',
+        'https://publications.europa.eu/resource/authority/file-type/RDF_TURTLE',
+        'https://publications.europa.eu/resource/authority/file-type/RDF_XML',
+        'https://publications.europa.eu/resource/authority/file-type/JSON_LD',
+        'https://publications.europa.eu/resource/authority/file-type/N3'
     ])  # EU
     queue = distributions
 
@@ -112,7 +128,6 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                                 downloads.append(url)
                                 distribution = True
                                 log.debug(f'Distribution {url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})')
-                                queue.append(download_url)
                                 pipe.sadd(f'{dsdistr}:{str(effective_ds)}', url)
                                 pipe.sadd(f'{distrds}:{url}', str(effective_ds))
                             else:
