@@ -19,10 +19,8 @@ def load_graph(iri: str, data: str, format_guess: str) -> rdflib.ConjunctiveGrap
         return graph
     except (TypeError, rdflib.exceptions.ParserError):
         log.warning(f'Failed to parse {iri} ({format_guess})')
-    except (rdflib.plugin.PluginException, UnicodeDecodeError):
+    except (rdflib.plugin.PluginException, UnicodeDecodeError, UnicodeEncodeError, json.decoder.JSONDecodeError):
         log.warning(f'Failed to parse graph for {iri}')
-    except UnicodeEncodeError:
-        log.exception(f'Failed to parse graph for {iri}')
     except ValueError:
         log.exception(f'Missing data, iri: {iri}, format: {format_guess}, data: {data[0:1000]}')
     return None

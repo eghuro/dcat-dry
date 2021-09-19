@@ -53,7 +53,7 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
         log.info(f'Analyze {iri} in {wait} because of crawl-delay')
         try:
             session.remove_expired_responses()
-        except ValueError:
+        except:
             pass
         raise RobotsRetry(wait)
 
