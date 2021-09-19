@@ -10,9 +10,6 @@ from tsa.analyzer import AbstractAnalyzer
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
-from tsa.robots import session
-
-jsonld.set_document_loader(jsonld.requests_document_loader(session=session))
 
 
 def convert_jsonld(data: str):
