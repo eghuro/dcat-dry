@@ -7,7 +7,7 @@ from tsa.celery import celery
 from tsa.extensions import redis_pool
 
 
-@celery.task
+@celery.task  # noqa: unused-function
 def system_check():
     """Runs an availability test of additional systems.
 
@@ -22,7 +22,7 @@ def system_check():
     log.info('System check successful')
 
 
-@celery.task
+@celery.task  # noqa: unused-function
 def hello():
     """Dummy task returning hello world used for testing of Celery."""
     return 'Hello world!'
