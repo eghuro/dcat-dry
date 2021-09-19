@@ -11,10 +11,14 @@ from requests_cache.backends.redis import RedisCache
 
 import tsa
 from tsa.extensions import redis_pool
+from tsa.settings import Config
 
-try:
-    from reppy.robots import Robots
-except ImportError:
+if Config.ROBOTS:
+    try:
+        from reppy.robots import Robots
+    except ImportError:
+        from tsa.mocks import Robots  # type: ignore
+else:
     from tsa.mocks import Robots  # type: ignore
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)

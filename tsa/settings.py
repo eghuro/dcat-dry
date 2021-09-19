@@ -25,6 +25,7 @@ class Config:
     MATTERMOST_HOOK = os.environ.get('MATTERMOST', None)
     COMPRESSED = False
     LIMITED = True
+    ROBOTS = False
 
 
 class ProdConfig(Config):
