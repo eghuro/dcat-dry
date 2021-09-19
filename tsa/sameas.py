@@ -40,7 +40,7 @@ class Index:
             neighbours = list(self.__red.sscan_iter(key))
             graph[iri] = neighbours
 
-        for node in graph.keys():
+        for node in graph.keys():  # noqa: consider-iterating-dictionary
             visited = self.__bfs(graph, node)
             with self.__red.pipeline() as pipe:
                 # add all reachable nodes into index (transitivity)
