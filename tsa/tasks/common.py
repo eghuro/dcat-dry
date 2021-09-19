@@ -24,14 +24,14 @@ class TrackableTask(Task):
 
 
 @celery.task(ignore_result=True)
-def monitor(*args):
+def monitor(*args):  # pylint: disable=unused-argument
     log = logging.getLogger(__name__)
     redis_cfg = os.environ.get('REDIS_CELERY', None)
     pool = redis_lib.ConnectionPool().from_url(redis_cfg, charset='utf-8', decode_responses=True)
     red = redis_lib.Redis(connection_pool=pool)
     enqueued = red.llen('default') + red.llen('high_priority') + red.llen('low_priority')
     if enqueued > 0:
-        log.info(f'Enqueued: {enqueued}')
+        log.info('Enqueued: %s', str(enqueued))
         red.set('shouldQuery', 1)
     else:
         should_query = red.get('shouldQuery')
