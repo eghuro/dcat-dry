@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """Query endpoints."""
-import json
 from collections import defaultdict
 
-from bson.json_util import dumps as dumps_bson
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 from flask_rdf.flask import returns_rdf
 
@@ -41,7 +39,7 @@ def fetch_analysis():  # noqa: inconsistent-return-statements
     analyses = defaultdict(list)
     for analysis in mongo_db.dsanalyses.find({}):
         res = {}
-        for a in analysis:
+        for key in analysis.keys():
             res[key] = analysis[key]
         del res['_id']
         ds_iri = res['ds_iri']
