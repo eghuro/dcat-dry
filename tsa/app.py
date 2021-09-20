@@ -83,3 +83,4 @@ def register_commands(app):
     app.cli.add_command(commands.import_profiles)
     app.cli.add_command(commands.import_interesting)
     app.cli.add_command(commands.dereference)
+    app.cli.add_command(commands.finalize)
