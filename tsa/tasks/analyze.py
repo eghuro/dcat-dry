@@ -12,12 +12,11 @@ from tsa.analyzer import AbstractAnalyzer
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
 from tsa.redis import related as related_key
-from tsa.robots import USER_AGENT
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     json_data = json.loads(data)
-    expanded = jsonld.expand(json_data, headers={'User-Agent': USER_AGENT})
+    expanded = jsonld.expand(json_data)
     g = rdflib.ConjunctiveGraph()
     g.parse(data=json.dumps(expanded), format="json-ld")
     return g
