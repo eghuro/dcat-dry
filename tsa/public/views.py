@@ -41,17 +41,22 @@ def fetch_analysis():  # noqa: inconsistent-return-statements
     analyses = defaultdict(list)
     for analysis in mongo_db.dsanalyses.find({}):
         res = {}
-        for key in analysis.keys():
+        for a in analysis:
             res[key] = analysis[key]
         del res['_id']
         ds_iri = res['ds_iri']
         del res['ds_iri']
         analyses[ds_iri].append(res)
+
     if len(analyses.keys()) > 0:
-        related = mongo_db.related.find({})
-        if related is not None:
-            related = json.loads(dumps_bson(related))[0]
-            del related['_id']
+        all_related = mongo_db.related.find({})
+        related = defaultdict(list)
+        if all_related is not None:
+            for item in all_related:
+                record = {}
+                record['iri'] = item['iri']
+                record['related'] = item['related']
+                related[item['type']].append(record)
             return jsonify({'analyses': analyses, 'related': related})
         return jsonify({'analyses': analyses})
     abort(204)

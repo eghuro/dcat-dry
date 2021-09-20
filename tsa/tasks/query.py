@@ -123,12 +123,11 @@ def gen_related_ds():
     log = logging.getLogger(__name__)
     log.warning('Generate related datasets')
     red = redis.Redis(connection_pool=redis_pool)
-    related_ds = {}
+    related_ds = []
 
     interesting_datasets = set()
 
     for rel_type in reltypes:
-        related_ds[rel_type] = []
         root = related_key(rel_type, '*')[:-1]
         for key in red.scan_iter(match=related_key(rel_type, '*')):
             token = key[len(root):].replace('_', ':', 1)  # common element
@@ -140,12 +139,12 @@ def gen_related_ds():
             for distr_iri in related_dist:
                 all_related.update(red.smembers(f'distrds:{distr_iri}'))
             if len(all_related) > 1:  # do not consider sets on one candidate for conciseness
-                related_ds[rel_type].append({'iri': token, 'related': list(all_related)})
+                related_ds.append({'iri': token, 'related': list(all_related), 'type': rel_type})
                 interesting_datasets.update(all_related)
 
     try:
         mongo_db.related.delete_many({})
-        mongo_db.related.insert(related_ds)
+        mongo_db.related.insert_many(related_ds)
 
         mongo_db.interesting.delete_many({})
         mongo_db.interesting.insert({'iris': list(interesting_datasets)})
