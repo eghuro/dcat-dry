@@ -19,7 +19,7 @@ from tsa.notification import message_to_mattermost
 from tsa.redis import KeyRoot, dataset_endpoint
 from tsa.redis import dereference as dereference_key
 from tsa.redis import ds_distr, pure_subject, root_name
-from tsa.robots import USER_AGENT
+from tsa.robots import USER_AGENT, session
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.common import TrackableTask
@@ -75,6 +75,7 @@ def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Conjunctive
     log.info('Dereference %s from endpoint %s', iri, endpoint_iri)
     store = SPARQLStore(endpoint_iri, True, True, _node_to_sparql,
                         'application/rdf+xml',
+                        session=session,
                         headers={'User-Agent': USER_AGENT})
     endpoint_graph = rdflib.Graph(store=store)
     endpoint_graph.open(endpoint_iri)
