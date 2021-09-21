@@ -155,7 +155,6 @@ def gen_related_ds():
     except DocumentTooLarge:
         logging.getLogger(__name__).exception('Failed to store related datasets')
 
-    del related_ds['_id']
     red.set('shouldQuery', 0)
     message_to_mattermost('Done!')
     return related_ds
