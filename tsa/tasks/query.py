@@ -157,7 +157,6 @@ def gen_related_ds():
 
     red.set('shouldQuery', 0)
     message_to_mattermost('Done!')
-    return related_ds
 
 
 @celery.task(ignore_result=True)
