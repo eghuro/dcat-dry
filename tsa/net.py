@@ -3,11 +3,11 @@ from io import BytesIO
 from random import randint
 from typing import Tuple
 
-import rdflib
-import redis
 import requests
 import urllib3
 
+import rdflib
+import redis
 from tsa.monitor import monitor
 from tsa.redis import MAX_CONTENT_LENGTH
 from tsa.redis import delay as delay_key
@@ -46,7 +46,7 @@ def clear_cache(wait: int, log: logging.Logger) -> None:
     if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):  # nosec
         try:
             session.remove_expired_responses()
-        except (ValueError, redis.exceptions.RedisError):
+        except (AttributeError, ValueError, redis.exceptions.RedisError):
             log.exception('Failed to clean expired responses from cache')
 
 

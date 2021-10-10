@@ -6,7 +6,6 @@ from json import JSONEncoder
 
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
-
 from tsa.celery import celery
 from tsa.extensions import concept_index, ddr_index, dsd_index, mongo_db, redis_pool, same_as_index
 from tsa.notification import message_to_mattermost
@@ -144,7 +143,8 @@ def gen_related_ds():
 
     try:
         mongo_db.related.delete_many({})
-        mongo_db.related.insert_many(related_ds)
+        if len(related_ds) > 0:
+            mongo_db.related.insert_many(related_ds)
 
         mongo_db.interesting.delete_many({})
         mongo_db.interesting.insert({'iris': list(interesting_datasets)})
