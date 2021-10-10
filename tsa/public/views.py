@@ -3,9 +3,9 @@
 from collections import defaultdict
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
-from flask_rdf.flask import returns_rdf
 
 import tsa
+from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
 from tsa.extensions import mongo_db, same_as_index
 from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
@@ -47,16 +47,14 @@ def fetch_analysis():  # noqa: inconsistent-return-statements
         analyses[ds_iri].append(res)
 
     if len(analyses.keys()) > 0:
-        all_related = mongo_db.related.find({})
         related = defaultdict(list)
-        if all_related is not None:
-            for item in all_related:
-                record = {}
-                record['iri'] = item['iri']
-                record['related'] = item['related']
-                related[item['type']].append(record)
-            return jsonify({'analyses': analyses, 'related': related})
-        return jsonify({'analyses': analyses})
+        for item in mongo_db.related.find({}):
+            record = {}
+            record['iri'] = item['iri']
+            record['related'] = item['related']
+            related[item['type']].append(record)
+        return jsonify({'analyses': analyses, 'related': related})
+        # return jsonify({'analyses': analyses})
     abort(204)
 
 

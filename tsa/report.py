@@ -5,7 +5,6 @@ from collections import defaultdict
 import redis
 from bson.json_util import dumps as dumps_bson
 from pymongo.errors import DocumentTooLarge, OperationFailure
-
 from tsa.enricher import AbstractEnricher, NoEnrichment
 from tsa.extensions import mongo_db, redis_pool, same_as_index
 from tsa.redis import sanitize_key
@@ -23,8 +22,13 @@ def query_dataset(iri):
 
 
 def get_all_related():
-    for related in mongo_db.related.find({}):
-        return related
+    all_related = defaultdict(list)
+    for item in mongo_db.related.find({}):
+        record = {}
+        record['iri'] = item['iri']
+        record['related'] = item['related']
+        all_related[item['type']].append(record)
+    return all_related
 
 
 def query_related(ds_iri):
