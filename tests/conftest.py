@@ -2,7 +2,6 @@
 """Defines fixtures available to all tests."""
 
 import pytest
-from webtest import TestApp
 
 from tsa.app import create_app
 from tsa.settings import ProdConfig
@@ -18,9 +17,3 @@ def app():
     yield _app
 
     ctx.pop()
-
-
-@pytest.fixture
-def testapp(app):
-    """A Webtest app."""
-    return TestApp(app)

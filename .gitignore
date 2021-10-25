@@ -64,3 +64,5 @@ data/
 .DS_Store
 *.rdb
 /.mypy_cache/
+.vscode/
+conf/
