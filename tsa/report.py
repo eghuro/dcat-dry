@@ -111,7 +111,6 @@ def query_profile(ds_iri):
         log.info('...')
         del analysis['_id']
         del analysis['ds_iri']
-        del analysis['batch_id']
         for k in analysis.keys():
             analysis_out[k] = analysis[k]
 
