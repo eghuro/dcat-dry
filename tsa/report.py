@@ -11,8 +11,7 @@ from tsa.redis import sanitize_key
 
 supported_languages = ["cs", "en"]
 enrichers = [e() for e in AbstractEnricher.__subclasses__()]
-reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension']  # sum((analyzer.relations for analyzer in AbstractAnalyzer.__subclasses__() if 'relations' in analyzer.__dict__), [])
-
+reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 'conceptOnDimension', 'relatedConceptOnDimension', 'crossSameas']
 
 def query_dataset(iri):
     return {
@@ -114,7 +113,6 @@ def query_profile(ds_iri):
         for k in analysis.keys():
             analysis_out[k] = analysis[k]
 
-    log.info(analysis_out.keys())
     if len(analysis_out.keys()) == 0:
         log.error('Missing analysis_out for %s', ds_iri)
         return {}
@@ -127,7 +125,6 @@ def query_profile(ds_iri):
     output["triples"] = analysis_out["generic"]["triples"]
 
     output["classes"] = []
-    log.info(json.dumps(analysis_out["generic"]))
     for class_analysis in analysis_out["generic"]["classes"]:
         class_iri = class_analysis["iri"]
         label = create_labels(class_iri, supported_languages)
@@ -162,7 +159,7 @@ def query_profile(ds_iri):
 
     #new
     output["datasets"] = []
-    for dataset in analysis_out["cube"]["datasets"]:
+    for dataset in analysis_out["cube"]["datasets_queried"]:
         dimensions = []
         for dim in dataset['dimensions']:
             resources = []
