@@ -65,7 +65,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> Non
 
     log.debug('Done processing %s, now storing', iri)
     store_analysis_result(iri, analyses, red)
-    log.debug('Done storing %s', iri)
+    log.info('Done storing %s', iri)
 
 
 def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red) -> None:
