@@ -10,7 +10,7 @@ from flask.wrappers import Response
 import tsa
 from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
-from tsa.extensions import csrf, mongo_db, same_as_index, redis_pool
+from tsa.extensions import mongo_db, same_as_index, redis_pool
 from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.tasks.process import process_priority
@@ -145,7 +145,6 @@ def record_distribution_dataset(iri, ds):
         pipe.sadd(f'{distrds}:{iri}', str(ds))
 
 
-@csrf.exempt
 @blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
 def analyze_distribution():
     current_app.logger.info('Analyze distribution')

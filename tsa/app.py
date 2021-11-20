@@ -40,7 +40,7 @@ def register_extensions(app):
     """Register Flask extensions."""
     cache.init_app(app)
     cors.init_app(app)
-    csrf.init_app(app)
+    # csrf.init_app(app)
 
 
 def register_blueprints(app):
