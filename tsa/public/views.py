@@ -16,6 +16,7 @@ from tsa.sd import create_sd_iri, generate_service_description
 from tsa.tasks.process import do_process
 from tsa.util import check_iri
 from tsa.redis import ds_distr
+from tsa.query import query
 
 blueprint = Blueprint('public', __name__, static_folder='../static')
 
@@ -164,4 +165,5 @@ def analyze_distribution():
     iri, ds = data['distribution_iri'], data['dataset_iri']
     record_distribution_dataset(iri, ds)
     do_process(iri, FakeTask(), False, True)
+    query()
     return Response('ok', 200)
