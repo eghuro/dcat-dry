@@ -10,14 +10,13 @@ services:
       - REDIS=redis://10.114.0.2:6379/0
       - REDIS_CELERY=redis://10.114.0.2:6379/1
       - MONGO=mongodb://10.114.0.2:27017/
-      - STATSD_HOST=graphite
     volumes:
-      - /root/data/log:/log
+      - ./graphs.txt:/tmp/graphs.txt
+    command: gunicorn -w 4 -b 0.0.0.0:8000 --log-level warning app:app
     ports:
       - "8088:8000"
     depends_on:
      - celery
-    command: gunicorn -k gevent -w 4 -b 0.0.0.0:8000 --log-level info --log-file /log/gunicorn.log app:app
   celery:
     restart: always
     build:
@@ -28,10 +27,7 @@ services:
       - REDIS=redis://10.114.0.2:6379/0
       - REDIS_CELERY=redis://10.114.0.2:6379/1
       - MONGO=mongodb://10.114.0.2:27017/
-      - STATSD_HOST=graphite
-    volumes:
-      - /root/data/log:/log
-    command: celery -A tsa.celery worker -P eventlet -l debug -Q high_priority,default,query,low_priority -c 8
+    command: celery -A tsa.celery worker -l warning -Q high_priority,default,query,low_priority -c 4
   beat:
     restart: always
     build:
@@ -42,12 +38,4 @@ services:
       - REDIS=redis://10.114.0.2:6379/0
       - REDIS_CELERY=redis://10.114.0.2:6379/1
       - MONGO=mongodb://10.114.0.2:27017/
-      - STATSD_HOST=graphite
-    volumes:
-      - /root/data/log:/log
-    command:celery -A tsa.celery worker -B -l debug -c 1
-  graphite:
-    image: graphiteapp/graphite-statsd
-    restart: always
-    ports:
-      - 8088:80
+    command: celery -A tsa.celery beat -l warning

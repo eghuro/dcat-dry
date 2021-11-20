@@ -89,3 +89,20 @@ Running Tests
 To run all tests, run ::
 
     flask test
+
+
+API
+-------------
+
+To start batch scan, run  ::
+
+    flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql
+
+Get a full result ::
+
+    /api/v1/query/analysis
+
+Query a dataset ::
+
+    /api/v1/query/dataset?iri=http://abc
+
