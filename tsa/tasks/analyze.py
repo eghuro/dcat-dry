@@ -51,6 +51,8 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> Non
         return
 
     log.info('Analyze and index - execution: %s', iri)
+    log.info(graph.serialize(format='n3'))
+
     analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, 'token')]
     log.debug('Analyzers: %s', str(len(analyzers)))
