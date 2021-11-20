@@ -13,7 +13,7 @@ from tsa.cache import cached
 from tsa.extensions import mongo_db, same_as_index, redis_pool
 from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
 from tsa.sd import create_sd_iri, generate_service_description
-from tsa.tasks.process import process_priority
+from tsa.tasks.process import do_process
 from tsa.util import check_iri
 from tsa.redis import ds_distr
 
@@ -145,6 +145,17 @@ def record_distribution_dataset(iri, ds):
         pipe.sadd(f'{distrds}:{iri}', str(ds))
 
 
+class FakeTask:
+    def __init__(self) -> None:
+        self.__redis = redis.Redis(connection_pool=redis_pool)
+
+    def retry(exc):
+        raise exc
+
+    @property
+    def redis(self):
+        return self.__redis
+
 @blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
 def analyze_distribution():
     current_app.logger.info('Analyze distribution')
@@ -152,5 +163,5 @@ def analyze_distribution():
     current_app.logger.info('Payload: ' + json.dumps(data))
     iri, ds = data['distribution_iri'], data['dataset_iri']
     record_distribution_dataset(iri, ds)
-    process_priority.si(iri, True).apply_async()
+    do_process(iri, FakeTask(), False, True)
     return Response('ok', 200)
