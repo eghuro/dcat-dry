@@ -144,6 +144,7 @@ def record_distribution_dataset(iri, ds):
     with red.pipeline() as pipe:
         pipe.sadd(f'{dsdistr}:{str(ds)}', iri)
         pipe.sadd(f'{distrds}:{iri}', str(ds))
+        pipe.execute()
 
 
 class FakeTask:
