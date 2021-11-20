@@ -147,7 +147,7 @@ def record_distribution_dataset(iri, ds):
 @blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
 def analyze_distribution():
     data = request.get_json()
-    iri, force, ds = data['distribution_iri'], data['force'], data['dataset_iri']
+    iri, ds = data['distribution_iri'], data['dataset_iri']
     record_distribution_dataset(iri, ds)
-    process_priority.si(iri, force).apply_async()
+    process_priority.si(iri, True).apply_async()
     return Response('ok', 200)
