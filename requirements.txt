@@ -39,7 +39,7 @@ python-mimeparse==0.1.4  # flask-rdf 0.2.1 depends on python-mimeparse==0.1.4
 pytz==2021.3
 rdflib==6.0.2
 rdflib-jsonld==0.6.2
-redis==4.0.1
+redis==3.5.3
 reppy==0.4.14
 requests==2.26.0
 requests-toolbelt==0.9.1
