@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """Query endpoints."""
-from flask.wrappers import Response
+import json
 import redis
 from collections import defaultdict
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
+from flask.wrappers import Response
 
 import tsa
 from flask_rdf.flask import returns_rdf
@@ -147,7 +148,9 @@ def record_distribution_dataset(iri, ds):
 @blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
 @csrf.exempt
 def analyze_distribution():
+    current_app.logger.info('Analyze distribution')
     data = request.get_json()
+    current_app.logger.info('Payload: ' + json.dumps(data))
     iri, ds = data['distribution_iri'], data['dataset_iri']
     record_distribution_dataset(iri, ds)
     process_priority.si(iri, True).apply_async()
