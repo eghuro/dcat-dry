@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """Query endpoints."""
+from flask.wrappers import Response
+import redis
 from collections import defaultdict
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
@@ -7,10 +9,12 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 import tsa
 from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
-from tsa.extensions import mongo_db, same_as_index
+from tsa.extensions import mongo_db, same_as_index, redis_pool
 from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
 from tsa.sd import create_sd_iri, generate_service_description
+from tsa.tasks.process import process_priority
 from tsa.util import check_iri
+from tsa.redis import ds_distr
 
 blueprint = Blueprint('public', __name__, static_folder='../static')
 
@@ -130,3 +134,20 @@ def version():
     if tsa.__revision__ != 'PLACEHOLDER':
         doc['revision'] = tsa.__revision__
     return jsonify(doc)
+
+
+def record_distribution_dataset(iri, ds):
+    dsdistr, distrds = ds_distr()
+    red = redis.Redis(connection_pool=redis_pool)
+    with red.pipeline() as pipe:
+        pipe.sadd(f'{dsdistr}:{str(ds)}', iri)
+        pipe.sadd(f'{distrds}:{iri}', str(ds))
+
+
+@blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
+def analyze_distribution():
+    data = request.get_json()
+    iri, force, ds = data['distribution_iri'], data['force'], data['dataset_iri']
+    record_distribution_dataset(iri, ds)
+    process_priority.si(iri, force).apply_async()
+    return Response('ok', 200)
