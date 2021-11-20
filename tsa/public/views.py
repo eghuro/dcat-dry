@@ -145,8 +145,8 @@ def record_distribution_dataset(iri, ds):
         pipe.sadd(f'{distrds}:{iri}', str(ds))
 
 
-@blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
 @csrf.exempt
+@blueprint.route('/api/v1/analyze/distribution', methods=['POST'])
 def analyze_distribution():
     current_app.logger.info('Analyze distribution')
     data = request.get_json()
