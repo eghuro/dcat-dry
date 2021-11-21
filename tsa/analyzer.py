@@ -1,6 +1,7 @@
 """Dataset analyzer."""
 
 import logging
+import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Callable, DefaultDict, Generator, Optional, Tuple
@@ -92,7 +93,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         return dataset_structures
 
     @staticmethod
-    def __resource_on_dimension(graph: Graph) -> Generator[Tuple[URIRef, URIRef, str], None, None]:
+    def __resource_on_dimension(graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
         log = logging.getLogger(__name__)
         log.debug('Looking up resources on dimensions')
         ds_dimensions = CubeAnalyzer.__dataset_structures(graph, CubeAnalyzer.__dimensions(graph))
@@ -188,12 +189,16 @@ class SkosAnalyzer(AbstractAnalyzer):
         """Analysis of SKOS concepts and related properties presence in a dataset."""
         log = logging.getLogger(__name__)
 
+        log.info('SkosAnalyzer.analyze enter')
+        log.info(graph.serialize(format='n3'))
+
         concepts = [str(row['concept']) for row in graph.query("""
         SELECT DISTINCT ?concept WHERE {
             OPTIONAL {?concept a <http://www.w3.org/2004/02/skos/core#Concept>.}
             OPTIONAL {?concept <http://www.w3.org/2004/02/skos/core#inScheme> ?_. }
         }
         """)]
+        log.info(json.dumps(concepts))
 
         concept_count = []
         for concept_iri in concepts:

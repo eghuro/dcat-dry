@@ -71,7 +71,9 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> Non
 
 
 def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red) -> None:
-    log.debug('Analyzing %s with %s', iri, analyzer_class.token)
+    log.info('Analyzing %s with %s', iri, analyzer_class.token)
+    log.info(graph.serialize(format='n3'))
+
     with TimedBlock(f'analyze.{analyzer_class.token}'):
         res = analyzer.analyze(graph, iri)
     log.debug('Done analyzing %s with %s', iri, analyzer_class.token)
