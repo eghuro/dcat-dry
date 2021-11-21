@@ -202,7 +202,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         concept_count = []
         for concept_iri in concepts:
-            if not check_iri(concept_iri):
+            if not check_iri(concept_iri) or concept_iri.startswith('file://'):
                 log.debug('%s is not a valid IRI', concept_iri)
                 continue
             for row in graph.query(SkosAnalyzer._count_query(concept_iri)):
@@ -217,7 +217,7 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         schemes_count, top_concept = [], []
         for schema in schemes:
-            if not check_iri(schema):
+            if not check_iri(schema) or concept_iri.startswith('file://'):
                 log.debug('%s is a not valid IRI', schema)
                 continue
             for row in graph.query(SkosAnalyzer._scheme_count_query(str(schema))):
@@ -267,7 +267,7 @@ class SkosAnalyzer(AbstractAnalyzer):
         """)]
 
         for concept_iri in concepts:
-            if check_iri(concept_iri):
+            if check_iri(concept_iri) or concept_iri.startswith('file://'):
                 concept_index.index(concept_iri)
 
         query = 'SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}'
