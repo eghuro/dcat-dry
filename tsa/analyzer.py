@@ -190,8 +190,8 @@ class SkosAnalyzer(AbstractAnalyzer):
         """Analysis of SKOS concepts and related properties presence in a dataset."""
         log = logging.getLogger(__name__)
 
-        log.info('SkosAnalyzer.analyze enter')
-        log.info(graph.serialize(format='n3'))
+        # log.info('SkosAnalyzer.analyze enter')
+        # log.info(graph.serialize(format='n3'))
 
         concepts = [str(row['concept']) for row in graph.query("""
         SELECT DISTINCT ?concept WHERE {
@@ -199,19 +199,19 @@ class SkosAnalyzer(AbstractAnalyzer):
             OPTIONAL {?concept <http://www.w3.org/2004/02/skos/core#inScheme> ?_. }
         }
         """)]
-        log.info(json.dumps(concepts))
-        log.info(len(concepts))
+        # log.info(json.dumps(concepts))
+        # log.info(len(concepts))
 
         concept_count = []
         for concept_iri in concepts:
-            #if not check_iri(concept_iri):
-            #    log.info('%s is not a valid IRI', concept_iri)
-            #    continue
+            if not check_iri(concept_iri):
+                log.debug('%s is not a valid IRI', concept_iri)
+                continue
             query = SkosAnalyzer._count_query(concept_iri)
-            log.info(query)
+            # log.info(query)
             for row in graph.query(query):
                 concept_count.append({'iri': concept_iri, 'count': row['count']})
-        log.info(json.dumps(concept_count))
+        # log.info(json.dumps(concept_count))
 
         schemes = [row['scheme'] for row in graph.query("""
         SELECT DISTINCT ?scheme WHERE {

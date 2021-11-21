@@ -18,11 +18,9 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     json_data = json.loads(data)
 
     options = {}
-    if '@context' in json_data:
-        if '@base' in json_data['@context']:
-            options['base'] = json_data['@context']['@base']
+    if '@context' in json_data and '@base' in json_data['@context']:
+        options['base'] = json_data['@context']['@base']
     expanded = jsonld.expand(json_data,  options=options)
-    logging.getLogger(__name__).info(expanded)
     g = rdflib.ConjunctiveGraph()
     g.parse(data=json.dumps(expanded), format="json-ld")
     return g
@@ -56,8 +54,8 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> Non
         log.debug('Graph is None for %s', iri)
         return
 
-    log.info('Analyze and index - execution: %s', iri)
-    log.info(graph.serialize(format='n3'))
+    log.debug('Analyze and index - execution: %s', iri)
+    log.debug(graph.serialize(format='n3'))
 
     analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, 'token')]
