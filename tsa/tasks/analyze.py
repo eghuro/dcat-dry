@@ -17,6 +17,7 @@ from tsa.redis import related as related_key
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     json_data = json.loads(data)
     expanded = jsonld.expand(json_data)
+    logging.getLogger(__name__).info(expanded)
     g = rdflib.ConjunctiveGraph()
     g.parse(data=json.dumps(expanded), format="json-ld")
     return g
