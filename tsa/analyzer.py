@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Any, Callable, DefaultDict, Generator, Optional, Tuple
 
 import rdflib
+from rdflib import query
 import redis
 from rdflib import RDF, Graph, Literal, URIRef
 
@@ -205,8 +206,11 @@ class SkosAnalyzer(AbstractAnalyzer):
             if not check_iri(concept_iri):
                 log.debug('%s is not a valid IRI', concept_iri)
                 continue
-            for row in graph.query(SkosAnalyzer._count_query(concept_iri)):
+            query = SkosAnalyzer._count_query(concept_iri)
+            log.info(query)
+            for row in graph.query(query):
                 concept_count.append({'iri': concept_iri, 'count': row['count']})
+        log.info(json.dumps(concept_count))
 
         schemes = [row['scheme'] for row in graph.query("""
         SELECT DISTINCT ?scheme WHERE {
