@@ -204,9 +204,9 @@ class SkosAnalyzer(AbstractAnalyzer):
 
         concept_count = []
         for concept_iri in concepts:
-            if not check_iri(concept_iri):
-                log.info('%s is not a valid IRI', concept_iri)
-                continue
+            #if not check_iri(concept_iri):
+            #    log.info('%s is not a valid IRI', concept_iri)
+            #    continue
             query = SkosAnalyzer._count_query(concept_iri)
             log.info(query)
             for row in graph.query(query):
