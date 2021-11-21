@@ -76,7 +76,7 @@ def analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, r
 
     with TimedBlock(f'analyze.{analyzer_class.token}'):
         res = analyzer.analyze(graph, iri)
-    log.debug('Done analyzing %s with %s', iri, analyzer_class.token)
+    log.info('Done analyzing %s with %s: %s', iri, analyzer_class.token, json.dumps(res))
     analyses.append({analyzer_class.token: res})
 
     log.debug('Find relations of %s in %s', analyzer_class.token, iri)
