@@ -172,7 +172,7 @@ pipeline {
 			options { skipDefaultCheckout() }
 			when {
 				allOf {
-					branch 'mastr'
+					branch 'master'
 					expression {
 						currentBuild.result == null || currentBuild.result == 'SUCCESS'
 					}
