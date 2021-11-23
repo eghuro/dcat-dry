@@ -46,7 +46,7 @@ def clear_cache(wait: int, log: logging.Logger) -> None:
     if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):  # nosec
         try:
             session.remove_expired_responses()
-        except (AttributeError, ValueError, redis.exceptions.RedisError):
+        except (AttributeError, ValueError, redis.exceptions.RedisError, KeyError, UnicodeDecodeError):
             log.exception('Failed to clean expired responses from cache')
 
 
