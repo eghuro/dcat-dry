@@ -21,6 +21,7 @@ from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
 from tsa.public.views import get_results
 
+# register any new command in app.py: register_commands
 
 def divide_chunks(list_to_split: List[Any], chunk_size: int) -> Generator[Any, None, None]:
     # looping till length of the list_to_split
