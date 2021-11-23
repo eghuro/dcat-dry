@@ -42,6 +42,13 @@ def dcat_viewer_index_query():  # noqa: inconsistent-return-statements
 @blueprint.route('/api/v1/query/analysis', methods=['GET'])  # noqa: unused-function
 @cached(True, must_revalidate=True, client_only=False, client_timeout=900, server_timeout=1800)
 def fetch_analysis():  # noqa: inconsistent-return-statements
+    analyses, related = get_results()
+    if len(analyses.keys()) > 0:
+        return jsonify({'analyses': analyses, 'related': related})
+    else:
+        abort(204)
+
+def get_results():
     analyses = defaultdict(list)
     for analysis in mongo_db.dsanalyses.find({}):
         res = {}
@@ -59,9 +66,8 @@ def fetch_analysis():  # noqa: inconsistent-return-statements
             record['iri'] = item['iri']
             record['related'] = item['related']
             related[item['type']].append(record)
-        return jsonify({'analyses': analyses, 'related': related})
-        # return jsonify({'analyses': analyses})
-    abort(204)
+        return analyses, related
+    return analyses, {}
 
 
 @blueprint.route('/api/v1/export/labels', methods=['GET'])  # noqa: unused-function

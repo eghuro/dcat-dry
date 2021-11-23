@@ -19,6 +19,7 @@ from tsa.report import import_related as import_related_impl
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
+from tsa.public.views import get_results
 
 
 def divide_chunks(list_to_split: List[Any], chunk_size: int) -> Generator[Any, None, None]:
@@ -98,6 +99,11 @@ def import_interesting(file):
 def dereference(iri=None):
     dereference_one(iri, 'AD-HOC')
 
+
+@click.command()
+def results():
+    analyses, related = get_results()
+    print(json.dumps({'analyses': analyses, 'related': related}))
 
 @click.command()
 def clean():
