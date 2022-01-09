@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title></title>
+<body class="bg-light">
+
+<h1>Detail datové sady</h1>
+
+<section>
+    <h1>Profil</h1>
+
+    <p>Počet triplů: {{ dataset.profile.triples }}</p>
+
+    <p>Třídy</p>
+    <ul>
+        {%  for cl in dataset.profile.classes %}
+        <li> {{ cl.iri }}</li>
+        {% endfor %}
+    </ul>
+
+    <p>Predikáty</p>
+    <ul>
+        {%  for pred in dataset.profile.predicates %}
+            <li> {{ pred.iri }} ({{ pred.count }})</li>
+        {% endfor %}
+    </ul>
+
+    {% if dataset.profile.datasets|length > 0 %}
+    <h2>Datové kostky</h2>
+    {% for cube in dataset.profile.datasets %}
+        <h3> {{ cube.iri }}</h3>
+
+        <h4>Dimenze</h4>
+        <ul>
+            {% for dim in cube.dimensions %}
+                <li>
+                    {{ dim.iri }}
+
+                    <div>
+                        Resources:
+                    <ul>
+                    {% for res in dim.resources %}
+                        <li>{{ res.iri }}</li>
+                    {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <h4>Míry</h4>
+        <ul>
+            {% for me in cube.measures %}
+                <li>{{ me.iri }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+    {% endif %}
+
+    {% if dataset.profile.concepts|length > 0 %}
+    <h2>Koncepty</h2>
+    <ul>
+    {% for concept in dataset.profile.concepts %}
+    <li>{{ concept.label.cs if concept.label.cs else concept.iri }}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if dataset.profile.schemata|length > 0 %}
+    <h2>Schémata</h2>
+    <ul>
+    {% for concept in dataset.profile.schemata %}
+    <li>{{ concept.label.cs if concept.label.cs else concept.iri }}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+</section>
+
+<section>
+    <h1>Související datové sady</h1>
+
+    <ul>
+    {% for iri in dataset.related.keys() %}
+        <li>
+            <a href="/detail?iri={{ iri }}">{{ dataset.related[iri].label.cs if dataset.related[iri].label.cs else iri }}</a>
+            <ul>
+                {% for detail in dataset.related[iri].details %}
+                    <li>{{  detail.type }}, společný prvek {{ detail.common }}
+                        {% if 'ruian' in detail.keys() %}
+                        , ruian: {{ detail.ruian}}
+                        {% endif %}
+
+                        {% if 'time' in detail.keys() %}
+                        , datum: {{ detail.time}}
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </li>
+    {% endfor %}
+    </ul>
+</section>
+
+</body>
+</html>
