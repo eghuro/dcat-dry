@@ -3,11 +3,15 @@ import logging
 from collections import defaultdict
 
 import redis
+from rdflib import Graph
+from rdflib.exceptions import ParserError
+from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from bson.json_util import dumps as dumps_bson
 from pymongo.errors import DocumentTooLarge, OperationFailure
 from tsa.enricher import AbstractEnricher, NoEnrichment
 from tsa.extensions import mongo_db, redis_pool, same_as_index
 from tsa.redis import sanitize_key
+from tsa.robots import USER_AGENT, session
 
 supported_languages = ["cs", "en"]
 enrichers = [e() for e in AbstractEnricher.__subclasses__()]
@@ -15,8 +19,9 @@ reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 
 
 def query_dataset(iri):
     return {
-        "related": query_related(iri),
-        "profile": query_profile(iri)
+        'related': query_related(iri),
+        'profile': query_profile(iri),
+        'label': query_label(iri)
     }
 
 
@@ -56,11 +61,11 @@ def query_related(ds_iri):
                 related = item['related']
                 #related.remove(ds_iri)
                 if ds_iri in related:
-                    log.info('JACKPOT!!!')
-                    log.info(item)
+                    # log.info('JACKPOT!!!')
+                    # log.info(item)
                     related.remove(ds_iri)  # make sure it's not out of the mongo doc!
                     for related_ds_iri in related:
-                        log.debug(related_ds_iri)
+                        # log.debug(related_ds_iri)
                         obj = {'type': reltype, 'common': token}
 
                         for sameas_iri in same_as_index.lookup(token):
@@ -97,9 +102,9 @@ def query_profile(ds_iri):
     #path = quote(parse.path)
     #ds_iri = f'{parse.scheme}://{parse.netloc}{path}'
 
-    log.info('iri: %s', ds_iri)
+    # log.info('iri: %s', ds_iri)
     analyses = mongo_db.dsanalyses.find({'ds_iri': ds_iri})
-    log.info("Retrieved analyses")
+    # log.info("Retrieved analyses")
     json_str = dumps_bson(analyses)
     analyses = json.loads(json_str)
     #log.info(analyses)
@@ -240,6 +245,8 @@ def create_labels(ds_iri, tags):
     available = list(available)
     if len(available) > 0:
         for tag in tags:
+            if label[tag] is None:
+                continue
             if len(label[tag]) == 0:
                 label[tag] = label[available[0]]  # put anything there
     else:
@@ -254,20 +261,45 @@ def sanitize_label_iri_for_mongo(iri):
 
 
 def query_label(ds_iri):
+    print(f'Query label for {ds_iri}')
     #LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
     #red.set(key, title)
-    ds_iri = sanitize_key(ds_iri)
     red = redis.Redis(connection_pool=redis_pool)
     result = {}
     # for x in red.scan_iter(match=f'label:{ds_iri!s}*'): #red.keys(f'label:{ds_iri!s}*'):  #FIXME
+
+    none = True
     for lang in ['cs', 'en']:
-        key_lang = f'label:{ds_iri!s}:{lang}'  # FIXME
-        key_default = f'label:{ds_iri!s}'
-        if red.exists(key_lang):  # x.startswith(prefix_lang):
-            title = red.get(key_lang)
-            result[lang] = title
-        elif red.exists(key_default):
-            result['default'] = red.get(key_default)
+        title = red.get(f'label:{sanitize_key(ds_iri)}:{lang}')
+        result[lang] = title
+        if title is not None:
+            none = False
+    title = red.get(f'label:{sanitize_key(ds_iri)}')
+    result['default'] = title
+    if title is not None:
+        none = False
+    
+    if none:
+        logging.getLogger(__name__).warning(f'Fetching title for {ds_iri} from endpoint')
+        endpoint = 'https://data.gov.cz/sparql'
+        q = f'select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10'
+        store = SPARQLStore(endpoint,
+                            session=session,
+                            headers={'User-Agent': USER_AGENT})
+        graph = Graph(store=store)
+        graph.open(endpoint)
+        try:
+            for row in graph.query(q):
+                label = row['label']
+                try:
+                    value, language = label.value, label.language
+                    result[language] = value
+                    result['default'] = value
+                except AttributeError:
+                    result['default'] = label
+        except ParserError:
+            logging.getLogger(__name__).exception(f'Failed to parse title for {ds_iri}')
+
     return result
 
 
@@ -341,6 +373,7 @@ def import_interesting(interesting_datasets):
 
 
 def list_datasets():
+    logging.getLogger(__name__).info('List datasets report')
     listed = set()
     datasets = []
     for profile in export_profile():

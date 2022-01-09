@@ -7,9 +7,9 @@ from collections import defaultdict
 from typing import Any, Callable, DefaultDict, Generator, Optional, Tuple
 
 import rdflib
-from rdflib import query
 import redis
-from rdflib import RDF, Graph, Literal, URIRef
+from rdflib import RDF, Graph
+from rdflib.exceptions import ParserError
 
 from tsa.extensions import concept_index, ddr_index, dsd_index, redis_pool, same_as_index
 from tsa.redis import description as desc_query
@@ -390,10 +390,14 @@ class GenericAnalyzer(AbstractAnalyzer):
         """
         red = redis.Redis(connection_pool=redis_pool)
 
-        for row in graph.query(query):
-            iri = str(row['x'])
-            if check_iri(iri):
-                self._extract_detail(row, iri, red)
+        try:
+            for row in graph.query(query):
+                iri = str(row['x'])
+                if check_iri(iri):
+                    self._extract_detail(row, iri, red)
+        except ParserError:
+            logging.getLogger(__name__).exception(f'Failed to parse title for {iri}')
+
 
     def _extract_detail(self, row: rdflib.query.Result, iri: str, red: redis.client.Redis) -> None:
         with red.pipeline() as pipe:
@@ -408,10 +412,15 @@ class GenericAnalyzer(AbstractAnalyzer):
 
     @staticmethod
     def extract_label(literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable) -> None:
-        if literal is not None and isinstance(literal, Literal):
+        try:
             value, language = literal.value, literal.language
             key = query(iri, language)
             pipe.set(key, value)
+        except AttributeError:
+            log = logging.getLogger(__name__)
+            log.exception(f'Failed to parse extract label for {iri}')
+            log.debug(literal)
+
 
     def find_relation(self, graph: Graph) -> None:
         """Two distributions are related if they share resources that are owl:sameAs."""

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title></title>
+<body class="bg-light">
+
+<h1>Seznam datových sad</h1>
+
+<ul>
+    {% for item in datasets  %}
+        <li><a href="/detail?iri={{ item.iri }}">
+            {% if item.label.default %}
+            {{ item.label.default }}
+            {% else %} 
+            {{item.iri}}
+            {% endif %}
+        </a></li>
+    {% endfor %}
+</ul>
+
+</body>
+</html>
