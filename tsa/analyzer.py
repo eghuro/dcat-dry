@@ -7,9 +7,9 @@ from collections import defaultdict
 from typing import Any, Callable, DefaultDict, Generator, Optional, Tuple
 
 import rdflib
-from rdflib import query
 import redis
-from rdflib import RDF, Graph, Literal, URIRef
+from rdflib import RDF, Graph
+from rdflib.term import Literal
 
 from tsa.extensions import concept_index, ddr_index, dsd_index, redis_pool, same_as_index
 from tsa.redis import description as desc_query
