@@ -19,8 +19,9 @@ reltypes = ['qb', 'conceptUsage', 'relatedConceptUsage', 'resourceOnDimension', 
 
 def query_dataset(iri):
     return {
-        "related": query_related(iri),
-        "profile": query_profile(iri)
+        'related': query_related(iri),
+        'profile': query_profile(iri),
+        'label': query_label(iri)
     }
 
 
@@ -60,11 +61,11 @@ def query_related(ds_iri):
                 related = item['related']
                 #related.remove(ds_iri)
                 if ds_iri in related:
-                    log.info('JACKPOT!!!')
-                    log.info(item)
+                    # log.info('JACKPOT!!!')
+                    # log.info(item)
                     related.remove(ds_iri)  # make sure it's not out of the mongo doc!
                     for related_ds_iri in related:
-                        log.debug(related_ds_iri)
+                        # log.debug(related_ds_iri)
                         obj = {'type': reltype, 'common': token}
 
                         for sameas_iri in same_as_index.lookup(token):
@@ -101,9 +102,9 @@ def query_profile(ds_iri):
     #path = quote(parse.path)
     #ds_iri = f'{parse.scheme}://{parse.netloc}{path}'
 
-    log.info('iri: %s', ds_iri)
+    # log.info('iri: %s', ds_iri)
     analyses = mongo_db.dsanalyses.find({'ds_iri': ds_iri})
-    log.info("Retrieved analyses")
+    # log.info("Retrieved analyses")
     json_str = dumps_bson(analyses)
     analyses = json.loads(json_str)
     #log.info(analyses)
@@ -278,7 +279,7 @@ def query_label(ds_iri):
     if title is not None:
         none = False
     
-    if True:
+    if none:
         logging.getLogger(__name__).warning(f'Fetching title for {ds_iri} from endpoint')
         endpoint = 'https://data.gov.cz/sparql'
         q = f'select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10'

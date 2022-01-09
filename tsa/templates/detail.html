@@ -7,6 +7,7 @@
 <body class="bg-light">
 
 <h1>Detail datové sady</h1>
+<h2> {{dataset.label.default}} </h2>
 
 <section>
     <h1>Profil</h1>
@@ -84,7 +85,7 @@
     <ul>
     {% for iri in dataset.related.keys() %}
         <li>
-            <a href="/detail?iri={{ iri }}">{{ dataset.related[iri].label.cs if dataset.related[iri].label.cs else iri }}</a>
+            <a href="/detail?iri={{ iri }}">{{ dataset.related[iri].label.default if dataset.related[iri].label.default else iri }}</a>
             <ul>
                 {% for detail in dataset.related[iri].details %}
                     <li>{{  detail.type }}, společný prvek {{ detail.common }}
