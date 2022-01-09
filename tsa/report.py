@@ -244,6 +244,8 @@ def create_labels(ds_iri, tags):
     available = list(available)
     if len(available) > 0:
         for tag in tags:
+            if label[tag] is None:
+                continue
             if len(label[tag]) == 0:
                 label[tag] = label[available[0]]  # put anything there
     else:
