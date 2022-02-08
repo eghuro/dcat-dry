@@ -419,6 +419,7 @@ class GenericAnalyzer(AbstractAnalyzer):
         except AttributeError:
             log = logging.getLogger(__name__)
             log.exception(f'Failed to parse extract label for {iri}')
+            log.debug(type(literal))
             log.debug(literal)
 
 
