@@ -23,10 +23,8 @@ else:
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent('DCAT DRY', tsa.__version__, extras=[('requests', requests.__version__)])
-try:
-    session = CachedSession('dry_dereference', backend=RedisCache(connection_pool=redis_pool), expire_after=3600)
-except redis.exceptions.ConnectionError:
-    session = requests.Session()
+
+session = requests.Session()
 session.headers.update({'User-Agent': USER_AGENT})
 adapter = requests.adapters.HTTPAdapter(pool_connections=1000, pool_maxsize=(soft - 10), max_retries=3, pool_block=True)
 session.mount('http://', adapter)
