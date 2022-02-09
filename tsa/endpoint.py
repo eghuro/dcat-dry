@@ -13,7 +13,12 @@ from tsa.robots import USER_AGENT, session
 from tsa.util import check_iri
 
 # workaround for https://github.com/RDFLib/rdflib/issues/1195
-register_plugin('application/rdf+xml; charset=UTF-8', Parser, 'rdflib.plugins.parsers.rdfxml', 'RDFXMLParser')
+register_plugin(
+    "application/rdf+xml; charset=UTF-8",
+    Parser,
+    "rdflib.plugins.parsers.rdfxml",
+    "RDFXMLParser",
+)
 
 
 class SparqlEndpointAnalyzer:
@@ -64,24 +69,31 @@ class SparqlEndpointAnalyzer:
        }
        """
 
-        return f'{str1} from <{named}> {str3}'
+        return f"{str1} from <{named}> {str3}"
 
     def __init__(self, endpoint: str):
         if not check_iri(endpoint):
-            logging.getLogger(__name__).warning('%s is not a valid endpoint URL', endpoint)
+            logging.getLogger(__name__).warning(
+                "%s is not a valid endpoint URL", endpoint
+            )
             raise ValueError(endpoint)
         self.__endpoint = endpoint
-        self.store = SPARQLStore(endpoint, True, True, _node_to_sparql,
-                                 'application/rdf+xml',
-                                 session=session,
-                                 headers={'User-Agent': USER_AGENT})
+        self.store = SPARQLStore(
+            endpoint,
+            True,
+            True,
+            _node_to_sparql,
+            "application/rdf+xml",
+            session=session,
+            headers={"User-Agent": USER_AGENT},
+        )
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
         """Extract DCAT datasets from the given named graph of an endpoint."""
         log = logging.getLogger(__name__)
         graph_iri = graph_iri.strip()
         if not check_iri(graph_iri):
-            log.warning('%s is not a valid graph URL', str(graph_iri))
+            log.warning("%s is not a valid graph URL", str(graph_iri))
             return None
 
         graph = Graph(store=self.store, identifier=graph_iri)
@@ -89,13 +101,15 @@ class SparqlEndpointAnalyzer:
 
         query = None
         try:
-            with TimedBlock('process_graph'):
+            with TimedBlock("process_graph"):
                 query = SparqlEndpointAnalyzer.__query(graph_iri)
                 return graph.query(query).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
-            log.error('Failed to process %s in %s: %s', graph_iri, self.__endpoint, str(exc))
+            log.error(
+                "Failed to process %s in %s: %s", graph_iri, self.__endpoint, str(exc)
+            )
         except ValueError as exc:
-            log.exception('Error in query: %s - %s', query, str(exc))
+            log.exception("Error in query: %s - %s", query, str(exc))
 
         return None
 

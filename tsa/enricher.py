@@ -18,53 +18,67 @@ class NoEnrichment(Exception):
 
 
 class RuianEnricher(AbstractEnricher):
-    token = 'ruian'  # nosec
+    token = "ruian"  # nosec
 
     def __init__(self):
         self.__redis = redis.Redis(connection_pool=redis_pool)
 
     def enrich(self, ruian_iri):
-        root = 'https://linked.cuzk.cz/resource/ruian/'
+        root = "https://linked.cuzk.cz/resource/ruian/"
         if ruian_iri.startswith(root):
             key = analysis_dataset(ruian_iri)
             try:
                 payload = self.__redis.get(key)
                 if payload is None:
                     raise NoEnrichment()
-                for analysis in json.loads(payload)['analysis']:
-                    if 'ruian' in analysis.keys() and ruian_iri in analysis['ruian'].keys():
-                        return analysis['ruian'][ruian_iri]
+                for analysis in json.loads(payload)["analysis"]:
+                    if (
+                        "ruian" in analysis.keys()
+                        and ruian_iri in analysis["ruian"].keys()
+                    ):
+                        return analysis["ruian"][ruian_iri]
                 raise NoEnrichment()
             except RedisError as err:
-                logging.getLogger(__name__).exception('Redis error loading ruian analysis for %s', ruian_iri)
+                logging.getLogger(__name__).exception(
+                    "Redis error loading ruian analysis for %s", ruian_iri
+                )
                 raise NoEnrichment() from err
             except ValueError as err:
-                logging.getLogger(__name__).exception('Value error loading ruian analysis for %s', ruian_iri)
+                logging.getLogger(__name__).exception(
+                    "Value error loading ruian analysis for %s", ruian_iri
+                )
                 raise NoEnrichment() from err
         else:
             raise NoEnrichment()
 
 
 class TimeEnricher(AbstractEnricher):
-    token = 'date'  # nosec
+    token = "date"  # nosec
 
     def __init__(self):
         self.__redis = redis.Redis(connection_pool=redis_pool)
 
     def enrich(self, time_iri):
-        root = 'http://reference.data.gov.uk/id/gregorian-day/'
+        root = "http://reference.data.gov.uk/id/gregorian-day/"
         if time_iri.startswith(root):
             key = analysis_dataset(time_iri)
             try:
-                for analysis in json.loads(self.__redis.get(key))['analysis']:
-                    if 'time' in analysis.keys() and time_iri in analysis['time'].keys():
-                        return analysis['time'][time_iri]
+                for analysis in json.loads(self.__redis.get(key))["analysis"]:
+                    if (
+                        "time" in analysis.keys()
+                        and time_iri in analysis["time"].keys()
+                    ):
+                        return analysis["time"][time_iri]
                 raise NoEnrichment()
             except RedisError as err:
-                logging.getLogger(__name__).exception('Redis error loading time analysis for %s', time_iri)
+                logging.getLogger(__name__).exception(
+                    "Redis error loading time analysis for %s", time_iri
+                )
                 raise NoEnrichment() from err
             except ValueError as err:
-                logging.getLogger(__name__).exception('Value error loading time analysis for %s', time_iri)
+                logging.getLogger(__name__).exception(
+                    "Value error loading time analysis for %s", time_iri
+                )
                 raise NoEnrichment() from err
         else:
             raise NoEnrichment()

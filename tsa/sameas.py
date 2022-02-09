@@ -23,7 +23,9 @@ class Index:
                 if not yielded_base:
                     yield base_iri  # reflexivity
         except TypeError:
-            logging.getLogger(__name__).exception('TypeError in lookup, iri: %s', base_iri)
+            logging.getLogger(__name__).exception(
+                "TypeError in lookup, iri: %s", base_iri
+            )
 
     def index(self, iri1, iri2):
         # iri1 owl:sameAs iri2
@@ -35,8 +37,8 @@ class Index:
 
     def finalize(self):
         graph = {}
-        for key in self.__red.scan_iter(match=self.__key('*')):
-            iri = key[len(self.__key('')):].replace('_', ':', 1)
+        for key in self.__red.scan_iter(match=self.__key("*")):
+            iri = key[len(self.__key("")) :].replace("_", ":", 1)
             neighbours = list(self.__red.sscan_iter(key))
             graph[iri] = neighbours
 
@@ -60,19 +62,21 @@ class Index:
                     for neighbour in neighbours:
                         queue.append(neighbour)
                 except KeyError:
-                    logging.getLogger(__name__).warning('Key error in BFS: %s, key: %s', node, self.__key(""))
+                    logging.getLogger(__name__).warning(
+                        "Key error in BFS: %s, key: %s", node, self.__key("")
+                    )
         return visited
 
     def export_index(self):
         result = {}
-        for key in self.__red.scan_iter(match=self.__key('*')):
-            iri = key[len(self.__key('')):]
+        for key in self.__red.scan_iter(match=self.__key("*")):
+            iri = key[len(self.__key("")) :]
             values = list(self.__red.sscan_iter(key))
             result[iri] = values
         return result
 
     def import_index(self, index):
-        for key in self.__red.scan_iter(self.__key('*')):
+        for key in self.__red.scan_iter(self.__key("*")):
             self.__red.delete(key)
         for key in index.keys():
             with self.__red.pipeline() as pipe:

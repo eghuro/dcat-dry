@@ -11,23 +11,28 @@ from tsa.tasks.process import get_iris_to_dereference, has_same_as
 def divide_chunks(list_to_split, chunk_size):
     # looping till length of the list_to_split
     for i in range(0, len(list_to_split), chunk_size):
-        yield list_to_split[i:i + chunk_size]
+        yield list_to_split[i : i + chunk_size]
 
 
 def test_expand_none():
-    assert [] == list(get_iris_to_dereference(None, ''))
+    assert [] == list(get_iris_to_dereference(None, ""))
 
 
 def test_expand():
-    initial_iri = 'https://rpp-opendata.egon.gov.cz/odrpp/datovasada/agendy.jsonld'
+    initial_iri = "https://rpp-opendata.egon.gov.cz/odrpp/datovasada/agendy.jsonld"
     g = rdflib.Graph()
-    with open('./tests/agendy.jsonld', 'r', encoding='utf-8') as graph_file:
-        g.parse(data=graph_file.read(), format='json-ld')
+    with open("./tests/agendy.jsonld", "r", encoding="utf-8") as graph_file:
+        g.parse(data=graph_file.read(), format="json-ld")
     iris_to_dereference = get_iris_to_dereference(g, initial_iri)
-    assert 'https://rpp-opendata.egon.gov.cz/odrpp/zdroj/agenda/A960' in iris_to_dereference
+    assert (
+        "https://rpp-opendata.egon.gov.cz/odrpp/zdroj/agenda/A960"
+        in iris_to_dereference
+    )
 
 
-ns = rdflib.Namespace('http://localhost')
+ns = rdflib.Namespace("http://localhost")
+
+
 def get_random_graph():
     g = rdflib.Graph()
 
@@ -39,14 +44,14 @@ def get_random_graph():
 
 
 def test_has_same_as():
-    assert  False == has_same_as(None)
+    assert False == has_same_as(None)
 
     g = rdflib.Graph()
-    assert  False == has_same_as(g)
+    assert False == has_same_as(g)
 
     g = get_random_graph()
     assert False == has_same_as(g)
 
     g = get_random_graph()
-    g.add((ns[3], URIRef('http://www.w3.org/2002/07/owl#sameAs'), ns[5]))
+    g.add((ns[3], URIRef("http://www.w3.org/2002/07/owl#sameAs"), ns[5]))
     assert True == has_same_as(g)
