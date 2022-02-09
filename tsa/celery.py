@@ -9,7 +9,7 @@ from tsa.extensions import on_error
 from tsa.log import logging_setup
 
 
-@environment('DSN', default=[None], onerror=on_error)
+@environment("DSN", default=[None], onerror=on_error)
 def init_sentry(dsn_str=None):
     if dsn_str is not None:
         sentry_sdk.init(dsn_str, integrations=[CeleryIntegration()])
@@ -18,4 +18,4 @@ def init_sentry(dsn_str=None):
 logging_setup()
 init_sentry()
 celery = celery.Celery()
-celery.config_from_object('tsa.celeryconfig')
+celery.config_from_object("tsa.celeryconfig")

@@ -11,7 +11,7 @@ from tsa.extensions import cache, cors, csrf, on_error
 from tsa.log import logging_setup
 
 
-@environment('DSN', default=[None], onerror=on_error)  # noqa: unused-function
+@environment("DSN", default=[None], onerror=on_error)  # noqa: unused-function
 def create_app(config_object, dsn_str=None):
     """
     An application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
@@ -20,12 +20,9 @@ def create_app(config_object, dsn_str=None):
     """
     logging_setup()
     if dsn_str:
-        sentry_sdk.init(
-            dsn=dsn_str,
-            integrations=[FlaskIntegration()]
-        )
+        sentry_sdk.init(dsn=dsn_str, integrations=[FlaskIntegration()])
 
-    app = Flask(__name__.split('.', maxsplit=1)[0])
+    app = Flask(__name__.split(".", maxsplit=1)[0])
     app.config.from_object(config_object)
 
     register_extensions(app)
@@ -51,19 +48,22 @@ def register_blueprints(app):
 
 def register_errorhandlers(app):
     """Register error handlers."""
+
     def render_error(error):
         """Render error template."""
         # If a HTTPException, pull the `code` attribute; default to 500
-        error_code = getattr(error, 'code', 500)
+        error_code = getattr(error, "code", 500)
         if error_code == 400:
             error_code = 401
-        return render_template(f'{error_code!s}.html'), error_code
+        return render_template(f"{error_code!s}.html"), error_code
+
     for errcode in []:
         app.errorhandler(errcode)(render_error)
 
 
 def register_shellcontext(app):
     """Register shell context objects."""
+
     def shell_context():
         """Shell context objects."""
         return {}

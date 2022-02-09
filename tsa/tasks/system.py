@@ -14,15 +14,15 @@ def system_check():
     Tested are: redis.
     """
     log = logging.getLogger(__name__)
-    log.info('System check started')
+    log.info("System check started")
 
-    log.info('Testing redis')
+    log.info("Testing redis")
     red = redis.Redis(connection_pool=redis_pool)
     red.ping()
-    log.info('System check successful')
+    log.info("System check successful")
 
 
 @celery.task  # noqa: unused-function
 def hello():
     """Dummy task returning hello world used for testing of Celery."""
-    return 'Hello world!'
+    return "Hello world!"

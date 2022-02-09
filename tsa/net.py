@@ -46,8 +46,14 @@ def clear_cache(wait: int, log: logging.Logger) -> None:
     if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):  # nosec
         try:
             session.remove_expired_responses()
-        except (AttributeError, ValueError, redis.exceptions.RedisError, KeyError, UnicodeDecodeError):
-            log.exception('Failed to clean expired responses from cache')
+        except (
+            AttributeError,
+            ValueError,
+            redis.exceptions.RedisError,
+            KeyError,
+            UnicodeDecodeError,
+        ):
+            log.exception("Failed to clean expired responses from cache")
 
 
 def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
@@ -55,47 +61,56 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
     is_allowed, delay, robots_url = robots_allowed(iri)
     key = delay_key(robots_url)
     if not is_allowed:
-        log.warn(f'Not allowed to fetch {iri!s} as {USER_AGENT!s}')
+        log.warn(f"Not allowed to fetch {iri!s} as {USER_AGENT!s}")
         raise Skip()
     wait = red.ttl(key)
     clear_cache(wait, log)
     if wait > 0:
-        log.info(f'Analyze {iri} in {wait} because of crawl-delay')
+        log.info(f"Analyze {iri} in {wait} because of crawl-delay")
         raise RobotsRetry(wait)
 
     timeout = 10800  # 3h
     # a guess for 100 KB/s on data that will still make it into redis (512 MB)
     # this is mostly a safe stop in case a known RDF (tasks not time constrained) hangs along the way
     # the idea is to allow for as much time as needed for the known RDF distros, while preventing task queue "jam"
-    log.debug(f'Setting timeout {timeout!s} for {iri}')
-    accept = '. '.join([
-        'application/ld+json',
-        'application/trig',
-        'application/rdf+xml',
-        'text/turtle',
-        'text/n3;charset=utf-8',
-        'application/n-triples',
-        'application/n-quads',
-        'application/xml;q=0.9',
-        'text/xml;q=0.9',
-        'text/plain;q=0.9',
-        '*/*;q=0.8'
-    ])
-    request = session.get(iri, stream=True, timeout=timeout, verify=False, allow_redirects=True, headers={'Accept': accept})
+    log.debug(f"Setting timeout {timeout!s} for {iri}")
+    accept = ". ".join(
+        [
+            "application/ld+json",
+            "application/trig",
+            "application/rdf+xml",
+            "text/turtle",
+            "text/n3;charset=utf-8",
+            "application/n-triples",
+            "application/n-quads",
+            "application/xml;q=0.9",
+            "text/xml;q=0.9",
+            "text/plain;q=0.9",
+            "*/*;q=0.8",
+        ]
+    )
+    request = session.get(
+        iri,
+        stream=True,
+        timeout=timeout,
+        verify=False,
+        allow_redirects=True,
+        headers={"Accept": accept},
+    )
     request.raise_for_status()
 
     if delay is not None:
-        log.info(f'Recording crawl-delay of {delay} for {iri}')
+        log.info(f"Recording crawl-delay of {delay} for {iri}")
         try:
             delay = int(delay)
         except ValueError:
-            log.error('Invalid delay value - could not convert to int')
+            log.error("Invalid delay value - could not convert to int")
         else:
             try:
                 red.set(key, 1)
                 red.expire(key, delay)
             except redis.exceptions.ResponseError:
-                log.error(f'Failed to set crawl-delay for {iri}: {delay}')
+                log.error(f"Failed to set crawl-delay for {iri}: {delay}")
     return request
 
 
@@ -114,13 +129,17 @@ def get_content(iri: str, response: requests.Response) -> str:
             conlen = conlen + len(chunk)
     monitor.log_size(conlen)
     try:
-        return data.getvalue().decode('utf-8')
+        return data.getvalue().decode("utf-8")
     except UnicodeDecodeError as exc:
-        logging.getLogger(__name__).warning('Failed to load content for %s: %s', iri, exc)
+        logging.getLogger(__name__).warning(
+            "Failed to load content for %s: %s", iri, exc
+        )
     raise NoContent()
 
 
-def guess_format(iri: str, response: requests.Response, log: logging.Logger) -> Tuple[str, bool]:
+def guess_format(
+    iri: str, response: requests.Response, log: logging.Logger
+) -> Tuple[str, bool]:
     """
     Guess format of the distribution.
 
@@ -128,27 +147,44 @@ def guess_format(iri: str, response: requests.Response, log: logging.Logger) -> 
     """
     guess = rdflib.util.guess_format(iri)
     if guess is None:
-        guess = response.headers.get('content-type')
+        guess = response.headers.get("content-type")
         if guess is not None:
-            guess = guess.split(';')[0]
+            guess = guess.split(";")[0]
     monitor.log_format(str(guess))
-    if 'xml' in guess:
-        guess = 'xml'
-    log.debug(f'Guessing format to be {guess!s}')
+    if "xml" in guess:
+        guess = "xml"
+    log.debug(f"Guessing format to be {guess!s}")
 
-    priority = set(['hturtle', 'n3', 'nquads', 'nt',
-                    'trix', 'trig', 'turtle', 'xml', 'json-ld',
-                    'application/rdf+xml',
-                    'application/ld+json', 'application/rss+xml',
-                    'text/turtle'])
-    regular = set(['text/xml', 'application/json', 'text/plain',
-                   'html', 'text/html'
-                   ])
+    priority = set(
+        [
+            "hturtle",
+            "n3",
+            "nquads",
+            "nt",
+            "trix",
+            "trig",
+            "turtle",
+            "xml",
+            "json-ld",
+            "application/rdf+xml",
+            "application/ld+json",
+            "application/rss+xml",
+            "text/turtle",
+        ]
+    )
+    regular = set(["text/xml", "application/json", "text/plain", "html", "text/html"])
     if Config.COMPRESSED:
-        priority.add('application/x-7z-compressed')
-        regular.update(['application/gzip', 'application/x-zip-compressed', 'application/zip', 'application/x-gzip'])
+        priority.add("application/x-7z-compressed")
+        regular.update(
+            [
+                "application/gzip",
+                "application/x-zip-compressed",
+                "application/zip",
+                "application/x-gzip",
+            ]
+        )
     if guess not in priority.union(regular):
-        log.info(f'Skipping this distribution: {iri}')
+        log.info(f"Skipping this distribution: {iri}")
         raise Skip()
 
     return guess, (guess in priority)
@@ -156,9 +192,9 @@ def guess_format(iri: str, response: requests.Response, log: logging.Logger) -> 
 
 def test_content_length(iri, request, log):
     """Test content length header if the distribution is not too large."""
-    if 'Content-Length' in request.headers.keys():
-        conlen = int(request.headers.get('Content-Length'))
+    if "Content-Length" in request.headers.keys():
+        conlen = int(request.headers.get("Content-Length"))
         if conlen > MAX_CONTENT_LENGTH:
             # Due to redis limitation
-            log.warn(f'Skipping {iri} as it is too large: {conlen!s}')
+            log.warn(f"Skipping {iri} as it is too large: {conlen!s}")
             raise Skip()

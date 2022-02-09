@@ -11,7 +11,13 @@ import redis
 from rdflib import RDF, Graph
 from rdflib.exceptions import ParserError
 
-from tsa.extensions import concept_index, ddr_index, dsd_index, redis_pool, same_as_index
+from tsa.extensions import (
+    concept_index,
+    ddr_index,
+    dsd_index,
+    redis_pool,
+    same_as_index,
+)
 from tsa.redis import description as desc_query
 from tsa.redis import label as label_query
 from tsa.redis import resource_type
@@ -22,7 +28,9 @@ class AbstractAnalyzer(ABC):
     """Abstract base class allowing to fetch all available analyzers on runtime."""
 
     @abstractmethod
-    def find_relation(self, graph: Graph) -> Optional[Generator[Tuple[str, str, str], None, None]]:
+    def find_relation(
+        self, graph: Graph
+    ) -> Optional[Generator[Tuple[str, str, str], None, None]]:
         pass
 
     @abstractmethod
@@ -45,12 +53,14 @@ class QbDataset:
 class CubeAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on DataCube."""
 
-    token = 'cube'  # nosec
+    token = "cube"  # nosec
 
-    def find_relation(self, graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
+    def find_relation(
+        self, graph: Graph
+    ) -> Generator[Tuple[str, str, str], None, None]:
         """We consider DSs to be related if they share a resource on dimension."""
         log = logging.getLogger(__name__)
-        log.debug('Looking up significant resources')
+        log.debug("Looking up significant resources")
         query = """
         SELECT DISTINCT ?component ?resource
         WHERE {
@@ -60,7 +70,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         """
         qres = graph.query(query)
         for row in qres:
-            yield str(row.resource), str(row.component), 'qb'
+            yield str(row.resource), str(row.component), "qb"
 
     @staticmethod
     def __dimensions(graph: Graph) -> DefaultDict:
@@ -94,11 +104,15 @@ class CubeAnalyzer(AbstractAnalyzer):
         return dataset_structures
 
     @staticmethod
-    def __resource_on_dimension(graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
+    def __resource_on_dimension(
+        graph: Graph,
+    ) -> Generator[Tuple[str, str, str], None, None]:
         log = logging.getLogger(__name__)
-        log.debug('Looking up resources on dimensions')
-        ds_dimensions = CubeAnalyzer.__dataset_structures(graph, CubeAnalyzer.__dimensions(graph))
-        log.debug('Dimensions: %s', ds_dimensions)
+        log.debug("Looking up resources on dimensions")
+        ds_dimensions = CubeAnalyzer.__dataset_structures(
+            graph, CubeAnalyzer.__dimensions(graph)
+        )
+        log.debug("Dimensions: %s", ds_dimensions)
 
         ds_query = """
             SELECT DISTINCT ?observation ?dataset
@@ -110,7 +124,7 @@ class CubeAnalyzer(AbstractAnalyzer):
         qres0 = graph.query(ds_query)
         for row in qres0:
             for dimension in ds_dimensions[str(row.dataset)]:
-                qb_query = f'SELECT ?resource WHERE {{ <{row.observation!s}> <{dimension!s}> ?resource. }}'
+                qb_query = f"SELECT ?resource WHERE {{ <{row.observation!s}> <{dimension!s}> ?resource. }}"
                 qres1 = graph.query(qb_query)
                 for row1 in qres1:
                     yield str(row.dataset), str(row1.resource), str(dimension)
@@ -126,9 +140,9 @@ class CubeAnalyzer(AbstractAnalyzer):
         }
         """
         for row in graph.query(query):
-            dataset = str(row['ds'])
-            dimension = str(row['dimension'])
-            measure = str(row['measure'])
+            dataset = str(row["ds"])
+            dimension = str(row["dimension"])
+            measure = str(row["measure"])
             datasets_queried[dataset].dimensions.add(dimension)
             datasets_queried[dataset].measures.add(measure)
         return datasets_queried
@@ -146,15 +160,21 @@ class CubeAnalyzer(AbstractAnalyzer):
             dataset.dimensions.discard(none)
             dataset.measures.discard(none)
 
-            datasets_processed.append({
-                'dataset_iri': dataset_iri,
-                'dimensions': [{'dimension': dimension, 'resources': list(resource_dimension[dimension])} for dimension in dataset.dimensions],
-                'measures': list(dataset.measures)
-            })
+            datasets_processed.append(
+                {
+                    "dataset_iri": dataset_iri,
+                    "dimensions": [
+                        {
+                            "dimension": dimension,
+                            "resources": list(resource_dimension[dimension]),
+                        }
+                        for dimension in dataset.dimensions
+                    ],
+                    "measures": list(dataset.measures),
+                }
+            )
 
-        summary = {
-            'datasets_queried': datasets_processed
-        }
+        summary = {"datasets_queried": datasets_processed}
 
         dsd_index.index(datasets_processed, iri)
 
@@ -164,27 +184,33 @@ class CubeAnalyzer(AbstractAnalyzer):
 class SkosAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on SKOS."""
 
-    token = 'skos'  # nosec
+    token = "skos"  # nosec
 
     @staticmethod
     def _scheme_count_query(scheme: str) -> str:
-        return f'SELECT (count(*) as ?count) WHERE {{ ?_ <http://www.w3.org/2004/02/skos/core#inScheme> <{scheme}> }}'
+        return f"SELECT (count(*) as ?count) WHERE {{ ?_ <http://www.w3.org/2004/02/skos/core#inScheme> <{scheme}> }}"
 
     @staticmethod
     def _count_query(concept: str) -> str:
-        return f'SELECT DISTINCT ?a (count(?a) as ?count) WHERE {{ OPTIONAL {{ ?a ?b <{concept}>.}} OPTIONAL {{ <{concept}> ?b ?a.}} }}'
+        return f"SELECT DISTINCT ?a (count(?a) as ?count) WHERE {{ OPTIONAL {{ ?a ?b <{concept}>.}} OPTIONAL {{ <{concept}> ?b ?a.}} }}"
 
     @staticmethod
     def _scheme_top_concept(scheme: str) -> str:
-        return """
+        return (
+            """
         SELECT ?concept WHERE {
             OPTIONAL { ?concept <http://www.w3.org/2004/02/skos/core#topConceptOf>
-        """ + f'<{scheme}>.}}' + """
+        """
+            + f"<{scheme}>.}}"
+            + """
             OPTIONAL {
-        """ + f'<{scheme}>' + """
+        """
+            + f"<{scheme}>"
+            + """
             <http://www.w3.org/2004/02/skos/core#hasTopConcept> ?concept }
         }
         """
+        )
 
     def analyze(self, graph: Graph, iri: str) -> dict:
         """Analysis of SKOS concepts and related properties presence in a dataset."""
@@ -193,64 +219,91 @@ class SkosAnalyzer(AbstractAnalyzer):
         # log.info('SkosAnalyzer.analyze enter')
         # log.info(graph.serialize(format='n3'))
 
-        concepts = [str(row['concept']) for row in graph.query("""
+        concepts = [
+            str(row["concept"])
+            for row in graph.query(
+                """
         SELECT DISTINCT ?concept WHERE {
             OPTIONAL {?concept a <http://www.w3.org/2004/02/skos/core#Concept>.}
             OPTIONAL {?concept <http://www.w3.org/2004/02/skos/core#inScheme> ?_. }
         }
-        """)]
+        """
+            )
+        ]
         # log.info(json.dumps(concepts))
         # log.info(len(concepts))
 
         concept_count = []
         for concept_iri in concepts:
             if not check_iri(concept_iri):
-                log.debug('%s is not a valid IRI', concept_iri)
+                log.debug("%s is not a valid IRI", concept_iri)
                 continue
             query = SkosAnalyzer._count_query(concept_iri)
             # log.info(query)
             for row in graph.query(query):
-                concept_count.append({'iri': concept_iri, 'count': row['count']})
+                concept_count.append({"iri": concept_iri, "count": row["count"]})
         # log.info(json.dumps(concept_count))
 
-        schemes = [row['scheme'] for row in graph.query("""
+        schemes = [
+            row["scheme"]
+            for row in graph.query(
+                """
         SELECT DISTINCT ?scheme WHERE {
             OPTIONAL {?scheme a <http://www.w3.org/2004/02/skos/core#ConceptScheme>.}
             OPTIONAL {?_ <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}
         }
-        """)]
+        """
+            )
+        ]
 
         schemes_count, top_concept = [], []
         for schema in schemes:
             if not check_iri(schema):
-                log.debug('%s is a not valid IRI', schema)
+                log.debug("%s is a not valid IRI", schema)
                 continue
             for row in graph.query(SkosAnalyzer._scheme_count_query(str(schema))):
-                schemes_count.append({'iri': schema, 'count': row['count']})
+                schemes_count.append({"iri": schema, "count": row["count"]})
 
-            top_concept.extend([{'schema': schema, 'concept': str(row['concept'])} for row in graph.query(SkosAnalyzer._scheme_top_concept(str(schema)))])
+            top_concept.extend(
+                [
+                    {"schema": schema, "concept": str(row["concept"])}
+                    for row in graph.query(
+                        SkosAnalyzer._scheme_top_concept(str(schema))
+                    )
+                ]
+            )
 
-        collections = [str(row['coll']) for row in graph.query("""
+        collections = [
+            str(row["coll"])
+            for row in graph.query(
+                """
         SELECT DISTINCT ?coll WHERE {
             OPTIONAL { ?coll a <http://www.w3.org/2004/02/skos/core#Collection>. }
             OPTIONAL { ?coll a <http://www.w3.org/2004/02/skos/core#OrderedCollection>. }
             OPTIONAL { ?a <http://www.w3.org/2004/02/skos/core#member> ?coll. }
             OPTIONAL { ?coll <http://www.w3.org/2004/02/skos/core#memberList> ?b. }
         }
-        """)]
+        """
+            )
+        ]
 
-        ord_collections = [str(row['coll']) for row in graph.query("""
+        ord_collections = [
+            str(row["coll"])
+            for row in graph.query(
+                """
         SELECT DISTINCT ?coll WHERE {
             ?coll a <http://www.w3.org/2004/02/skos/core#OrderedCollection>.
         }
-        """)]
+        """
+            )
+        ]
 
         return {
-            'concept': concept_count,
-            'schema': schemes_count,
-            'topConcepts': top_concept,
-            'collection': collections,
-            'orderedCollection': ord_collections
+            "concept": concept_count,
+            "schema": schemes_count,
+            "topConcepts": top_concept,
+            "collection": collections,
+            "orderedCollection": ord_collections,
         }
 
     def find_relation(self, graph: Graph) -> None:
@@ -264,33 +317,41 @@ class SkosAnalyzer(AbstractAnalyzer):
         skos:broaderTransitive, skos:narrower, skos:narrowerTransitive
         """
         # -> zde do structure indexu
-        concepts = [str(row['concept']) for row in graph.query("""
+        concepts = [
+            str(row["concept"])
+            for row in graph.query(
+                """
         SELECT DISTINCT ?concept WHERE {
             OPTIONAL {?concept a <http://www.w3.org/2004/02/skos/core#Concept>.}
             OPTIONAL {?concept <http://www.w3.org/2004/02/skos/core#inScheme> ?_. }
         }
-        """)]
+        """
+            )
+        ]
 
         for concept_iri in concepts:
             if check_iri(concept_iri):
                 concept_index.index(concept_iri)
 
-        query = 'SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}'
+        query = "SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}"
         for row in graph.query(query):
-            ddr_index.index('inScheme', str(row['scheme']), str(row['a']))
+            ddr_index.index("inScheme", str(row["scheme"]), str(row["a"]))
 
-        query = 'SELECT ?collection ?a WHERE {?collection <http://www.w3.org/2004/02/skos/core#member> ?a. }'
+        query = "SELECT ?collection ?a WHERE {?collection <http://www.w3.org/2004/02/skos/core#member> ?a. }"
         for row in graph.query(query):
-            ddr_index.index('member', str(row['collection']), str(row['a']))
-            concept_index.index(str(row['a']))
+            ddr_index.index("member", str(row["collection"]), str(row["a"]))
+            concept_index.index(str(row["a"]))
 
-        for token in ['exactMatch', 'mappingRelation', 'closeMatch', 'relatedMatch']:
-            for row in graph.query(f'SELECT ?a ?b WHERE {{ ?a <http://www.w3.org/2004/02/skos/core#{token}> ?b. }}'):
-                ddr_index.index(token, str(row['a']), str(row['b']))
-                concept_index.index(str(row['a']))
-                concept_index.index(str(row['b']))
+        for token in ["exactMatch", "mappingRelation", "closeMatch", "relatedMatch"]:
+            for row in graph.query(
+                f"SELECT ?a ?b WHERE {{ ?a <http://www.w3.org/2004/02/skos/core#{token}> ?b. }}"
+            ):
+                ddr_index.index(token, str(row["a"]), str(row["b"]))
+                concept_index.index(str(row["a"]))
+                concept_index.index(str(row["b"]))
 
-        for row in graph.query("""
+        for row in graph.query(
+            """
         SELECT ?a ?b WHERE {
             OPTIONAL {?a <http://www.w3.org/2004/02/skos/core#related> ?b}
             OPTIONAL {?a <http://www.w3.org/2004/02/skos/core#semanticRelation> ?b}
@@ -301,16 +362,17 @@ class SkosAnalyzer(AbstractAnalyzer):
             OPTIONAL {?a <http://www.w3.org/2004/02/skos/core#broadMatch> ?b.}
             OPTIONAL {?a <http://www.w3.org/2004/02/skos/core#narrowMatch> ?b.}
         }
-        """):
-            ddr_index.index('broadNarrow', str(row['a']), str(row['b']))
-            concept_index.index(str(row['a']))
-            concept_index.index(str(row['b']))
+        """
+        ):
+            ddr_index.index("broadNarrow", str(row["a"]), str(row["b"]))
+            concept_index.index(str(row["a"]))
+            concept_index.index(str(row["b"]))
 
 
 class GenericAnalyzer(AbstractAnalyzer):
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
-    token = 'generic'  # nosec
+    token = "generic"  # nosec
 
     @staticmethod
     def _count(graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
@@ -339,13 +401,33 @@ class GenericAnalyzer(AbstractAnalyzer):
             if check_iri(sub):
                 subjects.append(sub)
 
-        return triples, predicates_count, classes_count, objects, subjects, locally_typed
+        return (
+            triples,
+            predicates_count,
+            classes_count,
+            objects,
+            subjects,
+            locally_typed,
+        )
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         """Basic graph analysis."""
-        triples, initial_predicates_count, initial_classes_count, objects_list, subjects_list, locally_typed_list = self._count(graph)
-        predicates_count = [{'iri': iri, 'count': count} for (iri, count) in initial_predicates_count.items()]
-        classes_count = [{'iri': iri, 'count': count} for (iri, count) in initial_classes_count.items()]
+        (
+            triples,
+            initial_predicates_count,
+            initial_classes_count,
+            objects_list,
+            subjects_list,
+            locally_typed_list,
+        ) = self._count(graph)
+        predicates_count = [
+            {"iri": iri, "count": count}
+            for (iri, count) in initial_predicates_count.items()
+        ]
+        classes_count = [
+            {"iri": iri, "count": count}
+            for (iri, count) in initial_classes_count.items()
+        ]
 
         # external resource ::
         #   - objekty, ktere nejsou subjektem v tomto grafu
@@ -362,16 +444,13 @@ class GenericAnalyzer(AbstractAnalyzer):
         self.get_details(graph)
 
         summary = {
-            'triples': triples,
-            'predicates': predicates_count,
-            'classes': classes_count,
-            'subjects': list(subjects),
-            'objects': list(objects),
-            'external': {
-                'not_subject': list(external_1),
-                'no_type': list(external_2)
-            },
-            'internal': list(objects.difference(external_1.union(external_2)))
+            "triples": triples,
+            "predicates": predicates_count,
+            "classes": classes_count,
+            "subjects": list(subjects),
+            "objects": list(objects),
+            "external": {"not_subject": list(external_1), "no_type": list(external_2)},
+            "internal": list(objects.difference(external_1.union(external_2))),
         }
         return summary
 
@@ -392,48 +471,54 @@ class GenericAnalyzer(AbstractAnalyzer):
 
         try:
             for row in graph.query(query):
-                iri = str(row['x'])
+                iri = str(row["x"])
                 if check_iri(iri):
                     self._extract_detail(row, iri, red)
         except ParserError:
-            logging.getLogger(__name__).exception(f'Failed to parse title for {iri}')
+            logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
 
-
-    def _extract_detail(self, row: rdflib.query.Result, iri: str, red: redis.client.Redis) -> None:
+    def _extract_detail(
+        self, row: rdflib.query.Result, iri: str, red: redis.client.Redis
+    ) -> None:
         with red.pipeline() as pipe:
-            self.extract_label(str(row['label']), iri, pipe, label_query)
-            self.extract_label(str(row['description']), iri, pipe, desc_query)
+            self.extract_label(str(row["label"]), iri, pipe, label_query)
+            self.extract_label(str(row["description"]), iri, pipe, desc_query)
 
-            type_of_iri = row['type']
+            type_of_iri = row["type"]
             if type_of_iri is not None:
                 key = resource_type(iri)
                 pipe.sadd(key, type_of_iri)
             pipe.execute()
 
     @staticmethod
-    def extract_label(literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable) -> None:
+    def extract_label(
+        literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable
+    ) -> None:
         try:
             value, language = literal.value, literal.language
             key = query(iri, language)
             pipe.set(key, value)
         except AttributeError:
             log = logging.getLogger(__name__)
-            log.exception(f'Failed to parse extract label for {iri}')
+            log.exception(f"Failed to parse extract label for {iri}")
             log.debug(type(literal))
             log.debug(literal)
 
-
     def find_relation(self, graph: Graph) -> None:
         """Two distributions are related if they share resources that are owl:sameAs."""
-        for row in graph.query('SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }'):
-            same_as_index.index(str(row['a']), str(row['b']))
+        for row in graph.query(
+            "SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }"
+        ):
+            same_as_index.index(str(row["a"]), str(row["b"]))
 
 
 class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
 
-    token = 'schema-hierarchical-geo'  # nosec
+    token = "schema-hierarchical-geo"  # nosec
 
-    def find_relation(self, graph: Graph) -> Generator[Tuple[str, str, str], None, None]:
+    def find_relation(
+        self, graph: Graph
+    ) -> Generator[Tuple[str, str, str], None, None]:
         query = """
         PREFIX schema: <http://schema.org/>
         SELECT ?what ?place WHERE {
@@ -441,22 +526,21 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
         }
         """
         for row in graph.query(query):
-            what = str(row['what'])
-            place = str(row['place'])
-            yield place, what, 'containedInPlace'
+            what = str(row["what"])
+            place = str(row["place"])
+            yield place, what, "containedInPlace"
 
     def analyze(self, graph: Graph, iri: str) -> dict:
         return {}
 
 
 class AbstractEnricher(AbstractAnalyzer):
-
     def find_relation(self, graph: Graph) -> None:
         pass  # enrichers do not discover relations
 
 
 class TimeAnalyzer(AbstractEnricher):
-    token = 'time'  # nosec
+    token = "time"  # nosec
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
@@ -471,16 +555,16 @@ class TimeAnalyzer(AbstractEnricher):
         """
         result = {}
         for row in graph.query(query):
-            day_iri = str(row['day_iri'])
-            day = str(row['day']).zfill(2)
-            month = str(row['month']).zfill(2)
-            year = str(row['year'])
-            result[day_iri] = f'{year}-{month}-{day}'
+            day_iri = str(row["day_iri"])
+            day = str(row["day"]).zfill(2)
+            month = str(row["month"]).zfill(2)
+            year = str(row["year"])
+            result[day_iri] = f"{year}-{month}-{day}"
         return result
 
 
 class RuianAnalyzer(AbstractEnricher):
-    token = 'ruian'  # nosec
+    token = "ruian"  # nosec
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
@@ -496,23 +580,22 @@ class RuianAnalyzer(AbstractEnricher):
         }
         """
         result = {}
-        ruian_prefix = 'https://linked.cuzk.cz/resource/ruian/'
+        ruian_prefix = "https://linked.cuzk.cz/resource/ruian/"
         for row in graph.query(query):
-            ruian_iri = str(row['iri'])
-            name = str(row['name'])
-            ruian_type_iri = str(row['type_iri'])
-            ruian_type_label = str(row['type_label'])
-            longitude = str(row['longitude'])
-            latitude = str(row['latitude'])
-            if ruian_iri.startswith(ruian_prefix) and ruian_type_iri.startswith(ruian_prefix):
+            ruian_iri = str(row["iri"])
+            name = str(row["name"])
+            ruian_type_iri = str(row["type_iri"])
+            ruian_type_label = str(row["type_label"])
+            longitude = str(row["longitude"])
+            latitude = str(row["latitude"])
+            if ruian_iri.startswith(ruian_prefix) and ruian_type_iri.startswith(
+                ruian_prefix
+            ):
                 result[ruian_iri] = {
-                    'iri': ruian_iri,
-                    'name': name,
-                    'type': {
-                        'iri': ruian_type_iri,
-                        'name': ruian_type_label
-                    },
-                    'latitude': latitude,
-                    'longitude': longitude
+                    "iri": ruian_iri,
+                    "name": name,
+                    "type": {"iri": ruian_type_iri, "name": ruian_type_label},
+                    "latitude": latitude,
+                    "longitude": longitude,
                 }
         return result
