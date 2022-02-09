@@ -10,8 +10,10 @@ pipeline {
 					conda create --yes -p "${WORKSPACE}@tmp/${BUILD_NUMBER}" python=3.8.8
                 	conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
+					pip install ochrona
 					pip check
 					pip list --outdated
+					ochrona --file requirements.txt
 					conda deactivate
 					'''
 				}
@@ -50,7 +52,7 @@ pipeline {
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 						pip install prospector[with_everything] types-requests types-redis
 						prospector -0
-						[[ $(radon cc -x B --total-average tsa app.py|tail -n1|cut -d' ' -f3) == "A" ]] || echo "Too complex"
+						[[ $(radon cc -x B --total-average tsa app.py|tail -n1|cut -d' ' -f3) == "A" ]]
 						conda deactivate
 					'''
 				}
