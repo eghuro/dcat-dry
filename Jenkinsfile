@@ -50,7 +50,7 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
-						pip install prospector[with_everything] types-requests types-redis
+						pip install prospector[with_everything] types-requests types-redis radon
 						prospector -0
 						[[ $(radon cc -x B --total-average tsa app.py|tail -n1|cut -d' ' -f3) == "A" ]]
 						conda deactivate
@@ -67,7 +67,7 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
-						pip install prospector[with_everything] types-requests types-redis flake8 radon
+						pip install prospector[with_everything] types-requests types-redis flake8
 						prospector -0 -o pylint:prospector.txt tsa
 						flake8 --radon-max-cc 10 tsa/ app.py > flake8.txt
 						conda deactivate
