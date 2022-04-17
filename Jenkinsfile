@@ -113,7 +113,7 @@ pipeline {
 			agent { label 'docker' }
 			when {
 				allOf {
-					branch 'master'
+					branch 'develop'
 					expression {
 						currentBuild.result == null || currentBuild.result == 'SUCCESS'
 					}
@@ -171,23 +171,7 @@ pipeline {
 			}
 		}
 
-		stage('Execute') {
-			agent { label 'dry-prod' }
-			options { skipDefaultCheckout() }
-			when {
-				allOf {
-					branch 'master'
-					expression {
-						currentBuild.result == null || currentBuild.result == 'SUCCESS'
-					}
-				}
-			}
-			steps {
-				script {
-					sh 'docker exec nkod-ts_web_1 flask batch -g /tmp/graphs.txt -s http://10.114.0.2:8890/sparql'
-				}
-			}
-		}
+		
 	}
 	post {
         always {
