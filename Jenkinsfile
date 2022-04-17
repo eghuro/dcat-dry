@@ -113,7 +113,7 @@ pipeline {
 			agent { label 'docker' }
 			when {
 				allOf {
-					branch 'develop'
+					branch 'master'
 					expression {
 						currentBuild.result == null || currentBuild.result == 'SUCCESS'
 					}
