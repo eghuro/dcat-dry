@@ -7,7 +7,7 @@ pipeline {
 				script {
 					sh '''#!/usr/bin/env bash
 					source /opt/conda/etc/profile.d/conda.sh
-					conda create --yes -p "${WORKSPACE}@tmp/${BUILD_NUMBER}" python=3.8.8
+					conda create --yes -p "${WORKSPACE}@tmp/${BUILD_NUMBER}" python=3.10.4
                 	conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
 					pip install --use-deprecated=legacy-resolver -r requirements.txt
 					pip install ochrona
