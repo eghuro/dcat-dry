@@ -1,9 +1,9 @@
-ARG PYTHON_VERSION=3.8.7
+ARG PYTHON_VERSION=3.10.4
 FROM python:${PYTHON_VERSION}-slim
 WORKDIR /tmp
 RUN apt-get update; apt-get install -y libarchive-dev binutils libxml2-dev libxslt-dev #do not remove, as it's needed on runtime
 COPY requirements.txt .
-RUN apt-get install -y g++ gcc libffi-dev libssl-dev make && python -m pip install --upgrade pip && pip install -r requirements.txt && apt-get purge -y g++ gcc libffi-dev libssl-dev make
+RUN apt-get update; apt-get install -y g++ gcc libffi-dev libssl-dev make && python -m pip install --upgrade pip && pip install -r requirements.txt && apt-get purge -y g++ gcc libffi-dev libssl-dev make
 
 COPY . .
 
