@@ -61,7 +61,7 @@ pipeline {
 
 		stage('Sonar') {
 			agent { label 'use' }
-			when { branch 'master' }
+			when { branch 'mastr' }
 			steps {
 				script {
 					sh '''#!/usr/bin/env bash
