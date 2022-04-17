@@ -389,11 +389,7 @@ def import_interesting(interesting_datasets):
 def list_datasets():
     logging.getLogger(__name__).info("List datasets report")
     listed = set()
-    datasets = []
     for profile in export_profile():
         if profile["ds_iri"] not in listed:
             listed.add(profile["ds_iri"])
-            datasets.append(
-                {"iri": profile["ds_iri"], "label": query_label(profile["ds_iri"])}
-            )
-    return datasets
+    return list(listed)

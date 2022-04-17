@@ -147,7 +147,8 @@ def export_interesting_endpoint():
     return jsonify(export_interesting())
 
 
-@blueprint.route("/list", methods=["GET"])  # noqa: unused-function
+#@blueprint.route("/list", methods=["GET"])  # noqa: unused-function
+@blueprint.route("/api/v1/list", methods=["GET"])  # noqa: unused-function
 @cached(
     True,
     must_revalidate=True,
@@ -157,8 +158,9 @@ def export_interesting_endpoint():
 )
 def view_list():
     data = list_datasets()
-    current_app.logger.debug(data)
-    return render_template("list.html", datasets=data)
+    #current_app.logger.debug(data)
+    return jsonify(data)
+    #return render_template("list.html", datasets=data)
 
 
 @blueprint.route("/detail", methods=["GET"])  # noqa: unused-function
