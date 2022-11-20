@@ -1,5 +1,5 @@
 ## The following requirements were added by pip freeze:
-amqp==2.5.2
+amqp==2.6.1
 atenvironment==0.2.1
 atomicwrites==1.4.0
 attrs==19.3.0
