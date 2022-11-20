@@ -7,7 +7,7 @@ beautifulsoup4==4.9.1
 billiard==3.6.3.0
 blinker==1.4
 bumpversion==0.6.0
-cachetools==4.1.0
+cachetools==4.2.4
 celery==4.4.2
 certifi==2020.4.5.2
 chardet==3.0.4
