@@ -470,7 +470,7 @@ class GenericAnalyzer(AbstractAnalyzer):
         red = redis.Redis(connection_pool=redis_pool)
 
         try:
-            for row in graph.query(query):
+            for row in graph.query(query):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
                 iri = str(row["x"])
                 if check_iri(iri):
                     self._extract_detail(row, iri, red)
@@ -478,11 +478,11 @@ class GenericAnalyzer(AbstractAnalyzer):
             logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
 
     def _extract_detail(
-        self, row: rdflib.query.Result, iri: str, red: redis.client.Redis
+        self, row: rdflib.query.ResultRow, iri: str, red: redis.client.Redis
     ) -> None:
         with red.pipeline() as pipe:
-            self.extract_label(str(row["label"]), iri, pipe, label_query)
-            self.extract_label(str(row["description"]), iri, pipe, desc_query)
+            self.extract_label(row["label"], iri, pipe, label_query)
+            self.extract_label(row["description"], iri, pipe, desc_query)
 
             type_of_iri = row["type"]
             if type_of_iri is not None:
@@ -494,6 +494,8 @@ class GenericAnalyzer(AbstractAnalyzer):
     def extract_label(
         literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable
     ) -> None:
+        if literal is None:
+            return
         try:
             value, language = literal.value, literal.language
             key = query(iri, language)
