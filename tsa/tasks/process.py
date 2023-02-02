@@ -139,9 +139,9 @@ def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Conjunctive
     except SPARQLWrapper.SPARQLExceptions.QueryBadFormed:
         log.error("Dereference %s from endpoint %s failed. Query:\n%s\n\n", iri, endpoint_iri, query)
     except (rdflib.query.ResultException, requests.exceptions.HTTPError):
-        log.error("Failed to dereference %s from endpoint %s: ResultException or HTTP Error", iri, endpoint_iri)
-    except ValueError as err:
-        log.error("Failed to dereference %s from endpoint %s: %s, query: %s", iri, endpoint_iri, str(err), query)
+        log.warning("Failed to dereference %s from endpoint %s: ResultException or HTTP Error", iri, endpoint_iri)
+    except ValueError as err:  # usually an empty graph
+        log.debug("Failed to dereference %s from endpoint %s: %s, query: %s", iri, endpoint_iri, str(err), query)
     return graph
 
 
