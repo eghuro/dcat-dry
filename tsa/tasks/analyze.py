@@ -15,14 +15,22 @@ from tsa.redis import related as related_key
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
-    json_data = json.loads(data)
-
-    options = {}
-    if "@context" in json_data and "@base" in json_data["@context"]:
-        options["base"] = json_data["@context"]["@base"]
-    expanded = jsonld.expand(json_data, options=options)
     g = rdflib.ConjunctiveGraph()
-    g.parse(data=json.dumps(expanded), format="json-ld")
+    expanded = None
+    try:
+        json_data = json.loads(data)
+        options = {}
+        if "@context" in json_data and "@base" in json_data["@context"]:
+            options["base"] = json_data["@context"]["@base"]
+        expanded = jsonld.expand(json_data, options=options)
+        g.parse(data=json.dumps(expanded), format="json-ld")
+    except (TypeError, rdflib.exceptions.ParserError):
+        if expanded is not None:
+            expanded_data = json.dumps(expanded)
+        else:
+            expanded_data = "**ERROR**, data was: " + str(data)
+        logging.getLogger(__name__).warning("Failed to parse expanded JSON-LD, falling back, expanded graph was: %s", expanded_data)
+        g.parse(data=data, format="json-ld")
     return g
 
 
