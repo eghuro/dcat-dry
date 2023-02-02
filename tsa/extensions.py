@@ -37,7 +37,7 @@ def get_redis(redis_cfg=None):
     log = logging.getLogger(__name__)
     log.info("redis cfg: %s", redis_cfg)
     return redis.ConnectionPool().from_url(
-        redis_cfg, charset="utf-8", decode_responses=True
+        redis_cfg, decode_responses=True
     )
 
 
