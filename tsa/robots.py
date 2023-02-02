@@ -1,4 +1,5 @@
 """User agent and robots cache."""
+import os
 import resource
 from functools import lru_cache
 from typing import Tuple, Union
@@ -26,7 +27,10 @@ USER_AGENT = requests_toolbelt.user_agent(
     "DCAT DRY", tsa.__version__, extras=[("requests", requests.__version__)]
 )
 
-session = requests.Session()
+try:
+    session = CachedSession('dry_dereference', backend=RedisCache(connection_pool=redis.ConnectionPool().from_url(os.environ['REDIS'])), expire_after=3600, cache_control=True, allowable_codes=[200, 400, 404], stale_if_error=True)
+except redis.exceptions.ConnectionError:
+    session = requests.Session()
 session.headers.update({"User-Agent": USER_AGENT})
 adapter = requests.adapters.HTTPAdapter(
     pool_connections=1000, pool_maxsize=(soft - 10), max_retries=3, pool_block=True
