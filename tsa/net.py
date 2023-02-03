@@ -11,6 +11,7 @@ import redis
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from tsa.db import db_session
 from tsa.extensions import db
 from tsa.model import RobotsDelay
 from tsa.monitor import monitor
@@ -66,17 +67,16 @@ def fetch(iri: str, log: logging.Logger) -> requests.Response:
     if not is_allowed:
         log.warn(f"Not allowed to fetch {iri!s} as {USER_AGENT!s}")
         raise Skip()
-    with Session(db) as session:
-        for delay in session.query(RobotsDelay).filter_by(robots_url):
-            wait = (delay.expiration - datetime.now()).seconds
-            clear_cache(wait, log)
-            if wait > 0:
-                log.info(f"Analyze {iri} in {wait} because of crawl-delay")
-                raise RobotsRetry(wait)
-            else:
-                session.delete(delay)
-            break
-        session.commit()
+    for delay in db_session.query(RobotsDelay).filter_by(iri=robots_url):
+        wait = (delay.expiration - datetime.now()).seconds
+        clear_cache(wait, log)
+        if wait > 0:
+            log.info(f"Analyze {iri} in {wait} because of crawl-delay")
+            raise RobotsRetry(wait)
+        else:
+            db_session.delete(delay)
+        break
+    db_session.commit()
 
     timeout = 10800  # 3h
     # a guess for 100 KB/s on data that will still make it into redis (512 MB)
@@ -111,9 +111,8 @@ def fetch(iri: str, log: logging.Logger) -> requests.Response:
     if delay is not None:
         log.info(f"Recording crawl-delay of {delay} for {iri}")
         try:
-            with Session(db) as session:
-                session.add(RobotsDelay(iri=iri, expiration=datetime.now()+timedelta(seconds=int(delay))))
-                session.commit()
+            db_session.add(RobotsDelay(iri=iri, expiration=datetime.now()+timedelta(seconds=int(delay))))
+            db_session.commit()
         except ValueError:
             log.error("Invalid delay value - could not convert to int")
         except:

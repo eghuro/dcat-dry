@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
+from tsa.db import db_session
 from tsa.extensions import redis_pool, db
 from tsa.model import DatasetDistribution, DatasetEndpoint, PureSubject
 from tsa.monitor import TimedBlock, monitor
@@ -163,16 +164,15 @@ def dereference_from_endpoints(
     graph = rdflib.ConjunctiveGraph()
     log = logging.getLogger(__name__)
 
-    with Session(db) as session:
-        for dd in session.query(DatasetDistribution).filter_by(distr=iri_distr):
-            ds_iri = dd.ds
-            log.debug("For %s we have the dataset %s", iri_distr, ds_iri)
-            endpoints = set(sanitize_list(Config.LOOKUP_ENDPOINTS))
-            for e in session.query(DatasetEndpoint).filter_by(ds=ds_iri):
-                endpoints.add(e.endpoint)
-            for endpoint_iri in endpoints:
-                if check_iri(endpoint_iri):
-                    graph += dereference_from_endpoint(iri, endpoint_iri)
+    for dd in db_session.query(DatasetDistribution).filter_by(distr=iri_distr):
+        ds_iri = dd.ds
+        log.debug("For %s we have the dataset %s", iri_distr, ds_iri)
+        endpoints = set(sanitize_list(Config.LOOKUP_ENDPOINTS))
+        for e in db_session.query(DatasetEndpoint).filter_by(ds=ds_iri):
+            endpoints.add(e.endpoint)
+        for endpoint_iri in endpoints:
+            if check_iri(endpoint_iri):
+                graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
 
 
@@ -297,11 +297,10 @@ def expand_graph_with_dereferences(
     return graph
 
 
-def store_pure_subjects(iri, graph, red):
-    with Session(db) as session:
-        for sub, _, _ in graph:
-            session.add(PureSubject(distribution_iri=iri, subject_iri=str(sub)))
-        session.commit()
+def store_pure_subjects(iri, graph):
+    for sub, _, _ in graph:
+        db_session.add(PureSubject(distribution_iri=iri, subject_iri=str(sub)))
+    db_session.commit()
 
 
 def process_content(
@@ -318,7 +317,7 @@ def process_content(
         log.debug("Graph is empty: %s", iri)
         return
 
-    store_pure_subjects(iri, graph, red)
+    store_pure_subjects(iri, graph)
 
     with TimedBlock("process.dereference"):
         try:
@@ -399,7 +398,7 @@ def notify_first_process(red: redis.Redis, log: logging.Logger) -> None:
 def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     """Analyze an RDF distribution under given IRI."""
     log = logging.getLogger(__name__)
-    red = task.redis
+    red = redis.Redis(connection_pool=redis_pool)
 
     # notify_first_process(red, log)
 

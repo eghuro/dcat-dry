@@ -10,6 +10,8 @@ from bson.json_util import dumps as dumps_bson
 from pymongo.errors import DocumentTooLarge, OperationFailure
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from tsa.db import db_session
 from tsa.enricher import AbstractEnricher, NoEnrichment
 from tsa.extensions import mongo_db, db
 from tsa.sameas import same_as_index
@@ -277,11 +279,9 @@ def sanitize_label_iri_for_mongo(iri):
 def query_label(ds_iri):
     print(f"Query label for {ds_iri}")
     result = defaultdict(set)
-    with Session(db) as session:
-        stmt = select(Label).where(iri=ds_iri)
-        for label in session.scalars(stmt):
-            if label.language_code in supported_languages:
-                result[label.language_code].add(label.label)
+    for label in db_session.query(Label).filter_by(iri=ds_iri):
+        if label.language_code in supported_languages:
+            result[label.language_code].add(label.label)
 
     if len(result.keys()) == 0:
         logging.getLogger(__name__).warning(
@@ -310,29 +310,29 @@ def query_label(ds_iri):
 
 
 def export_labels():
-    out = defaultdict(defaultdict(set))
-    with Session(db) as session:
-        stmt = select(Label)
-        for label in session.scalars(stmt):
-            out[sanitize_label_iri_for_mongo(label.iri)][sanitize_label_iri_for_mongo(label.language_code)].add(label.label)
+    out = {}
+    for label in db_session.query(Label):
+        key1 = sanitize_label_iri_for_mongo(label.iri)
+        if key1 not in out.keys():
+            out[key1] = defaultdict(set)
+        out[key1][sanitize_label_iri_for_mongo(label.language_code)].add(label.label)
     return out
 
 
 def import_labels(labels):
-    with Session(db) as session:
-        for ds_iri in labels.keys():
-            for language_code in labels[ds_iri].keys():
-                for value in labels[ds_iri][language_code]:
-                    lang = language_code
-                    if lang == 'default':
-                        lang = None
-                    label = Label(
-                        iri = ds_iri,
-                        language_code = lang,
-                        label = value
-                    )
-                    session.add(label)
-        session.commit()
+    for ds_iri in labels.keys():
+        for language_code in labels[ds_iri].keys():
+            for value in labels[ds_iri][language_code]:
+                lang = language_code
+                if lang == 'default':
+                    lang = None
+                label = Label(
+                    iri = ds_iri,
+                    language_code = lang,
+                    label = value
+                )
+                db_session.add(label)
+    db_session.commit()
 
 
 def export_related():

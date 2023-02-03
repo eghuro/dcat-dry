@@ -4,6 +4,7 @@ from collections import defaultdict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from tsa.db import db_session
 from tsa.extensions import db
 from tsa.model import DDR
 from tsa.util import check_iri
@@ -18,12 +19,12 @@ class Index:
         try:
             if check_iri(base_iri):
                 yielded_base = False
-                with Session(db) as session:
-                    for iri in session.query(DDR.iri2).filter_by(relationship_type=self.__key, iri1=base_iri).distinct():
-                        if check_iri(iri):
-                            yield iri
-                            if iri == base_iri:
-                                yielded_base = True
+                logging.getLogger(__name__).info("About to query: %s, %s" % (self.__key, base_iri))
+                for iri in db_session.query(DDR.iri2).filter_by(relationship_type=self.__key, iri1=base_iri).distinct():
+                    if check_iri(iri):
+                        yield iri
+                        if iri == base_iri:
+                            yielded_base = True
                 if not yielded_base:
                     yield base_iri  # reflexivity
         except TypeError:
@@ -33,24 +34,25 @@ class Index:
 
     def index(self, iri1, iri2):
         # iri1 owl:sameAs iri2
-        with Session(db) as session:
-            session.add(DDR(relationship_type=self.__key, iri1=iri1, iri2=iri2))
-            if self.__symmetric:
-                session.add(DDR(relationship_type=self.__key, iri1=iri2, iri2=iri1))
-            session.commit()
+        db_session.add(DDR(relationship_type=self.__key, iri1=iri1, iri2=iri2))
+        if self.__symmetric:
+            db_session.add(DDR(relationship_type=self.__key, iri1=iri2, iri2=iri1))
+        db_session.commit()
 
     def finalize(self):
         graph = defaultdict(set)
-        with Session(db) as session:
-            for ddr in session.query(DDR).filter_by(relationship_type=self.__key):
+        try:
+            for ddr in db_session.query(DDR).filter_by(relationship_type=self.__key):
                 graph[ddr.iri1].add(ddr.iri2)
 
             for node in graph.keys():  # noqa: consider-iterating-dictionary
                 visited = self.__bfs(graph, node)
                 # add all reachable nodes into index (transitivity)
                 for iri in visited:
-                    session.add(DDR(iri1=node, iri2=iri, relationship_type=self.__key))
-                session.commit()
+                    db_session.add(DDR(iri1=node, iri2=iri, relationship_type=self.__key))
+                db_session.commit()
+        except:
+            logging.getLogger(__name__).exception("Oops")
 
     def __bfs(self, graph, initial):
         visited = []

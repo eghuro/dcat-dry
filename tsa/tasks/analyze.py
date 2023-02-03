@@ -10,6 +10,7 @@ from pyld import jsonld
 from sqlalchemy.orm import Session
 
 from tsa.analyzer import AbstractAnalyzer
+from tsa.db import db_session
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
 from tsa.extensions import db
@@ -125,14 +126,13 @@ def analyze_and_index_one(
 
         log.debug("Storing relations in sqlite")
 
-        with Session(db) as session:
-            for item in iris_found.items():
-                (rel_type, key) = item[0]
-                iris = item[1]
-                log.debug("Addding %s items into set", str(len(iris)))
-                for iri in iris:
-                    session.add(Relationship(type=rel_type, group=key, candidate=iri))
-            session.commit()
+        for item in iris_found.items():
+            (rel_type, key) = item[0]
+            iris = item[1]
+            log.debug("Addding %s items into set", str(len(iris)))
+            for iri in iris:
+                db_session.add(Relationship(type=rel_type, group=key, candidate=iri))
+        db_session.commit()
     except TypeError:
         log.debug("Skip %s for %s", analyzer_class.token, iri)
 

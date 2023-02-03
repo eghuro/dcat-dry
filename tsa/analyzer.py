@@ -12,9 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from tsa.extensions import db
-from tsa.ddr import concept_index, dsd_index
+from tsa.db import db_session
+from tsa.ddr import concept_index, dsd_index, ddr_index
 from tsa.sameas import same_as_index
-from tsa.model import ddr_index, Label
+from tsa.model import Label
 from tsa.util import check_iri
 
 
@@ -461,29 +462,28 @@ class GenericAnalyzer(AbstractAnalyzer):
         OPTIONAL { ?x <http://www.w3.org/2000/01/rdf-schema#comment> ?description }
         }
         """
-        with Session(db) as session:
-            try:
-                for row in graph.query(query):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
-                    iri = str(row["x"])
-                    if check_iri(iri):
-                        self._extract_detail(row, iri, session)
-            except ParserError:
-                logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
-            session.commit()
+        try:
+            for row in graph.query(query):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
+                iri = str(row["x"])
+                if check_iri(iri):
+                    self._extract_detail(row, iri)
+        except ParserError:
+            logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
+        db_session.commit()
 
     def _extract_detail(
-        self, row: rdflib.query.ResultRow, iri: str, session: Session
+        self, row: rdflib.query.ResultRow, iri: str
     ) -> None:
-        self.extract_label(row["label"], iri, session)
+        self.extract_label(row["label"], iri)
         #self.extract_label(row["description"], iri, session)
 
     @staticmethod
-    def extract_label(literal: Any, iri: str, session: Session) -> None:
+    def extract_label(literal: Any, iri: str) -> None:
         if literal is None:
             return
         try:
             value, language = literal.value, literal.language
-            session.add(Label(iri=iri, language_code=language, label=value))
+            db_session.add(Label(iri=iri, language_code=language, label=value))
         except AttributeError:
             log = logging.getLogger(__name__)
             log.exception(f"Failed to parse extract label for {iri}")

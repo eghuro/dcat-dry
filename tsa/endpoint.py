@@ -109,7 +109,7 @@ class SparqlEndpointAnalyzer:
                 "Failed to process %s in %s: %s", graph_iri, self.__endpoint, str(exc)
             )
         except ValueError as exc:
-            log.exception("Error in query: %s - %s", query, str(exc))
+            log.debug("Error in query: %s - %s", query, str(exc))
 
         return None
 

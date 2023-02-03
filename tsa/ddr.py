@@ -4,9 +4,9 @@ from typing import Dict, Generator, List, Tuple
 import redis
 import rfc3987
 from redis import ConnectionPool
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import PendingRollbackError
 
+from tsa.db import db_session
 from tsa.model import DDR, Concept
 from tsa.extensions import db, redis_pool
 
@@ -21,44 +21,42 @@ class DataDrivenRelationshipIndex:
             log.debug("Not an iri: %s (relationship_type: %s)", iri2, relationship_type)
             return
 
-        with Session(db) as session:
-            session.add(DDR(relationship_type=relationship_type, iri1=iri1, iri2=iri2))
-            session.add(DDR(relationship_type=relationship_type, iri1=iri2, iri2=iri1))
-            session.commit()
+        try:
+            db_session.add(DDR(relationship_type=relationship_type, iri1=iri1, iri2=iri2))
+            db_session.add(DDR(relationship_type=relationship_type, iri1=iri2, iri2=iri1))
+            db_session.commit()
+        except PendingRollbackError:
+            db_session.rollback()
 
     def types(self) -> Generator[str, None, None]:
-        with Session(db) as session:
-            for type in session.query(DDR.relationship_type).distinct():
+        for type in db_session.query(DDR.relationship_type).distinct():
                 yield type
 
     def lookup(
         self, relationship_type: str, resource_iri: str
     ) -> Generator[str, None, None]:
-        with Session(db) as session:
-            for ddr in session.query(DDR).filter_by(relationship_type=relationship_type, iri1=resource_iri):
-                yield ddr.iri2
+        for ddr in db_session.query(DDR).filter_by(relationship_type=relationship_type, iri1=resource_iri):
+            yield ddr.iri2
 
+ddr_index = DataDrivenRelationshipIndex()
 
 class ConceptIndex:
 
     def index(self, iri: str) -> None:
         try:
-            with Session(db) as session:
-                session.add(Concept(iri=iri))
-                session.commit()
+            db_session.add(Concept(iri=iri))
+            db_session.commit()
         except:
             pass
 
     def is_concept(self, iri: str) -> bool:
-        with Session(db) as session:
-            for _ in session.query(Concept).filter_by(iri=iri):
-                return True
+        for _ in db_session.query(Concept).filter_by(iri=iri):
+            return True
         return False
 
     def iter_concepts(self) -> Generator[str, None, None]:
-        with Session(db) as session:
-            for concept in session.query(Concept):
-                yield concept.iri
+        for concept in db_session.query(Concept):
+            yield concept.iri
 
 
 class DataCubeDefinitionIndex:
