@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.extensions import redis_pool, db
-from tsa.model import DatasetDistribution, DatasetEndpoint
+from tsa.model import DatasetDistribution, DatasetEndpoint, PureSubject
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import (
     NoContent,
@@ -28,7 +28,7 @@ from tsa.net import (
 from tsa.notification import message_to_mattermost
 from tsa.redis import KeyRoot, dataset_endpoint
 from tsa.redis import dereference as dereference_key
-from tsa.redis import ds_distr, pure_subject, root_name
+from tsa.redis import ds_distr, root_name
 from tsa.robots import USER_AGENT, session
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
@@ -298,11 +298,10 @@ def expand_graph_with_dereferences(
 
 
 def store_pure_subjects(iri, graph, red):
-    subjects_pure = set()
-    for sub, _, _ in graph:
-        subjects_pure.add(str(sub))
-    if len(subjects_pure) > 0:
-        red.lpush(pure_subject(iri), *list(subjects_pure))
+    with Session(db) as session:
+        for sub, _, _ in graph:
+            session.add(PureSubject(distribution_iri=iri, subject_iri=str(sub)))
+        session.commit()
 
 
 def process_content(
@@ -402,7 +401,7 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     log = logging.getLogger(__name__)
     red = task.redis
 
-    notify_first_process(red, log)
+    # notify_first_process(red, log)
 
     try:
         guess, response = do_fetch(iri, task, is_prio, force, log, red)

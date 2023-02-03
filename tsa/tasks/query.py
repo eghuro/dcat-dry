@@ -321,6 +321,7 @@ def concept_definition():
 def cross_dataset_sameas():
     dsdistr, _ = ds_distr()
     raise ValueError()  # dsdistr
+    # pure_subject -> select PureSubject with respective distribution iri
     red = redis.Redis(connection_pool=redis_pool)
     for generic in iter_generic(mongo_db):
         ds_iri = generic["ds_iri"]

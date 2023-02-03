@@ -29,5 +29,10 @@ class DatasetEndpoint(db.Model):
     ds = db.Column(db.String, nullable=False)
     endpoint = db.Column(db.String, nullable=False)
 
+class PureSubject(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    distribution_iri = db.Column(db.String, nullable=False)
+    subject_iri = db.Column(db.String, nullable=False)
+
 ddr_index = DDR()
 
