@@ -4,14 +4,14 @@ from typing import Dict, Generator, List, Tuple
 import redis
 import rfc3987
 from redis import ConnectionPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from tsa.redis import KeyRoot, root_name
+from tsa.model import DDR, Concept
+from tsa.extensions import db, redis_pool
 
 
 class DataDrivenRelationshipIndex:
-    def __init__(self, redis_pool: ConnectionPool):
-        self.__red = redis.Redis(connection_pool=redis_pool)
-
     def index(self, relationship_type: str, iri1: str, iri2: str) -> None:
         log = logging.getLogger(__name__)
         if not rfc3987.match(iri1) or not iri1.startswith("http"):
@@ -21,40 +21,44 @@ class DataDrivenRelationshipIndex:
             log.debug("Not an iri: %s (relationship_type: %s)", iri2, relationship_type)
             return
 
-        with self.__red.pipeline() as pipe:
-            pipe.sadd(f"ddr:{relationship_type}:{iri1}", iri2)
-            pipe.sadd(f"ddr:{relationship_type}:{iri2}", iri2)
-            pipe.execute()
+        with Session(db) as session:
+            session.add(DDR(relationship_type=relationship_type, iri1=iri1, iri2=iri2))
+            session.add(DDR(relationship_type=relationship_type, iri1=iri2, iri2=iri1))
+            session.commit()
 
     def types(self) -> Generator[str, None, None]:
-        # ddr:<type>:<iri>
-        for key in self.__red.scan_iter(match="ddr:*"):
-            yield str(key)[4:].split(":", maxsplit=1)[0]
+        with Session(db) as session:
+            for type in session.query(DDR.relationship_type).distinct():
+                yield type
 
     def lookup(
         self, relationship_type: str, resource_iri: str
     ) -> Generator[str, None, None]:
-        for iri in self.__red.sscan_iter(f"ddr:{relationship_type}:{resource_iri}"):
-            if isinstance(iri, list):
-                for element in iri:
-                    yield element
-            elif isinstance(iri, str):
-                yield iri
+        with Session(db) as session:
+            for ddr in session.query(DDR).filter_by(relationship_type=relationship_type, iri1=resource_iri):
+                yield ddr.iri2
 
 
 class ConceptIndex:
-    def __init__(self, redis_pool: ConnectionPool):
-        self.__red = redis.Redis(connection_pool=redis_pool)
 
     def index(self, iri: str) -> None:
-        self.__red.sadd(root_name[KeyRoot.CONCEPT], iri)
+        try:
+            with Session(db) as session:
+                session.add(Concept(iri=iri))
+                session.commit()
+        except:
+            pass
 
     def is_concept(self, iri: str) -> bool:
-        return self.__red.sismember(root_name[KeyRoot.CONCEPT], iri)
+        with Session(db) as session:
+            for _ in session.query(Concept).filter_by(iri=iri):
+                return True
+        return False
 
     def iter_concepts(self) -> Generator[str, None, None]:
-        for iri in self.__red.sscan_iter(root_name[KeyRoot.CONCEPT]):
-            yield iri
+        with Session(db) as session:
+            for concept in session.query(Concept):
+                yield concept.iri
 
 
 class DataCubeDefinitionIndex:
@@ -77,3 +81,6 @@ class DataCubeDefinitionIndex:
             iri = str(key)[8:]
             for rod in self.__red.sscan_iter(f"dsd:rod:{iri}"):
                 yield str(rod), iri
+
+concept_index = ConceptIndex()
+dsd_index = DataCubeDefinitionIndex(redis_pool)

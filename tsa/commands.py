@@ -10,7 +10,7 @@ from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
-from tsa.extensions import same_as_index
+from tsa.sameas import same_as_index
 from tsa.query import query
 from tsa.report import import_interesting as import_interesting_impl
 from tsa.report import import_labels as import_labels_impl

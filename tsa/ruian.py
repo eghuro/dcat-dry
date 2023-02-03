@@ -3,7 +3,8 @@ import logging
 from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
-from tsa.extensions import concept_index, ddr_index
+from tsa.ddr import concept_index
+from tsa.model import ddr_index
 from tsa.robots import USER_AGENT
 from tsa.util import check_iri
 

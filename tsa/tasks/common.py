@@ -27,9 +27,7 @@ class TrackableTask(Task):
 def monitor(*args):  # pylint: disable=unused-argument
     log = logging.getLogger(__name__)
     redis_cfg = os.environ.get("REDIS_CELERY", None)
-    pool = redis_lib.ConnectionPool().from_url(
-        redis_cfg, charset="utf-8", decode_responses=True
-    )
+    pool = redis_lib.ConnectionPool().from_url(redis_cfg, charset="utf-8")
     red = redis_lib.Redis(connection_pool=pool)
     enqueued = (
         red.llen("default") + red.llen("high_priority") + red.llen("low_priority")

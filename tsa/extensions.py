@@ -6,14 +6,10 @@ import redis
 from atenvironment import environment
 from flask_caching import Cache
 from flask_cors import CORS
-from flask_wtf.csrf import CSRFProtect
+from flask_sqlalchemy import SQLAlchemy
 from pymongo import MongoClient
 
-from tsa.ddr import ConceptIndex
-from tsa.ddr import DataCubeDefinitionIndex as DSD
-from tsa.ddr import DataDrivenRelationshipIndex as DDR
-from tsa.redis import same_as as sameas_key
-from tsa.sameas import Index
+
 
 try:
     from statsd import StatsClient
@@ -22,8 +18,7 @@ except ImportError:
 
 cache = Cache()
 cors = CORS()
-csrf = CSRFProtect()
-
+db = SQLAlchemy()
 
 def on_error(missing_variable):
     logging.getLogger(__name__).debug(
@@ -60,9 +55,5 @@ def get_statsd(host=None, port=None):
 
 
 redis_pool = get_redis()
-same_as_index = Index(redis_pool, sameas_key, True)
-ddr_index = DDR(redis_pool)
-concept_index = ConceptIndex(redis_pool)
-dsd_index = DSD(redis_pool)
 _, mongo_db = get_mongo()
 statsd_client = get_statsd()

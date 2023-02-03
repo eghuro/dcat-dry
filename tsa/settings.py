@@ -17,9 +17,11 @@ class Config:
     CACHE_TYPE = "redis"  # Can be "memcached", "redis", etc.
     CACHE_KEY_PREFIX = "fcache"
     CACHE_REDIS_URL = os.environ.get("REDIS", None)
+    SQLALCHEMY_DATABASE_URI = "sqlite:///project.db"
     LOOKUP_ENDPOINTS = [
         os.environ.get("ENDPOINT", None),
         "https://linked.cuzk.cz.opendata.cz/sparql",
+        "https://data.mpsv.cz/sparql"
     ]
     ANALYZE_IMMEDIATELY = True
     SD_BASE_IRI = "https://data.eghuro.cz/resource/"

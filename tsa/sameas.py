@@ -1,13 +1,16 @@
 import logging
+from collections import defaultdict
 
-import redis
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from tsa.extensions import db
+from tsa.model import DDR
 from tsa.util import check_iri
 
 
 class Index:
-    def __init__(self, redis_pool, index_key, symmetric):
-        self.__red = redis.Redis(connection_pool=redis_pool)
+    def __init__(self, index_key, symmetric):
         self.__key = index_key
         self.__symmetric = symmetric
 
@@ -15,11 +18,12 @@ class Index:
         try:
             if check_iri(base_iri):
                 yielded_base = False
-                for iri in self.__red.sscan_iter(self.__key(base_iri)):
-                    if check_iri(iri):
-                        yield iri
-                        if iri == base_iri:
-                            yielded_base = True
+                with Session(db) as session:
+                    for iri in session.query(DDR.iri2).filter_by(relationship_type=self.__key, iri1=base_iri).distinct():
+                        if check_iri(iri):
+                            yield iri
+                            if iri == base_iri:
+                                yielded_base = True
                 if not yielded_base:
                     yield base_iri  # reflexivity
         except TypeError:
@@ -29,26 +33,24 @@ class Index:
 
     def index(self, iri1, iri2):
         # iri1 owl:sameAs iri2
-        with self.__red.pipeline() as pipe:  # symmetry
-            pipe.sadd(self.__key(iri1), iri2)
+        with Session(db) as session:
+            session.add(DDR(relationship_type=self.__key, iri1=iri1, iri2=iri2))
             if self.__symmetric:
-                pipe.sadd(self.__key(iri2), iri1)
-            pipe.execute()
+                session.add(DDR(relationship_type=self.__key, iri1=iri2, iri2=iri1))
+            session.commit()
 
     def finalize(self):
-        graph = {}
-        for key in self.__red.scan_iter(match=self.__key("*")):
-            iri = key[len(self.__key("")) :].replace("_", ":", 1)
-            neighbours = list(self.__red.sscan_iter(key))
-            graph[iri] = neighbours
+        graph = defaultdict(set)
+        with Session(db) as session:
+            for ddr in session.query(DDR).filter_by(relationship_type=self.__key):
+                graph[ddr.iri1].add(ddr.iri2)
 
-        for node in graph.keys():  # noqa: consider-iterating-dictionary
-            visited = self.__bfs(graph, node)
-            with self.__red.pipeline() as pipe:
+            for node in graph.keys():  # noqa: consider-iterating-dictionary
+                visited = self.__bfs(graph, node)
                 # add all reachable nodes into index (transitivity)
                 for iri in visited:
-                    pipe.sadd(self.__key(node), iri)
-                pipe.execute()
+                    session.add(DDR(iri1=node, iri2=iri, relationship_type=self.__key))
+                session.commit()
 
     def __bfs(self, graph, initial):
         visited = []
@@ -68,6 +70,7 @@ class Index:
         return visited
 
     def export_index(self):
+        raise ValueError()
         result = {}
         for key in self.__red.scan_iter(match=self.__key("*")):
             iri = key[len(self.__key("")) :]
@@ -76,6 +79,7 @@ class Index:
         return result
 
     def import_index(self, index):
+        raise ValueError()
         for key in self.__red.scan_iter(self.__key("*")):
             self.__red.delete(key)
         for key in index.keys():
@@ -83,3 +87,5 @@ class Index:
                 for value in index[key]:
                     pipe.sadd(self.__key(key), value)
                 pipe.execute()
+
+same_as_index = Index('sameAs', True)

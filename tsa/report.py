@@ -8,10 +8,14 @@ from rdflib.exceptions import ParserError
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from bson.json_util import dumps as dumps_bson
 from pymongo.errors import DocumentTooLarge, OperationFailure
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 from tsa.enricher import AbstractEnricher, NoEnrichment
-from tsa.extensions import mongo_db, redis_pool, same_as_index
+from tsa.extensions import mongo_db, db
+from tsa.sameas import same_as_index
+from tsa.model import Label
 from tsa.redis import sanitize_key
-from tsa.robots import USER_AGENT, session
+from tsa.robots import USER_AGENT, session as online_session
 
 supported_languages = ["cs", "en"]
 enrichers = [e() for e in AbstractEnricher.__subclasses__()]
@@ -272,31 +276,21 @@ def sanitize_label_iri_for_mongo(iri):
 
 def query_label(ds_iri):
     print(f"Query label for {ds_iri}")
-    # LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
-    # red.set(key, title)
-    red = redis.Redis(connection_pool=redis_pool)
-    result = {}
-    # for x in red.scan_iter(match=f'label:{ds_iri!s}*'): #red.keys(f'label:{ds_iri!s}*'):  #FIXME
+    result = defaultdict(set)
+    with Session(db) as session:
+        stmt = select(Label).where(iri=ds_iri)
+        for label in session.scalars(stmt):
+            if label.language_code in supported_languages:
+                result[label.language_code].add(label.label)
 
-    none = True
-    for lang in ["cs", "en"]:
-        title = red.get(f"label:{sanitize_key(ds_iri)}:{lang}")
-        result[lang] = title
-        if title is not None:
-            none = False
-    title = red.get(f"label:{sanitize_key(ds_iri)}")
-    result["default"] = title
-    if title is not None:
-        none = False
-
-    if none:
+    if len(result.keys()) == 0:
         logging.getLogger(__name__).warning(
             f"Fetching title for {ds_iri} from endpoint"
         )
         endpoint = "https://data.gov.cz/sparql"
         q = f"select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10"
         store = SPARQLStore(
-            endpoint, session=session, headers={"User-Agent": USER_AGENT}
+            endpoint, session=online_session, headers={"User-Agent": USER_AGENT}
         )
         graph = Graph(store=store)
         graph.open(endpoint)
@@ -316,33 +310,29 @@ def query_label(ds_iri):
 
 
 def export_labels():
-    # key: label:{ds_iri}:{language}, ds_iri=https://
-    prefix = "label:"
-    out = defaultdict(dict)
-    red = redis.Redis(connection_pool=redis_pool)
-    for label_key in red.keys(f"{prefix}*"):
-        if ":" in label_key[len(prefix) :]:
-            (ds_iri, language_code) = label_key[len(prefix) :].split(":")
-        else:
-            language_code = "default"
-            ds_iri = label_key[len(prefix) :]
-        out[sanitize_label_iri_for_mongo(ds_iri)][
-            sanitize_label_iri_for_mongo(language_code)
-        ] = red.get(label_key)
+    out = defaultdict(defaultdict(set))
+    with Session(db) as session:
+        stmt = select(Label)
+        for label in session.scalars(stmt):
+            out[sanitize_label_iri_for_mongo(label.iri)][sanitize_label_iri_for_mongo(label.language_code)].add(label.label)
     return out
 
 
 def import_labels(labels):
-    red = redis.Redis(connection_pool=redis_pool)
-    with red.pipeline() as pipe:
+    with Session(db) as session:
         for ds_iri in labels.keys():
             for language_code in labels[ds_iri].keys():
-                if language_code == "default":
-                    key = f"label:{ds_iri}"
-                else:
-                    key = f"label:{ds_iri}:{language_code}"
-                pipe.set(key, labels[ds_iri][language_code])
-        pipe.execute()
+                for value in labels[ds_iri][language_code]:
+                    lang = language_code
+                    if lang == 'default':
+                        lang = None
+                    label = Label(
+                        iri = ds_iri,
+                        language_code = lang,
+                        label = value
+                    )
+                    session.add(label)
+        session.commit()
 
 
 def export_related():

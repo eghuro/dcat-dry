@@ -1,26 +1,20 @@
 """Dataset analyzer."""
 
 import logging
-import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Callable, DefaultDict, Generator, Optional, Tuple
+from typing import Any, DefaultDict, Generator, Optional, Tuple
 
 import rdflib
-import redis
 from rdflib import RDF, Graph
 from rdflib.exceptions import ParserError
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from tsa.extensions import (
-    concept_index,
-    ddr_index,
-    dsd_index,
-    redis_pool,
-    same_as_index,
-)
-from tsa.redis import description as desc_query
-from tsa.redis import label as label_query
-from tsa.redis import resource_type
+from tsa.extensions import db
+from tsa.ddr import concept_index, dsd_index
+from tsa.sameas import same_as_index
+from tsa.model import ddr_index, Label
 from tsa.util import check_iri
 
 
@@ -467,39 +461,29 @@ class GenericAnalyzer(AbstractAnalyzer):
         OPTIONAL { ?x <http://www.w3.org/2000/01/rdf-schema#comment> ?description }
         }
         """
-        red = redis.Redis(connection_pool=redis_pool)
-
-        try:
-            for row in graph.query(query):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
-                iri = str(row["x"])
-                if check_iri(iri):
-                    self._extract_detail(row, iri, red)
-        except ParserError:
-            logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
+        with Session(db) as session:
+            try:
+                for row in graph.query(query):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
+                    iri = str(row["x"])
+                    if check_iri(iri):
+                        self._extract_detail(row, iri, session)
+            except ParserError:
+                logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
+            session.commit()
 
     def _extract_detail(
-        self, row: rdflib.query.ResultRow, iri: str, red: redis.client.Redis
+        self, row: rdflib.query.ResultRow, iri: str, session: Session
     ) -> None:
-        with red.pipeline() as pipe:
-            self.extract_label(row["label"], iri, pipe, label_query)
-            self.extract_label(row["description"], iri, pipe, desc_query)
-
-            type_of_iri = row["type"]
-            if type_of_iri is not None:
-                key = resource_type(iri)
-                pipe.sadd(key, type_of_iri)
-            pipe.execute()
+        self.extract_label(row["label"], iri, session)
+        #self.extract_label(row["description"], iri, session)
 
     @staticmethod
-    def extract_label(
-        literal: Any, iri: str, pipe: redis.client.Pipeline, query: Callable
-    ) -> None:
+    def extract_label(literal: Any, iri: str, session: Session) -> None:
         if literal is None:
             return
         try:
             value, language = literal.value, literal.language
-            key = query(iri, language)
-            pipe.set(key, value)
+            session.add(Label(iri=iri, language_code=language, label=value))
         except AttributeError:
             log = logging.getLogger(__name__)
             log.exception(f"Failed to parse extract label for {iri}")

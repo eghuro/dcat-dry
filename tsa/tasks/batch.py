@@ -7,12 +7,15 @@ from celery import group
 from rdflib import Namespace
 from rdflib.namespace import RDF
 from requests.exceptions import HTTPError
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.endpoint import SparqlEndpointAnalyzer
+from tsa.extensions import db
+from tsa.model import DatasetDistribution, DatasetEndpoint
 from tsa.monitor import TimedBlock, monitor
-from tsa.redis import dataset_endpoint, ds_distr
 from tsa.settings import Config
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter_iri, process, process_priority
@@ -97,9 +100,8 @@ def _dcat_extractor(g, red, log, force, graph_iri):
     log.debug(f"Extracting distributions from {graph_iri}")
     # DCAT dataset
     with TimedBlock("dcat_extractor"):
-        dsdistr, distrds = ds_distr()
-        distribution = False
-        with red.pipeline() as pipe:
+        with Session(db) as session:
+            distribution = False
             for ds in g.subjects(RDF.type, dcat.Dataset):
                 log.debug(f"DS: {ds!s}")
                 effective_ds = ds
@@ -127,7 +129,6 @@ def _dcat_extractor(g, red, log, force, graph_iri):
 
                     # download URL to files
                     downloads = []
-                    endpoints = set()
                     for download_url in g.objects(d, dcat.downloadURL):
                         # log.debug(f'Down: {download_url!s}')
                         url = str(download_url)
@@ -144,11 +145,10 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                                     f"Distribution {url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})"
                                 )
                                 if url.endswith("trig"):
-                                    distributions_priority.append(download_url)
+                                    distributions_priority.append(url)
                                 else:
-                                    queue.append(download_url)
-                                pipe.sadd(f"{dsdistr}:{str(effective_ds)}", url)
-                                pipe.sadd(f"{distrds}:{url}", str(effective_ds))
+                                    queue.append(url)
+                                session.add(DatasetDistribution(ds=effective_ds, distr=url))
                             else:
                                 log.debug(f"Skipping {url} due to filter")
                         else:
@@ -162,15 +162,8 @@ def _dcat_extractor(g, red, log, force, graph_iri):
                                 log.debug(
                                     f"Endpoint {endpoint!s} from DCAT dataset {ds!s}"
                                 )
-                                endpoints.add(endpoint)
-
-                    for endpoint in endpoints:
-                        pipe.sadd(dataset_endpoint(str(effective_ds)), endpoint)
-
-                    if not downloads and endpoints:
-                        log.warning(f"Only endpoint without distribution for {ds!s}")
-
-            pipe.execute()
+                                session.add(DatasetEndpoint(ds=effective_ds, endpoint=str(endpoint)))
+            session.commit()
         # TODO: possibly scan for service description as well
         if distribution:
             GenericAnalyzer().get_details(g)  # extrakce labelu - heavy!

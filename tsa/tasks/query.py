@@ -7,14 +7,10 @@ from json import JSONEncoder
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
 from tsa.celery import celery
-from tsa.extensions import (
-    concept_index,
-    ddr_index,
-    dsd_index,
-    mongo_db,
-    redis_pool,
-    same_as_index,
-)
+from tsa.ddr import concept_index, dsd_index
+from tsa.model import ddr_index
+from tsa.extensions import mongo_db, redis_pool
+from tsa.sameas import same_as_index
 from tsa.notification import message_to_mattermost
 from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, ds_distr, pure_subject
 from tsa.redis import related as related_key
@@ -254,6 +250,7 @@ def report_relationship(red, rel_type, resource_iri, distr_iri):
 def concept_usage():
     log = logging.getLogger(__name__)
     log.info("Concept usage")
+    raise ValueError()  # dsdistr
     dsdistr, _ = ds_distr()
     counter = 0
     red = redis.Redis(connection_pool=redis_pool)
@@ -298,6 +295,7 @@ def concept_usage():
 def concept_definition():
     count = 0
     dsdistr, _ = ds_distr()
+    raise ValueError()  # dsdistr
     log = logging.getLogger(__name__)
     log.info("Find datasets with information about concepts (codelists)")
     red = redis.Redis(connection_pool=redis_pool)
@@ -322,6 +320,7 @@ def concept_definition():
 @celery.task(ignore_result=True)
 def cross_dataset_sameas():
     dsdistr, _ = ds_distr()
+    raise ValueError()  # dsdistr
     red = redis.Redis(connection_pool=redis_pool)
     for generic in iter_generic(mongo_db):
         ds_iri = generic["ds_iri"]

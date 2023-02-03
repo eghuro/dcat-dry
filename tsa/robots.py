@@ -8,7 +8,7 @@ import redis
 import requests
 import requests_toolbelt
 from requests_cache import CachedSession
-from requests_cache.backends.redis import RedisCache
+from requests_cache.backends.filesystem import FileCache
 
 import tsa
 from tsa.extensions import redis_pool
@@ -27,10 +27,7 @@ USER_AGENT = requests_toolbelt.user_agent(
     "DCAT DRY", tsa.__version__, extras=[("requests", requests.__version__)]
 )
 
-try:
-    session = CachedSession('dry_dereference', backend=RedisCache(connection_pool=redis.ConnectionPool().from_url(os.environ['REDIS'])), expire_after=3600, cache_control=True, allowable_codes=[200, 400, 404], stale_if_error=True)
-except redis.exceptions.ConnectionError:
-    session = requests.Session()
+session = CachedSession('dry_dereference', backend=FileCache(use_temp=True), expire_after=3600, cache_control=True, allowable_codes=[200, 400, 404], stale_if_error=True)
 session.headers.update({"User-Agent": USER_AGENT})
 adapter = requests.adapters.HTTPAdapter(
     pool_connections=1000, pool_maxsize=(soft - 10), max_retries=3, pool_block=True

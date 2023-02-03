@@ -2,15 +2,19 @@ import logging
 from io import BytesIO
 from random import randint
 from typing import Tuple
+from datetime import datetime, timedelta
 
 import requests
 import urllib3
-
 import rdflib
 import redis
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from tsa.extensions import db
+from tsa.model import RobotsDelay
 from tsa.monitor import monitor
 from tsa.redis import MAX_CONTENT_LENGTH
-from tsa.redis import delay as delay_key
 from tsa.robots import USER_AGENT
 from tsa.robots import allowed as robots_allowed
 from tsa.robots import session
@@ -59,15 +63,20 @@ def clear_cache(wait: int, log: logging.Logger) -> None:
 def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
     """Fetch the distribution. Mind robots.txt."""
     is_allowed, delay, robots_url = robots_allowed(iri)
-    key = delay_key(robots_url)
     if not is_allowed:
         log.warn(f"Not allowed to fetch {iri!s} as {USER_AGENT!s}")
         raise Skip()
-    wait = red.ttl(key)
-    clear_cache(wait, log)
-    if wait > 0:
-        log.info(f"Analyze {iri} in {wait} because of crawl-delay")
-        raise RobotsRetry(wait)
+    with Session(db) as session:
+        for delay in session.query(RobotsDelay).filter_by(robots_url):
+            wait = (delay.expiration - datetime.now()).seconds
+            clear_cache(wait, log)
+            if wait > 0:
+                log.info(f"Analyze {iri} in {wait} because of crawl-delay")
+                raise RobotsRetry(wait)
+            else:
+                session.delete(delay)
+            break
+        session.commit()
 
     timeout = 10800  # 3h
     # a guess for 100 KB/s on data that will still make it into redis (512 MB)
@@ -102,15 +111,13 @@ def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
     if delay is not None:
         log.info(f"Recording crawl-delay of {delay} for {iri}")
         try:
-            delay = int(delay)
+            with Session(db) as session:
+                session.add(RobotsDelay(iri=iri, expiration=datetime.now()+timedelta(seconds=int(delay))))
+                session.commit()
         except ValueError:
             log.error("Invalid delay value - could not convert to int")
-        else:
-            try:
-                red.set(key, 1)
-                red.expire(key, delay)
-            except redis.exceptions.ResponseError:
-                log.error(f"Failed to set crawl-delay for {iri}: {delay}")
+        except:
+            log.error(f"Failed to set crawl-delay for {iri}: {delay}")
     return request
 
 

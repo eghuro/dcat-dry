@@ -10,7 +10,8 @@ from flask.wrappers import Response
 import tsa
 from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
-from tsa.extensions import mongo_db, same_as_index, redis_pool
+from tsa.extensions import mongo_db, redis_pool
+from tsa.sameas import same_as_index
 from tsa.report import (
     export_interesting,
     export_labels,
@@ -201,6 +202,7 @@ def version():
 
 
 def record_distribution_dataset(iri, ds):
+    raise ValueError()
     dsdistr, distrds = ds_distr()
     red = redis.Redis(connection_pool=redis_pool)
     with red.pipeline() as pipe:

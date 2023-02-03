@@ -9,10 +9,12 @@ import requests
 import SPARQLWrapper
 from celery.app.task import Task
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
+from sqlalchemy.orm import Session
 
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
-from tsa.extensions import redis_pool
+from tsa.extensions import redis_pool, db
+from tsa.model import DatasetDistribution, DatasetEndpoint
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import (
     NoContent,
@@ -161,18 +163,16 @@ def dereference_from_endpoints(
     graph = rdflib.ConjunctiveGraph()
     log = logging.getLogger(__name__)
 
-    _, distrds = ds_distr()
-    for ds_iri_bytes in red.sscan_iter(f"{distrds}:{str(iri_distr)}"):
-        ds_iri = str(ds_iri_bytes)
-        log.debug("For %s we have the dataset %s", iri_distr, ds_iri)
-        endpoints = set(
-            str(endpoint_iri)
-            for endpoint_iri in red.sscan_iter(dataset_endpoint(ds_iri))
-        )  # type: Set[str]
-        endpoints.update(sanitize_list(Config.LOOKUP_ENDPOINTS))
-        for endpoint_iri in endpoints:
-            if check_iri(endpoint_iri):
-                graph += dereference_from_endpoint(iri, endpoint_iri)
+    with Session(db) as session:
+        for dd in session.query(DatasetDistribution).filter_by(distr=iri_distr):
+            ds_iri = dd.ds
+            log.debug("For %s we have the dataset %s", iri_distr, ds_iri)
+            endpoints = set(sanitize_list(Config.LOOKUP_ENDPOINTS))
+            for e in session.query(DatasetEndpoint).filter_by(ds=ds_iri):
+                endpoints.add(e.endpoint)
+            for endpoint_iri in endpoints:
+                if check_iri(endpoint_iri):
+                    graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
 
 
