@@ -26,9 +26,9 @@ from tsa.net import (
     test_content_length,
 )
 from tsa.notification import message_to_mattermost
-from tsa.redis import KeyRoot, dataset_endpoint
+from tsa.redis import KeyRoot
 from tsa.redis import dereference as dereference_key
-from tsa.redis import ds_distr, root_name
+from tsa.redis import root_name
 from tsa.robots import USER_AGENT, session
 from tsa.settings import Config
 from tsa.tasks.analyze import do_analyze_and_index, load_graph

@@ -34,5 +34,11 @@ class PureSubject(db.Model):
     distribution_iri = db.Column(db.String, nullable=False)
     subject_iri = db.Column(db.String, nullable=False)
 
+class Relationship(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String, nullable=False)
+    group = db.Column(db.String, nullable=False)
+    candidate = db.Column(db.String, nullable=False)
+
 ddr_index = DDR()
 

@@ -6,11 +6,12 @@ from collections import defaultdict
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 from flask.wrappers import Response
+from flask_rdf.flask import returns_rdf
+from sqlalchemy.orm import Session
 
 import tsa
-from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
-from tsa.extensions import mongo_db, redis_pool
+from tsa.extensions import mongo_db, redis_pool, db
 from tsa.sameas import same_as_index
 from tsa.report import (
     export_interesting,
@@ -20,10 +21,10 @@ from tsa.report import (
     list_datasets,
     query_dataset,
 )
+from tsa.model import DatasetDistribution
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.tasks.process import do_process
 from tsa.util import check_iri
-from tsa.redis import ds_distr
 from tsa.query import query
 
 blueprint = Blueprint("public", __name__, static_folder="../static")
@@ -202,13 +203,9 @@ def version():
 
 
 def record_distribution_dataset(iri, ds):
-    raise ValueError()
-    dsdistr, distrds = ds_distr()
-    red = redis.Redis(connection_pool=redis_pool)
-    with red.pipeline() as pipe:
-        pipe.sadd(f"{dsdistr}:{str(ds)}", iri)
-        pipe.sadd(f"{distrds}:{iri}", str(ds))
-        pipe.execute()
+    with Session(db) as session:
+        session.add(DatasetDistribution(ds=str(ds), distr=str(iri)))
+    session.commit()
 
 
 class FakeTask:

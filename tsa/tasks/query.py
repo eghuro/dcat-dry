@@ -6,14 +6,15 @@ from json import JSONEncoder
 
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
+from sqlalchemy.orm import Session
+
 from tsa.celery import celery
 from tsa.ddr import concept_index, dsd_index
-from tsa.model import ddr_index
-from tsa.extensions import mongo_db, redis_pool
+from tsa.model import ddr_index, DatasetDistribution, Relationship, PureSubject
+from tsa.extensions import mongo_db, redis_pool, db
 from tsa.sameas import same_as_index
 from tsa.notification import message_to_mattermost
-from tsa.redis import EXPIRATION_CACHED, EXPIRATION_TEMPORARY, ds_distr, pure_subject
-from tsa.redis import related as related_key
+from tsa.redis import EXPIRATION_CACHED
 from tsa.redis import sanitize_key
 from tsa.report import export_labels
 from tsa.ruian import RuianInspector
@@ -23,8 +24,8 @@ from tsa.ruian import RuianInspector
 
 def _gen_iris(red, log):
     root = "analyze:"
-    for key in red.scan_iter(match="distrds:*"):
-        distr_iri = key[len("distrds:") :]
+
+    for distr_iri in db.select(DatasetDistribution.distr).distinct():
         key1 = f"{root}{sanitize_key(distr_iri)}"
         analysis_json_string = red.get(key1)
         if analysis_json_string is None:
@@ -55,9 +56,8 @@ def compile_analyses():
     dataset_iris = set()
     for distr_iri, content in _gen_iris(red, log):
         log.debug(distr_iri)
-        ds_iris = red.smembers(f"distrds:{distr_iri}")
         key = f"analysis:{batch_id}:{sanitize_key(distr_iri)}"
-        for ds_iri in ds_iris:
+        for ds_iri in db.select(DatasetDistribution.ds).filter_by(distr=distr_iri).distinct():
             if ds_iri is None:
                 with red.pipeline() as pipe:
                     pipe.rpush(key, json.dumps(content))
@@ -67,12 +67,12 @@ def compile_analyses():
             with red.pipeline() as pipe:
                 pipe.rpush(key, json.dumps(content))
                 pipe.expire(key, EXPIRATION_CACHED)
-                key_1 = f"dsdistr:{ds_iri}"
-                pipe.sadd(key_1, distr_iri)
-                pipe.expire(key_1, EXPIRATION_TEMPORARY)
                 pipe.sadd("relevant_distr", distr_iri)
                 pipe.expire("relevant_distr", EXPIRATION_CACHED)
                 pipe.execute()
+            with Session(db) as session:
+                session.add(DatasetDistribution(ds=ds_iri, distr=distr_iri))
+                session.commit()
             dataset_iris.add(ds_iri)
 
     return list(dataset_iris), batch_id
@@ -82,7 +82,7 @@ def gen_analyses(batch_id, dataset_iris, red):
     log = logging.getLogger(__name__)
     log.info(f"Generate analyzes ({len(dataset_iris)})")
     for ds_iri in dataset_iris:
-        for distr_iri in red.smembers(f"dsdistr:{ds_iri}"):
+        for distr_iri in db.select(DatasetDistribution.distr).filter_by(ds=ds_iri).distinct():
             key_in = f"analysis:{batch_id}:{sanitize_key(distr_iri)}"
             for analyses_json in [
                 json.loads(analysis_json_string)
@@ -145,21 +145,19 @@ def gen_related_ds():
     interesting_datasets = set()
 
     for rel_type in reltypes:
-        root = related_key(rel_type, "*")[:-1]
-        for key in red.scan_iter(match=related_key(rel_type, "*")):
-            token = key[len(root) :].replace("_", ":", 1)  # common element
-            log.debug(f"root: {root}, key: {key}, token: {token}")
+        for token in db.select(Relationship.group).filter_by(type=rel_type).distinct():
+            log.debug(f"type: {rel_type}, token: {token}")
             related_dist = set()
             for sameas_iri in same_as_index.lookup(token):
-                related_dist.update(
-                    red.smembers(related_key(rel_type, sameas_iri))
-                )  # these are related by sameAs of token
+                for rel_dist in db.select(Relationship.candidate).filter_by(type=rel_type, group=sameas_iri):
+                    related_dist.add(rel_dist)
+                # these are related by sameAs of token
             all_related = set()
             for distr_iri in related_dist:
-                all_related.update(red.smembers(f"distrds:{distr_iri}"))
-            if (
-                len(all_related) > 1
-            ):  # do not consider sets on one candidate for conciseness
+                for ds in db.select(DatasetDistribution.ds).filter_by(dist=distr_iri):
+                    all_related.add(ds)
+            if (len(all_related) > 1):
+                # do not consider sets on one candidate for conciseness
                 related_ds.append(
                     {"iri": token, "related": list(all_related), "type": rel_type}
                 )
@@ -182,7 +180,7 @@ def gen_related_ds():
         logging.getLogger(__name__).exception("Failed to store related datasets")
 
     red.set("shouldQuery", 0)
-    message_to_mattermost("Done!")
+    # message_to_mattermost("Done!")
 
 
 @celery.task(ignore_result=True)
@@ -241,27 +239,24 @@ def ruian_reference():
     RuianInspector.process_references(ruian_references)
 
 
-def report_relationship(red, rel_type, resource_iri, distr_iri):
-    key = related_key(rel_type, resource_iri)
-    red.sadd(key, distr_iri)
+def report_relationship(session, rel_type, resource_iri, distr_iri):
+    session.add(Relationship(type=rel_type, group=resource_iri, candidate=distr_iri))
 
 
 @celery.task(ignore_result=True)
 def concept_usage():
     log = logging.getLogger(__name__)
     log.info("Concept usage")
-    raise ValueError()  # dsdistr
-    dsdistr, _ = ds_distr()
+
     counter = 0
-    red = redis.Redis(connection_pool=redis_pool)
     ddr_types = ddr_index.types()
     for doc in iter_generic(mongo_db):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         ds_iri = doc["ds_iri"]
-        distr_iri = red.srandmember(f"{dsdistr}:{ds_iri}")
+        distr_iri = db.select(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
 
         resource_iri_cache = set()
-        with red.pipeline() as pipe:
+        with Session(db) as session:
             for resource_iri in iter_subjects_objects(doc):
                 if resource_iri in resource_iri_cache:
                     continue
@@ -270,7 +265,7 @@ def concept_usage():
                 # indexuji T -> (a, b); mam jedno z (a, b)
                 if concept_index.is_concept(resource_iri):
                     # pouzit koncept (polozka ciselniku)
-                    report_relationship(pipe, "conceptUsage", resource_iri, distr_iri)
+                    report_relationship(session, "conceptUsage", resource_iri, distr_iri)
                     counter = counter + 1
 
                     for token in ddr_types:
@@ -280,13 +275,13 @@ def concept_usage():
                             ):
                                 # pouzit related concept
                                 report_relationship(
-                                    pipe,
+                                    session,
                                     "relatedConceptUsage",
                                     final_resource_iri,
                                     distr_iri,
                                 )
                                 counter = counter + 1
-            pipe.execute()
+            session.commit()
 
     log.info(f"Found relationships: {counter}")
 
@@ -294,47 +289,42 @@ def concept_usage():
 @celery.task(ignore_result=True)
 def concept_definition():
     count = 0
-    dsdistr, _ = ds_distr()
-    raise ValueError()  # dsdistr
     log = logging.getLogger(__name__)
     log.info("Find datasets with information about concepts (codelists)")
-    red = redis.Redis(connection_pool=redis_pool)
-    with red.pipeline() as pipe:
+    with Session(db) as session:
         for concept in concept_index.iter_concepts():
             for resource_iri in same_as_index.lookup(concept):
                 for doc in mongo_db.dsanalyses.find({"generic.subjects": resource_iri}):
                     ds_iri = doc["ds_iri"]
-                    distr_iri = red.srandmember(f"{dsdistr}:{ds_iri}")
+                    distr_iri = db.select(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
                     for rel_type in [
                         "conceptUsage",
                         "relatedConceptUsage",
                         "conceptOnDimension",
                         "relatedConceptOnDimension",
                     ]:
-                        report_relationship(pipe, rel_type, resource_iri, distr_iri)
+                        report_relationship(session, rel_type, resource_iri, distr_iri)
                         count = count + 1
-        pipe.execute()
+        session.commit()
     log.info(f"Found {count} relationship candidates")
 
 
 @celery.task(ignore_result=True)
 def cross_dataset_sameas():
-    dsdistr, _ = ds_distr()
-    raise ValueError()  # dsdistr
-    # pure_subject -> select PureSubject with respective distribution iri
-    red = redis.Redis(connection_pool=redis_pool)
-    for generic in iter_generic(mongo_db):
-        ds_iri = generic["ds_iri"]
-        for distr_iri in red.sscan_iter(f"{dsdistr}:{ds_iri}"):
-            for resource in red.lrange(pure_subject(distr_iri), 0, -1):
-                for iri in same_as_index.lookup(resource):
-                    report_relationship(red, "crossSameas", iri, distr_iri)
+    with Session(db) as session:
+        # pure_subject -> select PureSubject with respective distribution iri
+        for generic in iter_generic(mongo_db):
+            ds_iri = generic["ds_iri"]
+            for distr_iri in db.select(DatasetDistribution.distr).filter_by(ds=ds_iri).distinct():
+                for resource in db.select(PureSubject.subject_iri).filter_by(distribution_iri=distr_iri).distinct():
+                    for iri in same_as_index.lookup(resource):
+                        report_relationship(session, "crossSameas", iri, distr_iri)
+        session.commit()
 
 
 @celery.task(ignore_result=True)
 def data_driven_relationships():
     log = logging.getLogger(__name__)
-    red = redis.Redis(connection_pool=redis_pool)
     log.info("Data driven relationships")
     # projet z DSD vsechny dimenze a miry, zda to neni concept
     rel_types = ddr_index.types()
@@ -366,10 +356,10 @@ def data_driven_relationships():
                 report.append(("conceptOnDimension", resource_iri, distr_iri))
             report.append(("resourceOnDimension", resource_iri, distr_iri))
     log.info(f"Report {len(report)} relationship candidates")
-    with red.pipeline() as pipe:
+    with Session(db) as session:
         for (rel_type, resource_iri, distr_iri) in report:
-            report_relationship(pipe, rel_type, resource_iri, distr_iri)
-        pipe.execute()
+            report_relationship(session, rel_type, resource_iri, distr_iri)
+        session.commit()
 
 
 # ## MISC ###

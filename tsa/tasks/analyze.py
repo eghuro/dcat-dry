@@ -6,12 +6,14 @@ from typing import List
 
 import rdflib
 import redis
-
 from pyld import jsonld
+from sqlalchemy.orm import Session
+
 from tsa.analyzer import AbstractAnalyzer
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
-from tsa.redis import related as related_key
+from tsa.extensions import db
+from tsa.model import Relationship
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
@@ -121,17 +123,16 @@ def analyze_and_index_one(
                     iri
                 )  # this is so that we sadd whole list in one call
 
-        log.debug("Storing relations in redis")
+        log.debug("Storing relations in sqlite")
 
-        for item in iris_found.items():
-            with red.pipeline() as pipe:
+        with Session(db) as session:
+            for item in iris_found.items():
                 (rel_type, key) = item[0]
                 iris = item[1]
                 log.debug("Addding %s items into set", str(len(iris)))
-
-                key = related_key(rel_type, key)
-                pipe.sadd(key, *iris)
-                pipe.execute()
+                for iri in iris:
+                    session.add(Relationship(type=rel_type, group=key, candidate=iri))
+            session.commit()
     except TypeError:
         log.debug("Skip %s for %s", analyzer_class.token, iri)
 
