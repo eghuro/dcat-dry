@@ -190,7 +190,7 @@ def dereference_one_impl(
         raise FailedDereference()
     monitor.log_dereference_request()
     try:
-        response = fetch(iri_to_dereference, log, red)
+        response = fetch(iri_to_dereference, log)
         test_content_length(iri_to_dereference, response, log)
         guess, _ = guess_format(iri_to_dereference, response, log)
         content = get_content(iri_to_dereference, response)
@@ -365,7 +365,7 @@ def do_fetch(
     try:
         _filter(iri, is_prio, force, log, red)
         log.info("Processing %s", iri)
-        response = fetch(iri, log, red)
+        response = fetch(iri, log)
         test_content_length(iri, response, log)
         guess, priority = guess_format(iri, response, log)
         if not is_prio and priority:

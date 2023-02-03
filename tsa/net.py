@@ -60,7 +60,7 @@ def clear_cache(wait: int, log: logging.Logger) -> None:
             log.exception("Failed to clean expired responses from cache")
 
 
-def fetch(iri: str, log: logging.Logger, red: redis.Redis) -> requests.Response:
+def fetch(iri: str, log: logging.Logger) -> requests.Response:
     """Fetch the distribution. Mind robots.txt."""
     is_allowed, delay, robots_url = robots_allowed(iri)
     if not is_allowed:
