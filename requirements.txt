@@ -1,4 +1,5 @@
 ## The following requirements were added by pip freeze:
+alembic==1.9.2
 amqp==5.1.1
 appdirs==1.4.4
 async-timeout==4.0.2
@@ -38,6 +39,7 @@ kombu==5.2.4
 libarchive-c==4.0
 logzio-python-handler==4.0.0
 lxml==4.9.2
+Mako==1.2.4
 MarkupSafe==2.1.2
 opentelemetry-api==1.15.0
 opentelemetry-instrumentation==0.32b0
