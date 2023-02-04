@@ -3,6 +3,7 @@ import logging
 import sys
 from typing import Generator, List, Optional, Set, Tuple
 
+import marisa_trie
 import rdflib
 import redis
 import requests
@@ -34,6 +35,10 @@ from tsa.tasks.common import TrackableTask
 from tsa.util import check_iri
 
 
+trie = None
+with open(Config.EXCLUDE_PREFIX_LIST, 'r') as f:
+    trie = marisa_trie.Trie(f.readlines())
+
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
 # Time limit on process priority is to ensure we will do postprocessing after a while
@@ -59,6 +64,8 @@ def process(self, iri, force):
 
 
 def filter_iri(iri):
+    if len(trie.prefixes(iri)) > 0:
+        return True
     return (
         iri.endswith("csv.zip")
         or iri.endswith("csv")
@@ -67,30 +74,6 @@ def filter_iri(iri):
         or iri.endswith("docx")
         or iri.endswith("xlsx")
         or iri.endswith("pdf")
-        or (iri.startswith("https://isdv.upv.cz") and iri.endswith("zip"))
-        or iri.startswith("http://geoportal.gov.cz")
-        or iri.startswith("https://gis.brno.cz")
-        or (
-            (
-                iri.startswith("http://vdp.cuzk.cz")
-                or iri.startswith("https://vdp.cuzk.cz")
-            )
-            and (iri.endswith("xml.zip") or iri.endswith("xml"))
-        )
-        or (
-            (
-                iri.startswith("http://dataor.justice.cz")
-                or iri.startswith("https://dataor.justice.cz")
-            )
-            and (iri.endswith("xml") or iri.endswith("xml.gz"))
-        )
-        or iri.startswith("https://apl.czso.cz/iSMS/cisexp.jsp")
-        or iri.startswith("https://eagri.cz")
-        or iri.startswith("https://gis.nature.cz/arcgis/")
-        or iri.startswith("https://gis-aopkcr.opendata.arcgis.com/datasets/")
-        or iri.startswith("https://volby.cz/pls/")
-        or iri.startswith("http://services.cuzk.cz/")
-        or iri.startswith("https://services.cuzk.cz/")
     )
 
 

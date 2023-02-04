@@ -29,6 +29,7 @@ kombu==5.2.4
 libarchive-c==4.0
 logzio-python-handler==4.0.0
 lxml==4.9.2
+marisa-trie==0.7.8
 MarkupSafe==2.1.2
 prompt-toolkit==3.0.36
 pyld==2.0.3

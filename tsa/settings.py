@@ -20,15 +20,19 @@ class Config:
     LOOKUP_ENDPOINTS = [
         os.environ.get("ENDPOINT", None),
         "https://linked.cuzk.cz.opendata.cz/sparql",
+        "https://data.mpsv.cz/sparql",
+        "https://data.gov.cz/sparql",
+        "https://rpp-opendata.egon.gov.cz/odrpp/sparql"
     ]
     ANALYZE_IMMEDIATELY = True
     SD_BASE_IRI = "https://data.eghuro.cz/resource/"
+    EXCLUDE_PREFIX_LIST = '/tmp/exclude.txt'
     MAX_RECURSION_LEVEL = 3
     MATTERMOST_CHANNEL = os.environ.get("CHANNEL", None)
     MATTERMOST_HOOK = os.environ.get("MATTERMOST", None)
     COMPRESSED = False
-    LIMITED = True
-    ROBOTS = False
+    LIMITED = False
+    ROBOTS = True
 
 
 class ProdConfig(Config):
