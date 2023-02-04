@@ -15,6 +15,14 @@ from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
 from tsa.extensions import db
 from tsa.model import Relationship
+from tsa.net import fetch, get_content
+
+
+def dereference_remote_context(iri: str) -> dict:
+    log = logging.getLogger(__name__)
+    response = fetch(iri, log)
+    content = get_content(iri, response)
+    return json.loads(content)["@context"]
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
@@ -23,6 +31,10 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     try:
         json_data = json.loads(data)
         options = {}
+        if "@context" in json_data and isinstance(json_data["@context"], str):
+            if json_data["@context"].startswith('http'):
+                logging.getLogger(__name__).info("Fetch remote context %s", json_data["@context"])
+                json_data["@context"] = dereference_remote_context(json_data["@context"])
         if "@context" in json_data and "@base" in json_data["@context"]:
             options["base"] = json_data["@context"]["@base"]
         expanded = jsonld.expand(json_data, options=options)

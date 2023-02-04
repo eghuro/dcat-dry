@@ -46,8 +46,8 @@ class ConceptIndex:
         try:
             db_session.add(Concept(iri=iri))
             db_session.commit()
-        except:
-            pass
+        except PendingRollbackError:
+            db_session.rollback()
 
     def is_concept(self, iri: str) -> bool:
         for _ in db_session.query(Concept).filter_by(iri=iri):

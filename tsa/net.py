@@ -159,6 +159,8 @@ def guess_format(
     monitor.log_format(str(guess))
     if "xml" in guess:
         guess = "xml"
+    if "json" in guess:
+        guess = "application/ld+json"
     log.debug(f"Guessing format to be {guess!s}")
 
     priority = set(
