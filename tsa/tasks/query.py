@@ -28,7 +28,7 @@ def _gen_iris(red, log):
     root = "analyze:"
 
     for d in db_session.query(DatasetDistribution):
-        distr_iri = d.distr_iri
+        distr_iri = d.distr
         key1 = f"{root}{sanitize_key(distr_iri)}"
         analysis_json_string = red.get(key1)
         if analysis_json_string is None:
