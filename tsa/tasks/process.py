@@ -191,7 +191,7 @@ def dereference_one_impl(
     monitor.log_dereference_request()
     try:
         response = fetch(iri_to_dereference, log)
-        test_content_length(iri_to_dereference, response, log)
+        # test_content_length(iri_to_dereference, response, log)
         guess, _ = guess_format(iri_to_dereference, response, log)
         content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
@@ -364,7 +364,7 @@ def do_fetch(
         _filter(iri, is_prio, force, log, red)
         log.info("Processing %s", iri)
         response = fetch(iri, log)
-        test_content_length(iri, response, log)
+        # test_content_length(iri, response, log)
         guess, priority = guess_format(iri, response, log)
         if not is_prio and priority:
             log.warn("Distribution is not in a priority channel: %s", iri)
