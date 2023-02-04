@@ -8,8 +8,6 @@ from typing import Any, DefaultDict, Generator, Optional, Tuple
 import rdflib
 from rdflib import RDF, Graph
 from rdflib.exceptions import ParserError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from tsa.extensions import db
 from tsa.db import db_session

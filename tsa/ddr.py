@@ -4,7 +4,7 @@ from typing import Dict, Generator, List, Tuple
 import redis
 import rfc3987
 from redis import ConnectionPool
-from sqlalchemy.exc import PendingRollbackError
+from sqlalchemy.exc import PendingRollbackError, IntegrityError
 
 from tsa.db import db_session
 from tsa.model import DDR, Concept
@@ -27,6 +27,8 @@ class DataDrivenRelationshipIndex:
             db_session.commit()
         except PendingRollbackError:
             db_session.rollback()
+        except IntegrityError:
+            db_session.rollback()
 
     def types(self) -> Generator[str, None, None]:
         for type in db_session.query(DDR.relationship_type).distinct():
@@ -47,6 +49,8 @@ class ConceptIndex:
             db_session.add(Concept(iri=iri))
             db_session.commit()
         except PendingRollbackError:
+            db_session.rollback()
+        except IntegrityError:
             db_session.rollback()
 
     def is_concept(self, iri: str) -> bool:
