@@ -7,7 +7,7 @@ from typing import List
 import rdflib
 import redis
 from pyld import jsonld
-from sqlalchemy.orm import Session
+from requests.exceptions import HTTPError, RequestException
 
 from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
@@ -45,6 +45,9 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
         else:
             expanded_data = "**ERROR**, data was: " + str(data)
         logging.getLogger(__name__).warning("Failed to parse expanded JSON-LD, falling back, expanded graph was: %s", expanded_data)
+        g.parse(data=data, format="json-ld")
+    except (HTTPError, RequestException):
+        logging.getLogger(__name__).warning("HTTP Error expanding JSON-LD, falling back")
         g.parse(data=data, format="json-ld")
     return g
 

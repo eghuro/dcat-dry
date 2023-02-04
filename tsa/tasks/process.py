@@ -210,9 +210,9 @@ def dereference_one_impl(
             iri_to_dereference,
         )
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
-    except requests.exceptions.HTTPError:
+    except (requests.exceptions.HTTPError, UnicodeError):
         log.debug(
-            "HTTP Error dereferencing, will lookup in endpoint: %s", iri_to_dereference
+            "HTTP Error dereferencing, will lookup in endpoints: %s", iri_to_dereference
         )
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
     except requests.exceptions.RequestException:
@@ -221,6 +221,9 @@ def dereference_one_impl(
         )
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
     except (Skip, NoContent):
+        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+    except:
+        log.exception("Unknown error dereferencing, will lookup in endpoints: %s", iri_to_dereference)
         return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
 
 
@@ -427,6 +430,8 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     except rdflib.exceptions.ParserError as err:
         log.warning("Failed to parse %s - likely not an RDF: %s", iri, str(err))
         monitor.log_processed()
+    except RobotsRetry as err:
+        task.retry(countdown=err.delay)
     except:
         exc = sys.exc_info()[1]
         log.exception("Failed to get %s: %s", iri, str(exc))
