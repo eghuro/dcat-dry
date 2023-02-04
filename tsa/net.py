@@ -160,7 +160,7 @@ def guess_format(
     if "xml" in guess:
         guess = "xml"
     if "json" in guess:
-        guess = "application/ld+json"
+        guess = "json-ld"
     log.debug(f"Guessing format to be {guess!s}")
 
     priority = set(
