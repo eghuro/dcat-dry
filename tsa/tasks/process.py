@@ -1,4 +1,5 @@
 """Celery tasks for running analyses."""
+import os
 import logging
 import sys
 from typing import Generator, List, Optional, Set, Tuple
@@ -156,7 +157,7 @@ def sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
 
 
 def dereference_from_endpoints(
-    iri: str, iri_distr: str, red: redis.Redis
+    iri: str, iri_distr: str
 ) -> rdflib.ConjunctiveGraph:
     if not check_iri(iri):
         return None
@@ -164,15 +165,23 @@ def dereference_from_endpoints(
     graph = rdflib.ConjunctiveGraph()
     log = logging.getLogger(__name__)
 
+    endpoints = set()
+    if "ENDPOINT" in os.environ.keys():
+        endpoints.add(os.environ["ENDPOINT"])
+    for e in endpoints_cfg[1:]:
+        # filter only relevant endpoint(s)
+        prefix = e[0:-7]  # remove /sparql
+        if iri.startswith(prefix):
+            endpoints.add(e)
     for dd in db_session.query(DatasetDistribution).filter_by(distr=iri_distr):
         ds_iri = dd.ds
         log.debug("For %s we have the dataset %s", iri_distr, ds_iri)
-        endpoints = set(sanitize_list(Config.LOOKUP_ENDPOINTS))
+        endpoints_cfg = sanitize_list(Config.LOOKUP_ENDPOINTS)
         for e in db_session.query(DatasetEndpoint).filter_by(ds=ds_iri):
             endpoints.add(e.endpoint)
-        for endpoint_iri in endpoints:
-            if check_iri(endpoint_iri):
-                graph += dereference_from_endpoint(iri, endpoint_iri)
+    for endpoint_iri in endpoints:
+        if check_iri(endpoint_iri):
+            graph += dereference_from_endpoint(iri, endpoint_iri)
     return graph
 
 
@@ -202,29 +211,29 @@ def dereference_one_impl(
             "Loaded empty graph or none, will lookup in endpoint: %s",
             iri_to_dereference,
         )
-        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except RobotsRetry as err:
         log.warning(
             "Should retry with delay of %s, will lookup in endpoint: %s",
             str(err.delay),
             iri_to_dereference,
         )
-        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except (requests.exceptions.HTTPError, UnicodeError):
         log.debug(
             "HTTP Error dereferencing, will lookup in endpoints: %s", iri_to_dereference
         )
-        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except requests.exceptions.RequestException:
         log.debug(
             "Failed to dereference (RequestException fetching): %s", iri_to_dereference
         )
-        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except (Skip, NoContent):
-        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except:
         log.exception("Unknown error dereferencing, will lookup in endpoints: %s", iri_to_dereference)
-        return dereference_from_endpoints(iri_to_dereference, iri_distr, red)
+        return dereference_from_endpoints(iri_to_dereference, iri_distr)
 
 
 def has_same_as(graph: rdflib.Graph) -> bool:
