@@ -168,6 +168,7 @@ def dereference_from_endpoints(
     endpoints = set()
     if "ENDPOINT" in os.environ.keys():
         endpoints.add(os.environ["ENDPOINT"])
+    endpoints_cfg = [x for x in sanitize_list(Config.LOOKUP_ENDPOINTS)]
     for e in endpoints_cfg[1:]:
         # filter only relevant endpoint(s)
         prefix = e[0:-7]  # remove /sparql
@@ -176,7 +177,7 @@ def dereference_from_endpoints(
     for dd in db_session.query(DatasetDistribution).filter_by(distr=iri_distr):
         ds_iri = dd.ds
         log.debug("For %s we have the dataset %s", iri_distr, ds_iri)
-        endpoints_cfg = sanitize_list(Config.LOOKUP_ENDPOINTS)
+
         for e in db_session.query(DatasetEndpoint).filter_by(ds=ds_iri):
             endpoints.add(e.endpoint)
     for endpoint_iri in endpoints:
