@@ -67,14 +67,14 @@ def fetch(iri: str, log: logging.Logger) -> requests.Response:
     if not is_allowed:
         log.warn(f"Not allowed to fetch {iri!s} as {USER_AGENT!s}")
         raise Skip()
-    for delay in db_session.query(RobotsDelay).filter_by(iri=robots_url):
-        wait = (delay.expiration - datetime.now()).seconds
+    for d in db_session.query(RobotsDelay).filter_by(iri=robots_url):
+        wait = (d.expiration - datetime.now()).seconds
         clear_cache(wait, log)
         if wait > 0:
             log.info(f"Analyze {iri} in {wait} because of crawl-delay")
             raise RobotsRetry(wait)
         else:
-            db_session.delete(delay)
+            db_session.delete(d)
         break
     db_session.commit()
 

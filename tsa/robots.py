@@ -14,13 +14,8 @@ import tsa
 from tsa.extensions import redis_pool
 from tsa.settings import Config
 
-if Config.ROBOTS:
-    try:
-        from reppy.robots import Robots
-    except ImportError:
-        from tsa.mocks import Robots  # type: ignore
-else:
-    from tsa.mocks import Robots  # type: ignore
+from reppy import Utility
+from reppy.parser import Rules
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent(
@@ -35,15 +30,15 @@ adapter = requests.adapters.HTTPAdapter(
 session.mount("http://", adapter)
 session.mount("https://", adapter)
 
-
 def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
-    robots_iri = Robots.robots_url(iri)
-
+    if not Config.ROBOTS:
+        return True, None, None
+    robots_iri = Utility.roboturl(iri)
     text = fetch_robots(robots_iri)
     if text is None:
         return True, None, robots_iri
-    robots = Robots.parse("", text)
-    return robots.allowed(iri, USER_AGENT), robots.agent(USER_AGENT).delay, robots_iri
+    robots = Rules(robots_iri, 200, text, None)
+    return robots.allowed(iri, USER_AGENT), robots.delay(USER_AGENT), robots_iri
 
 
 @lru_cache()
