@@ -29,6 +29,12 @@ def upgrade() -> None:
     sa.Column('relevant', sa.Boolean, nullable=True, default=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('datacube',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('iri', sa.String(), nullable=False),
+    sa.Column('rod', sa.String(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('dataset_endpoint',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('ds', sa.String(), nullable=False),

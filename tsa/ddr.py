@@ -1,14 +1,11 @@
 import logging
 from typing import Dict, Generator, List, Tuple
 
-import redis
 import rfc3987
-from redis import ConnectionPool
 from sqlalchemy.exc import PendingRollbackError, IntegrityError
 
 from tsa.db import db_session
-from tsa.model import DDR, Concept
-from tsa.extensions import db, redis_pool
+from tsa.model import DDR, Concept, Datacube
 
 
 class DataDrivenRelationshipIndex:
@@ -64,25 +61,17 @@ class ConceptIndex:
 
 
 class DataCubeDefinitionIndex:
-    def __init__(self, redis_pool: ConnectionPool):
-        self.__red = redis.Redis(connection_pool=redis_pool)
-
     def index(self, dsd: List[Dict], iri: str) -> None:
         # momentalne si jen ulozime resources na dimenzi
-        with self.__red.pipeline() as pipe:
-            # pipe.sadd('dsd:rod', iri)
-            for dataset in dsd:
-                for dimension in dataset["dimensions"]:
-                    if len(dimension["resources"]) > 0:
-                        pipe.sadd(f"dsd:rod:{iri}", *dimension["resources"])
-            pipe.execute()
+        for dataset in dsd:
+            for dimension in dataset["dimensions"]:
+                for rod in dimension["resources"]:
+                    db_session.add(Datacube(iri=iri, rod=rod))
+        db_session.commit()
 
     def resources_on_dimension(self) -> Generator[Tuple[str, str], None, None]:
-        #         for key in self.__red.smembers(match=f'dsd:rod'):
-        for key in self.__red.scan_iter(match="dsd:rod:*"):
-            iri = str(key)[8:]
-            for rod in self.__red.sscan_iter(f"dsd:rod:{iri}"):
-                yield str(rod), iri
+        for dq in db_session.query(Datacube):
+            yield dq.rod, dq.iri
 
 concept_index = ConceptIndex()
-dsd_index = DataCubeDefinitionIndex(redis_pool)
+dsd_index = DataCubeDefinitionIndex()

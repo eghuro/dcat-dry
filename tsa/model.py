@@ -34,6 +34,12 @@ class DatasetDistribution(Base):
     distr = db.Column(db.String, nullable=False)
     relevant = db.Column(db.Boolean, nullable=True, default=False)
 
+class Datacube(Base):
+    __tablename__ = 'datacube'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    iri = db.Column(db.String, nullable=False)
+    rod = db.Column(db.String, nullable=False)
+
 class DatasetEndpoint(Base):
     __tablename__ = 'dataset_endpoint'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
