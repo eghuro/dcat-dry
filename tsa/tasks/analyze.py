@@ -113,8 +113,6 @@ def analyze_and_index_one(
     analyses, analyzer, analyzer_class, graph, iri, log, red
 ) -> None:
     log.info("Analyzing %s with %s", iri, analyzer_class.token)
-    log.info(graph.serialize(format="n3"))
-
     with TimedBlock(f"analyze.{analyzer_class.token}"):
         res = analyzer.analyze(graph, iri)
     log.info(
