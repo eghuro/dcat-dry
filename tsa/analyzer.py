@@ -9,7 +9,6 @@ import rdflib
 from rdflib import RDF, Graph
 from rdflib.exceptions import ParserError
 
-from tsa.extensions import db
 from tsa.db import db_session
 from tsa.ddr import concept_index, dsd_index, ddr_index
 from tsa.sameas import same_as_index

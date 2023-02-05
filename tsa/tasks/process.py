@@ -11,12 +11,11 @@ import requests
 import SPARQLWrapper
 from celery.app.task import Task
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
-from sqlalchemy.orm import Session
 
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.db import db_session
-from tsa.extensions import redis_pool, db
+from tsa.extensions import redis_pool
 from tsa.model import DatasetDistribution, DatasetEndpoint, PureSubject
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import (
@@ -26,7 +25,6 @@ from tsa.net import (
     fetch,
     get_content,
     guess_format,
-    test_content_length,
 )
 from tsa.notification import message_to_mattermost
 from tsa.redis import KeyRoot
@@ -68,6 +66,10 @@ def process(self, iri, force):
 
 
 def filter_iri(iri):
+    if iri.startswith('http'):
+        iri = iri[7:]
+    elif iri.startswith('https'):
+        iri = iri[8:]
     if len(trie.prefixes(iri)) > 0:
         return True
     return (
