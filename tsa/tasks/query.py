@@ -6,7 +6,7 @@ from json import JSONEncoder
 
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import ProgrammingError
 
 from tsa.celery import celery
 from tsa.db import db_session
@@ -56,27 +56,36 @@ def compile_analyses():
     red = redis.Redis(connection_pool=redis_pool)
     batch_id = str(uuid.uuid4())
 
+    #old_keys = [key for key in red.scan_iter(match="analysis:*")]
+    #red.delete(*old_keys)
+
     dataset_iris = set()
 
     for distr_iri, content in _gen_iris(red, log):
         log.debug(distr_iri)
         key = f"analysis:{batch_id}:{sanitize_key(distr_iri)}"
-        for ds_iri in db.query(DatasetDistribution.ds).filter_by(distr=distr_iri).distinct():
+        for d in db_session.query(DatasetDistribution).filter_by(distr=distr_iri).distinct():
+            ds_iri = d.ds
             if ds_iri is None:
                 with red.pipeline() as pipe:
                     pipe.rpush(key, json.dumps(content))
                     pipe.expire(key, EXPIRATION_CACHED)
                     pipe.execute()
                 continue
+            if isinstance(ds_iri, tuple):
+                ds_iri = ds_iri[0]
             with red.pipeline() as pipe:
                 pipe.rpush(key, json.dumps(content))
                 pipe.expire(key, EXPIRATION_CACHED)
-                pipe.sadd("relevant_distr", distr_iri)
-                pipe.expire("relevant_distr", EXPIRATION_CACHED)
                 pipe.execute()
-            with Session(db) as session:
-                session.add(DatasetDistribution(ds=ds_iri, distr=distr_iri))
-                session.commit()
+            try:
+                db_session.add(DatasetDistribution(ds=ds_iri, distr=distr_iri))
+                db_session.commit()
+            except ProgrammingError:
+                log.exception("Programming error")
+
+            db_session.query(DatasetDistribution).filter_by(ds=ds_iri, distr=distr_iri).update({'relevant': True})
+            db_session.commit()
             dataset_iris.add(ds_iri)
 
     return list(dataset_iris), batch_id
@@ -86,7 +95,8 @@ def gen_analyses(batch_id, dataset_iris, red):
     log = logging.getLogger(__name__)
     log.info(f"Generate analyzes ({len(dataset_iris)})")
     for ds_iri in dataset_iris:
-        for distr_iri in db.query(DatasetDistribution.distr).filter_by(ds=ds_iri).distinct():
+        for d in db_session.query(DatasetDistribution).filter_by(ds=ds_iri).distinct():
+            distr_iri = d.distr
             key_in = f"analysis:{batch_id}:{sanitize_key(distr_iri)}"
             for analyses_json in [
                 json.loads(analysis_json_string)
@@ -153,12 +163,12 @@ def gen_related_ds():
             log.debug(f"type: {rel_type}, token: {token}")
             related_dist = set()
             for sameas_iri in same_as_index.lookup(token):
-                for rel_dist in db.query(Relationship.candidate).filter_by(type=rel_type, group=sameas_iri):
+                for rel_dist in db_session.query(Relationship.candidate).filter_by(type=rel_type, group=sameas_iri):
                     related_dist.add(rel_dist)
                 # these are related by sameAs of token
             all_related = set()
             for distr_iri in related_dist:
-                for ds in db.query(DatasetDistribution.ds).filter_by(dist=distr_iri):
+                for ds in db_session.query(DatasetDistribution.ds).filter_by(dist=distr_iri):
                     all_related.add(ds)
             if (len(all_related) > 1):
                 # do not consider sets on one candidate for conciseness
@@ -257,35 +267,34 @@ def concept_usage():
     for doc in iter_generic(mongo_db):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         ds_iri = doc["ds_iri"]
-        distr_iri = db.query(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
+        distr_iri = db_session.query(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
 
         resource_iri_cache = set()
-        with Session(db) as session:
-            for resource_iri in iter_subjects_objects(doc):
-                if resource_iri in resource_iri_cache:
-                    continue
-                resource_iri_cache.add(resource_iri)
-                # type (broad / narrow apod.)
-                # indexuji T -> (a, b); mam jedno z (a, b)
-                if concept_index.is_concept(resource_iri):
-                    # pouzit koncept (polozka ciselniku)
-                    report_relationship(session, "conceptUsage", resource_iri, distr_iri)
-                    counter = counter + 1
+        for resource_iri in iter_subjects_objects(doc):
+            if resource_iri in resource_iri_cache:
+                continue
+            resource_iri_cache.add(resource_iri)
+            # type (broad / narrow apod.)
+            # indexuji T -> (a, b); mam jedno z (a, b)
+            if concept_index.is_concept(resource_iri):
+                # pouzit koncept (polozka ciselniku)
+                report_relationship(db_session, "conceptUsage", resource_iri, distr_iri)
+                counter = counter + 1
 
-                    for token in ddr_types:
-                        for skos_resource_iri in ddr_index.lookup(token, resource_iri):
-                            for final_resource_iri in same_as_index.lookup(
-                                skos_resource_iri
-                            ):
-                                # pouzit related concept
-                                report_relationship(
-                                    session,
-                                    "relatedConceptUsage",
-                                    final_resource_iri,
-                                    distr_iri,
-                                )
-                                counter = counter + 1
-            session.commit()
+                for token in ddr_types:
+                    for skos_resource_iri in ddr_index.lookup(token, resource_iri):
+                        for final_resource_iri in same_as_index.lookup(
+                            skos_resource_iri
+                        ):
+                            # pouzit related concept
+                            report_relationship(
+                                db_session,
+                                "relatedConceptUsage",
+                                final_resource_iri,
+                                distr_iri,
+                            )
+                            counter = counter + 1
+            db_session.commit()
 
     log.info(f"Found relationships: {counter}")
 
@@ -295,35 +304,35 @@ def concept_definition():
     count = 0
     log = logging.getLogger(__name__)
     log.info("Find datasets with information about concepts (codelists)")
-    with Session(db) as session:
-        for concept in concept_index.iter_concepts():
-            for resource_iri in same_as_index.lookup(concept):
-                for doc in mongo_db.dsanalyses.find({"generic.subjects": resource_iri}):
-                    ds_iri = doc["ds_iri"]
-                    distr_iri = db.query(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
-                    for rel_type in [
-                        "conceptUsage",
-                        "relatedConceptUsage",
-                        "conceptOnDimension",
-                        "relatedConceptOnDimension",
-                    ]:
-                        report_relationship(session, rel_type, resource_iri, distr_iri)
-                        count = count + 1
-        session.commit()
+    for concept in concept_index.iter_concepts():
+        for resource_iri in same_as_index.lookup(concept):
+            for doc in mongo_db.dsanalyses.find({"generic.subjects": resource_iri}):
+                ds_iri = doc["ds_iri"]
+                distr_iri = db_session.query(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
+                for rel_type in [
+                    "conceptUsage",
+                    "relatedConceptUsage",
+                    "conceptOnDimension",
+                    "relatedConceptOnDimension",
+                ]:
+                    report_relationship(db_session, rel_type, resource_iri, distr_iri)
+                    count = count + 1
+        db_session.commit()
     log.info(f"Found {count} relationship candidates")
 
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def cross_dataset_sameas():
-    with Session(db) as session:
-        # pure_subject -> select PureSubject with respective distribution iri
-        for generic in iter_generic(mongo_db):
-            ds_iri = generic["ds_iri"]
-            for distr_iri in db.query(DatasetDistribution.distr).filter_by(ds=ds_iri).distinct():
-                for resource in db.query(PureSubject.subject_iri).filter_by(distribution_iri=distr_iri).distinct():
-                    for iri in same_as_index.lookup(resource):
-                        report_relationship(session, "crossSameas", iri, distr_iri)
-        session.commit()
+    # pure_subject -> select PureSubject with respective distribution iri
+    for generic in iter_generic(mongo_db):
+        ds_iri = generic["ds_iri"]
+        for a in db_session.query(DatasetDistribution).filter_by(ds=ds_iri).distinct():
+            distr_iri = a.distr
+            for b in db_session.query(PureSubject).filter_by(distribution_iri=distr_iri).distinct():
+                resource = b.subject_iri
+                for iri in same_as_index.lookup(resource):
+                    report_relationship(db_session, "crossSameas", iri, distr_iri)
+    db_session.commit()
 
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
@@ -361,10 +370,9 @@ def data_driven_relationships():
                 report.append(("conceptOnDimension", resource_iri, distr_iri))
             report.append(("resourceOnDimension", resource_iri, distr_iri))
     log.info(f"Report {len(report)} relationship candidates")
-    with Session(db) as session:
-        for (rel_type, resource_iri, distr_iri) in report:
-            report_relationship(session, rel_type, resource_iri, distr_iri)
-        session.commit()
+    for (rel_type, resource_iri, distr_iri) in report:
+        report_relationship(db_session, rel_type, resource_iri, distr_iri)
+    db_session.commit()
 
 
 # ## MISC ###

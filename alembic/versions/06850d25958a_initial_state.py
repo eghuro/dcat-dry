@@ -26,6 +26,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('ds', sa.String(), nullable=False),
     sa.Column('distr', sa.String(), nullable=False),
+    sa.Column('relevant', sa.Boolean, nullable=True, default=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('dataset_endpoint',

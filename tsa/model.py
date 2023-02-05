@@ -32,6 +32,7 @@ class DatasetDistribution(Base):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     ds = db.Column(db.String, nullable=False)
     distr = db.Column(db.String, nullable=False)
+    relevant = db.Column(db.Boolean, nullable=True, default=False)
 
 class DatasetEndpoint(Base):
     __tablename__ = 'dataset_endpoint'
