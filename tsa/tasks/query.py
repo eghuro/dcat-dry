@@ -15,6 +15,7 @@ from tsa.celery import celery
 from tsa.db import db_session
 from tsa.ddr import concept_index, dsd_index, ddr_index
 from tsa.model import DatasetDistribution, Relationship, SubjectObject
+from tsa.net import RobotsRetry
 from tsa.extensions import mongo_db, redis_pool, db
 from tsa.sameas import same_as_index
 from tsa.redis import EXPIRATION_CACHED
@@ -302,8 +303,8 @@ def iter_generic(mongo_db):
         yield doc
 
 
-@celery.task(ignore_result=True, base=SqlAlchemyTask)
-def ruian_reference():
+@celery.task(ignore_result=True, base=SqlAlchemyTask, bind=True, max_retries=5)
+def ruian_reference(self):
     log = logging.getLogger(__name__)
     log.info("Look for RUIAN references")
     ruian_references = set()
@@ -316,7 +317,11 @@ def ruian_reference():
         doc["ruian"] = list(ds_ruian_references)
         mongo_db.dsanalyses.update_one({"_id": doc["_id"]}, {"$set": doc})
     log.info(f"RUIAN references: {len(list(ruian_references))}")
-    RuianInspector.process_references(ruian_references)
+    try:
+        RuianInspector.process_references(ruian_references)
+    except RobotsRetry as e:
+        self.retry(e.delay)
+
 
 def report_relationship_bulk(reports):
     try:

@@ -46,7 +46,7 @@ def api_test():
     iri = request.args["iri"]
     log = current_app.logger
     red = redis.Redis(connection_pool=redis_pool)
-    response = fetch(iri, log)
+    response = fetch(iri)
     guess, _ = guess_format(iri, response, log)
     content = get_content(iri, response).encode("utf-8")
     graph = load_graph(iri, content, guess)
@@ -64,7 +64,7 @@ def test_dereference1():
             get_iris_to_dereference(
                 load_graph(
                     iri,
-                    get_content(iri, fetch(iri, log)).encode("utf-8"),
+                    get_content(iri, fetch(iri)).encode("utf-8"),
                     "trig",
                 ),
                 iri,
@@ -75,7 +75,7 @@ def test_dereference1():
             log.error("Missing IRI of interest in a set to dereference")
         if not check_iri(iri_of_interest):
             log.error("Condition failed")
-        r = fetch(iri_of_interest, log)
+        r = fetch(iri_of_interest)
         guess, _ = guess_format(iri_of_interest, r, log)
         content = get_content(iri_of_interest, r).encode("utf-8")
         sub_graph = load_graph(iri_of_interest, content, guess).serialize(format="trig")
@@ -94,7 +94,7 @@ def test_dereference2():
     try:
         graph = expand_graph_with_dereferences(
             load_graph(
-                iri, get_content(iri, fetch(iri, log)).encode("utf-8"), "trig"
+                iri, get_content(iri, fetch(iri)).encode("utf-8"), "trig"
             ),
             iri,
         ).serialize(format="trig")
@@ -113,7 +113,7 @@ def test_process():
 
     log = logging.getLogger(__name__)
     try:
-        response = fetch(iri_distr, log)
+        response = fetch(iri_distr)
     except:
         log.exception(f"Failed to fetch: {iri_distr}")
         abort(500)
@@ -133,7 +133,7 @@ def test_process():
         for iri_to_dereference in frozenset(get_iris_to_dereference(graph, iri_distr)):
             log.info(f"Dereference: {iri_to_dereference}")
             try:
-                response = fetch(iri_to_dereference, log)
+                response = fetch(iri_to_dereference)
                 guess, _ = guess_format(iri_to_dereference, response, log)
                 content = get_content(iri_to_dereference, response)
                 if content is None:

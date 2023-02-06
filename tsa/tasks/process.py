@@ -23,6 +23,7 @@ from tsa.net import (
     NoContent,
     RobotsRetry,
     Skip,
+    RobotsBlock,
     fetch,
     get_content,
     guess_format,
@@ -108,31 +109,32 @@ def get_iris_to_dereference(
 def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     log.info("Dereference %s from endpoint %s", iri, endpoint_iri)
-    store = SPARQLStore(
-        endpoint_iri,
-        True,
-        True,
-        _node_to_sparql,
-        "application/rdf+xml",
-        session=session,
-        headers={"User-Agent": USER_AGENT},
-    )
-    endpoint_graph = rdflib.Graph(store=store)
-    endpoint_graph.open(endpoint_iri)
-    # for cube and ruian we need 3 levels (nested optionals are a must, otherwise the query will not finish)
-    query = f"CONSTRUCT {{<{iri}> ?p1 ?o1. ?o1 ?p2 ?o2. ?o2 ?p3 ?o3.}} WHERE {{ <{iri}> ?p1 ?o1. OPTIONAL {{?o1 ?p2 ?o2. OPTIONAL {{?o2 ?p3 ?o3.}} }} }}"
+    with RobotsBlock(endpoint_iri):
+        store = SPARQLStore(
+            endpoint_iri,
+            True,
+            True,
+            _node_to_sparql,
+            "application/rdf+xml",
+            session=session,
+            headers={"User-Agent": USER_AGENT},
+        )
+        endpoint_graph = rdflib.Graph(store=store)
+        endpoint_graph.open(endpoint_iri)
+        # for cube and ruian we need 3 levels (nested optionals are a must, otherwise the query will not finish)
+        query = f"CONSTRUCT {{<{iri}> ?p1 ?o1. ?o1 ?p2 ?o2. ?o2 ?p3 ?o3.}} WHERE {{ <{iri}> ?p1 ?o1. OPTIONAL {{?o1 ?p2 ?o2. OPTIONAL {{?o2 ?p3 ?o3.}} }} }}"
 
-    graph = rdflib.ConjunctiveGraph()
-    try:
-        with TimedBlock("dereference_from_endpoints.construct"):
-            graph = endpoint_graph.query(query).graph
-    except SPARQLWrapper.SPARQLExceptions.QueryBadFormed:
-        log.error("Dereference %s from endpoint %s failed. Query:\n%s\n\n", iri, endpoint_iri, query)
-    except (rdflib.query.ResultException, requests.exceptions.HTTPError):
-        log.warning("Failed to dereference %s from endpoint %s: ResultException or HTTP Error", iri, endpoint_iri)
-    except ValueError as err:  # usually an empty graph
-        log.debug("Failed to dereference %s from endpoint %s: %s, query: %s", iri, endpoint_iri, str(err), query)
-    return graph
+        graph = rdflib.ConjunctiveGraph()
+        try:
+            with TimedBlock("dereference_from_endpoints.construct"):
+                graph = endpoint_graph.query(query).graph
+        except SPARQLWrapper.SPARQLExceptions.QueryBadFormed:
+            log.error("Dereference %s from endpoint %s failed. Query:\n%s\n\n", iri, endpoint_iri, query)
+        except (rdflib.query.ResultException, requests.exceptions.HTTPError):
+            log.warning("Failed to dereference %s from endpoint %s: ResultException or HTTP Error", iri, endpoint_iri)
+        except ValueError as err:  # usually an empty graph
+            log.debug("Failed to dereference %s from endpoint %s: %s, query: %s", iri, endpoint_iri, str(err), query)
+        return graph
 
 
 def sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
@@ -168,7 +170,10 @@ def dereference_from_endpoints(
             endpoints.add(e.endpoint)
     for endpoint_iri in endpoints:
         if check_iri(endpoint_iri):
-            graph += dereference_from_endpoint(iri, endpoint_iri)
+            try:
+                graph += dereference_from_endpoint(iri, endpoint_iri)
+            except Skip:
+                pass
     return graph
 
 
@@ -178,15 +183,17 @@ class FailedDereference(ValueError):
 
 def dereference_one_impl(
     iri_to_dereference: str, iri_distr: str
-) -> rdflib.ConjunctiveGraph:
+) -> rdflib.ConjunctiveGraph:  # can raise RobotsRetry
     log = logging.getLogger(__name__)
-    red = redis.Redis(connection_pool=redis_pool)
     log.debug("Dereference: %s", iri_to_dereference)
     if not check_iri(iri_to_dereference):
         raise FailedDereference()
     monitor.log_dereference_request()
     try:
-        response = fetch(iri_to_dereference, log)
+        try:
+            response = fetch(iri_to_dereference)
+        except RobotsRetry:
+            return dereference_from_endpoints(iri_to_dereference, iri_distr)
         # test_content_length(iri_to_dereference, response, log)
         guess, _ = guess_format(iri_to_dereference, response, log)
         content = get_content(iri_to_dereference, response)
@@ -199,22 +206,11 @@ def dereference_one_impl(
             iri_to_dereference,
         )
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
-    except RobotsRetry as err:
-        log.warning(
-            "Should retry with delay of %s, will lookup in endpoint: %s",
-            str(err.delay),
-            iri_to_dereference,
-        )
-        return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except (requests.exceptions.HTTPError, UnicodeError):
-        log.debug(
-            "HTTP Error dereferencing, will lookup in endpoints: %s", iri_to_dereference
-        )
+        #log.debug("HTTP Error dereferencing, will lookup in endpoints: %s", iri_to_dereference)
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except requests.exceptions.RequestException:
-        log.debug(
-            "Failed to dereference (RequestException fetching): %s", iri_to_dereference
-        )
+        log.debug("Failed to dereference (RequestException fetching): %s", iri_to_dereference)
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except (Skip, NoContent):
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
@@ -258,6 +254,8 @@ def dereference_one(
             "All attempts to dereference failed: %s", iri_to_dereference
         )
         raise
+    except RobotsRetry as e:
+        raise FailedDereference() from e
 
 
 def expand_graph_with_dereferences(
@@ -372,7 +370,7 @@ def do_fetch(
     try:
         _filter(iri, is_prio, force, log, red)
         log.info("Processing %s", iri)
-        response = fetch(iri, log)
+        response = fetch(iri)
         # test_content_length(iri, response, log)
         guess, priority = guess_format(iri, response, log)
         if not is_prio and priority:

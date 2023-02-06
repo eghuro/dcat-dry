@@ -14,6 +14,7 @@ from tsa.db import db_session
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.model import DatasetDistribution, DatasetEndpoint
 from tsa.monitor import TimedBlock, monitor
+from tsa.net import RobotsRetry
 from tsa.settings import Config
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import filter_iri, process, process_priority
@@ -218,9 +219,12 @@ def _dcat_extractor(g, log, force, graph_iri):
 #    return _dcat_extractor(g, red, log, False, key, None)
 
 
-@celery.task(base=TrackableTask)
-def inspect_graph(endpoint_iri, graph_iri, force):
-    return do_inspect_graph(graph_iri, force, endpoint_iri)
+@celery.task(base=TrackableTask, bind=True, max_retries=5)
+def inspect_graph(self, endpoint_iri, graph_iri, force):
+    try:
+        return do_inspect_graph(graph_iri, force, endpoint_iri)
+    except RobotsRetry as exc:
+        self.retry(timeout=exc.delay)
 
 
 def do_inspect_graph(graph_iri, force, endpoint_iri):

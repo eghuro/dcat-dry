@@ -20,8 +20,7 @@ from tsa.net import fetch, get_content
 
 
 def dereference_remote_context(iri: str) -> dict:
-    log = logging.getLogger(__name__)
-    response = fetch(iri, log)
+    response = fetch(iri)
     content = get_content(iri, response)
     return json.loads(content)["@context"]
 
