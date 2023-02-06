@@ -29,6 +29,7 @@ def upgrade() -> None:
     sa.Column('relevant', sa.Boolean, nullable=True, default=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('dataset_distribution_index', 'dataset_distribution', ['ds', 'distr'])
     op.create_table('datacube',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('iri', sa.String(), nullable=False),
@@ -48,6 +49,7 @@ def upgrade() -> None:
     sa.Column('iri2', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('ddr_index', 'ddr', ['relationship_type', 'iri1'])
     op.create_table('label',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('iri', sa.String(), nullable=False),
@@ -68,6 +70,7 @@ def upgrade() -> None:
     sa.Column('candidate', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('relationship_index', 'relationship', ['type', 'group', 'candidate'])
     op.create_table('robots_delay',
     sa.Column('iri', sa.String(), nullable=False),
     sa.Column('expiration', sa.DateTime(), nullable=False),

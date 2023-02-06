@@ -18,6 +18,8 @@ class DDR(Base):
     iri1 = db.Column(db.String, nullable=False)
     iri2 = db.Column(db.String, nullable=False)
 
+db.Index('ddr_index', DDR.c.relationship_type, DDR.c.iri1)
+
 class Concept(Base):
     __tablename__ = 'concept'
     iri = db.Column(db.String, primary_key=True)
@@ -33,6 +35,8 @@ class DatasetDistribution(Base):
     ds = db.Column(db.String, nullable=False)
     distr = db.Column(db.String, nullable=False)
     relevant = db.Column(db.Boolean, nullable=True, default=False)
+
+db.Index('dataset_distribution_index', DatasetDistribution.c.ds, DatasetDistribution.c.distr)
 
 class Datacube(Base):
     __tablename__ = 'datacube'
@@ -58,6 +62,9 @@ class Relationship(Base):
     type = db.Column(db.String, nullable=False)
     group = db.Column(db.String, nullable=False)
     candidate = db.Column(db.String, nullable=False)
+
+#db.Index('relationship_index', Relationship.c.type, Relationship.c.group, Relationship.c.candidate)
+#problem
 
 Base.registry.configure()
 ddr_index = DDR()
