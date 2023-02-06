@@ -76,7 +76,11 @@ def fetch(iri: str, log: logging.Logger) -> requests.Response:
         else:
             db_session.delete(d)
         break
-    db_session.commit()
+    try:
+        db_session.commit()
+    except:
+        logging.getLogger(__name__).exception("Failed do commit, rolling back expired delay removal")
+        db_session.rollback()
 
     timeout = 10800  # 3h
     # a guess for 100 KB/s on data that will still make it into redis (512 MB)
@@ -116,7 +120,8 @@ def fetch(iri: str, log: logging.Logger) -> requests.Response:
         except ValueError:
             log.error("Invalid delay value - could not convert to int")
         except:
-            log.error(f"Failed to set crawl-delay for {iri}: {delay}")
+            log.exception(f"Failed to set crawl-delay for {iri}: {delay}")
+            db_session.rollback()
     return request
 
 

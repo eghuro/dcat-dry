@@ -8,6 +8,7 @@ import rdflib
 import redis
 from pyld import jsonld
 from requests.exceptions import HTTPError, RequestException
+from sqlalchemy import insert
 
 from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
@@ -40,11 +41,11 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
         expanded = jsonld.expand(json_data, options=options)
         g.parse(data=json.dumps(expanded), format="json-ld")
     except (TypeError, rdflib.exceptions.ParserError):
-        if expanded is not None:
-            expanded_data = json.dumps(expanded)
-        else:
-            expanded_data = "**ERROR**, data was: " + str(data)
-        logging.getLogger(__name__).warning("Failed to parse expanded JSON-LD, falling back, expanded graph was: %s", expanded_data)
+        #if expanded is not None:
+        #    expanded_data = json.dumps(expanded)
+        #else:
+        #    expanded_data = "**ERROR**, data was: " + str(data)
+        logging.getLogger(__name__).warning("Failed to parse expanded JSON-LD, falling back")
         g.parse(data=data, format="json-ld")
     except (HTTPError, RequestException):
         logging.getLogger(__name__).warning("HTTP Error expanding JSON-LD, falling back")
@@ -90,7 +91,6 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> Non
         return
 
     log.debug("Analyze and index - execution: %s", iri)
-    log.debug(graph.serialize(format="n3"))
 
     analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, "token")]
@@ -137,15 +137,27 @@ def analyze_and_index_one(
                     iri
                 )  # this is so that we sadd whole list in one call
 
-        log.debug("Storing relations in sqlite")
+        log.debug("Storing relations in DB")
 
+        relationships = []
         for item in iris_found.items():
             (rel_type, key) = item[0]
+            if rel_type is None or len(rel_type) == 0:
+                continue
+            if key is None or len(key) == 0:
+                continue
             iris = item[1]
             log.debug("Addding %s items into set", str(len(iris)))
             for iri in iris:
-                db_session.add(Relationship(type=rel_type, group=key, candidate=iri))
-        db_session.commit()
+                if iri is not None and len(iri) > 0:
+                    relationships.append({'type': rel_type, 'group': key, 'candidate': iri})
+        if len(relationships) > 0:
+            try:
+                db_session.execute(insert(Relationship).values(relationships))
+                db_session.commit()
+            except:
+                log.exception("Failed to store relations in DB")
+                db_session.rollback()
     except TypeError:
         log.debug("Skip %s for %s", analyzer_class.token, iri)
 

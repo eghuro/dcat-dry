@@ -24,6 +24,8 @@ class RuianInspector:
 
         relationship_count = 0
         log.info("In queue initially: %s", len(queue))
+        concepts = []
+        ddr = []
         while len(queue) > 0:
             iri = queue.pop(0)
             if not check_iri(iri):
@@ -47,9 +49,15 @@ class RuianInspector:
                     queue.append(next_iri)
 
                     # report: (IRI, next_iri) - type: token
-                    ddr_index.index(token, iri, next_iri)
-                    concept_index.index(iri)
+                    ddr.append({
+                        'relationship_type': token,
+                        'iri1': iri,
+                        'iri2': next_iri
+                    })
+                    concepts.append(iri)
                     relationship_count = relationship_count + 1
+        ddr_index.bulk_insert(ddr)
+        concept_index.bulk_insert(concepts)
         log.info(
             "Done proceessing RUIAN references. Processed %s, indexed %s relationships in RUIAN hierarchy.",
             len(processed),

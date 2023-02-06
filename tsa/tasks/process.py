@@ -2,7 +2,7 @@
 import os
 import logging
 import sys
-from typing import Generator, List, Optional, Set, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import marisa_trie
 import rdflib
@@ -11,6 +11,7 @@ import requests
 import SPARQLWrapper
 from celery.app.task import Task
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
+from sqlalchemy.dialects.postgresql import insert
 
 from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
@@ -296,9 +297,19 @@ def expand_graph_with_dereferences(
 
 
 def store_pure_subjects(iri, graph):
-    for sub, _, _ in graph:
-        db_session.add(SubjectObject(distribution_iri=iri, iri=str(sub), pureSubject=True))
-    db_session.commit()
+    if iri is None or len(iri) == 0:
+        return
+    insert_stmt = insert(SubjectObject).values([{
+        'distribution_iri': iri,
+        'iri': str(sub),
+        'pureSubject': True
+    } for sub, _, _ in graph if ((sub is not None) and len(str(sub)) > 0)]).on_conflict_do_nothing()
+    try:
+        db_session.execute(insert_stmt)
+        db_session.commit()
+    except:
+        logging.getLogger(__name__).error("Failed to store pure objects")
+        db_session.rollback()
 
 
 def process_content(

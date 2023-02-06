@@ -322,26 +322,37 @@ class SkosAnalyzer(AbstractAnalyzer):
             )
         ]
 
-        for concept_iri in concepts:
-            if check_iri(concept_iri):
-                concept_index.index(concept_iri)
 
+        ddr = []
         query = "SELECT ?a ?scheme WHERE {?a <http://www.w3.org/2004/02/skos/core#inScheme> ?scheme.}"
-        for row in graph.query(query):
-            ddr_index.index("inScheme", str(row["scheme"]), str(row["a"]))
+        ddr.extend([
+            {
+                'relationship_type': 'inScheme',
+                'iri1': str(row["scheme"]),
+                'iri2': str(row["a"])
+            } for row in graph.query(query)
+        ])
 
         query = "SELECT ?collection ?a WHERE {?collection <http://www.w3.org/2004/02/skos/core#member> ?a. }"
         for row in graph.query(query):
-            ddr_index.index("member", str(row["collection"]), str(row["a"]))
-            concept_index.index(str(row["a"]))
+            ddr.append({
+                'relationship_type': 'member',
+                'iri1': str(row["collection"]),
+                'iri2': str(row["a"])
+            })
+            concepts.append(str(row["a"]))
 
         for token in ["exactMatch", "mappingRelation", "closeMatch", "relatedMatch"]:
             for row in graph.query(
                 f"SELECT ?a ?b WHERE {{ ?a <http://www.w3.org/2004/02/skos/core#{token}> ?b. }}"
             ):
-                ddr_index.index(token, str(row["a"]), str(row["b"]))
-                concept_index.index(str(row["a"]))
-                concept_index.index(str(row["b"]))
+                ddr.append({
+                    'relationship_type': token,
+                    'iri1': str(row["a"]), 
+                    'iri2': str(row["b"])
+                })
+                concepts.append(str(row["a"]))
+                concepts.append(str(row["b"]))
 
         for row in graph.query(
             """
@@ -357,9 +368,16 @@ class SkosAnalyzer(AbstractAnalyzer):
         }
         """
         ):
-            ddr_index.index("broadNarrow", str(row["a"]), str(row["b"]))
-            concept_index.index(str(row["a"]))
-            concept_index.index(str(row["b"]))
+            ddr.append({
+                'relationship_type': "broadNarrow",
+                'iri1': str(row["a"]),
+                'iri2': str(row["b"])
+            })
+            concepts.append(str(row["a"]))
+            concepts.append(str(row["b"]))
+        ddr_index.bulk_index(ddr)
+        concept_index.bulk_insert([concept_iri for concept_iri in concepts if check_iri(concept_iri)])
+
 
 
 class GenericAnalyzer(AbstractAnalyzer):
@@ -434,18 +452,16 @@ class GenericAnalyzer(AbstractAnalyzer):
         external_2 = objects.difference(locally_typed)
         # toto muze byt SKOS Concept definovany jinde
 
-        for o in objects:
-            db_session.add(SubjectObject(distribution_iri=iri, iri=o))
-        db_session.commit()
-
-        for s in subjects:
-            insert_stmt = insert(SubjectObject).values(
-                distribution_iri=iri,
-                iri=s
-            )
-            insert_stmt.on_conflict_do_nothing()
+        try:
+            insert_stmt = insert(SubjectObject).values([{
+                'distribution_iri': iri,
+                'iri': s
+            } for s in subjects.union(objects)]).on_conflict_do_nothing()
             db_session.execute(insert_stmt)
-        db_session.commit()
+            db_session.commit()
+        except:
+            logging.getLogger(__name__).exception("Failed do commit, rolling back generic analysis")
+            db_session.rollback()
 
         self.get_details(graph)
 
@@ -474,18 +490,24 @@ class GenericAnalyzer(AbstractAnalyzer):
         }
         """
         try:
+            labels = []
             for row in graph.query(query):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
                 iri = str(row["x"])
                 if check_iri(iri):
-                    self._extract_detail(row, iri)
+                    labels.append(self._extract_detail(row, iri))
+            if len(labels) > 0:
+                db_session.execute(insert(Label).values(labels))
+                db_session.commit()
         except ParserError:
-            logging.getLogger(__name__).exception(f"Failed to parse title for {iri}")
-        db_session.commit()
+            logging.getLogger(__name__).exception(f"Failed to extract labels")
+        except:
+            logging.getLogger(__name__).exception("Failed do commit, rolling back label extraction")
+            db_session.rollback()
 
     def _extract_detail(
         self, row: rdflib.query.ResultRow, iri: str
     ) -> None:
-        self.extract_label(row["label"], iri)
+        return self.extract_label(row["label"], iri)
         #self.extract_label(row["description"], iri, session)
 
     @staticmethod
@@ -494,7 +516,7 @@ class GenericAnalyzer(AbstractAnalyzer):
             return
         try:
             value, language = literal.value, literal.language
-            db_session.add(Label(iri=iri, language_code=language, label=value))
+            return {'iri': iri, 'language_code': language, 'label': value}
         except AttributeError:
             log = logging.getLogger(__name__)
             log.exception(f"Failed to parse extract label for {iri}")
@@ -503,10 +525,8 @@ class GenericAnalyzer(AbstractAnalyzer):
 
     def find_relation(self, graph: Graph) -> None:
         """Two distributions are related if they share resources that are owl:sameAs."""
-        for row in graph.query(
-            "SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }"
-        ):
-            same_as_index.index(str(row["a"]), str(row["b"]))
+        query = "SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }"
+        same_as_index.bulk_index([(str(row["a"]), str(row["b"])) for row in graph.query(query)])
 
 
 class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):

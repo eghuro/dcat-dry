@@ -6,14 +6,12 @@ from celery import group
 from rdflib import Namespace
 from rdflib.namespace import RDF
 from requests.exceptions import HTTPError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import insert
 
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
 from tsa.db import db_session
 from tsa.endpoint import SparqlEndpointAnalyzer
-from tsa.extensions import db
 from tsa.model import DatasetDistribution, DatasetEndpoint
 from tsa.monitor import TimedBlock, monitor
 from tsa.settings import Config
@@ -97,18 +95,24 @@ def _dcat_extractor(g, log, force, graph_iri):
     )  # EU
     queue = distributions
 
+    db_endpoints = []
+    db_distributions = []
+
     log.debug(f"Extracting distributions from {graph_iri}")
     # DCAT dataset
     with TimedBlock("dcat_extractor"):
-        
         distribution = False
         for ds in g.subjects(RDF.type, dcat.Dataset):
-            # log.debug(f"DS: {ds!s}")
+            log.debug(f"DS: {ds!s}")
             effective_ds = ds
 
             for parent in query_parent(ds, g, log):
-                # log.debug(f"{parent!s} is a series containing {ds!s}")
                 effective_ds = parent
+            log.debug(f"effective DS: {effective_ds!s}")
+
+            if effective_ds is None:
+                log.error('Effective DS is NONE')
+                continue
 
             # DCAT Distribution
             for d in g.objects(ds, dcat.distribution):
@@ -137,7 +141,10 @@ def _dcat_extractor(g, log, force, graph_iri):
                             log.info(
                                 f"Guessing {url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})"
                             )
-                            db_session.add(DatasetEndpoint(ds=effective_ds, endpoint=str(url)))
+                            db_endpoints.append({
+                                'ds': effective_ds,
+                                'endpoint': str(url)
+                            })
                         elif test_allowed(url) or not Config.LIMITED:
                             downloads.append(url)
                             distribution = True
@@ -148,7 +155,10 @@ def _dcat_extractor(g, log, force, graph_iri):
                                 distributions_priority.append(url)
                             else:
                                 queue.append(url)
-                            db_session.add(DatasetDistribution(ds=str(effective_ds), distr=str(url)))
+                            db_distributions.append({
+                                'ds': str(effective_ds),
+                                'distr': str(url)
+                            })
                         else:
                             log.debug(f"Skipping {url} due to filter")
                     else:
@@ -163,8 +173,24 @@ def _dcat_extractor(g, log, force, graph_iri):
                             log.debug(
                                 f"Endpoint {endpoint!s} from DCAT dataset {ds!s}"
                             )
-                            db_session.add(DatasetEndpoint(ds=str(effective_ds), endpoint=str(endpoint)))
-            db_session.commit()
+                            if str(effective_ds) is not None:
+                                db_endpoints.append({
+                                    'ds': str(effective_ds),
+                                    'endpoint': str(endpoint)
+                                })
+                            else:
+                                log.error('Effective ds NONE in services loop')
+        try:
+            if len(db_endpoints) > 0:
+                db_session.execute(insert(DatasetEndpoint).values(db_endpoints))
+            if len(db_distributions) > 0:
+                db_session.execute(insert(DatasetDistribution).values(db_distributions))
+            if len(db_endpoints) + len(db_distributions) > 0:
+                db_session.commit()
+        except:
+            log.exception("Failed to commit in DCAT extractor")
+            db_session.rollback()
+
         # TODO: possibly scan for service description as well
         if distribution:
             GenericAnalyzer().get_details(g)  # extrakce labelu - heavy!

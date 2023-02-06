@@ -1,19 +1,19 @@
 import logging
 from collections import defaultdict
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert
 
 from tsa.db import db_session
-from tsa.extensions import db
 from tsa.model import DDR
 from tsa.util import check_iri
 
 
 class Index:
-    def __init__(self, index_key, symmetric):
+    def __init__(self, index_key: str, symmetric: bool):
         self.__key = index_key
         self.__symmetric = symmetric
+        if self.__key is None or len(self.__key) == 0:
+            raise ValueError(self.__key)
 
     def snapshot(self):
         index = defaultdict(set)
@@ -23,12 +23,26 @@ class Index:
                 index[record.iri2].add(record.iri1)
         return index
 
-    def index(self, iri1, iri2):
-        # iri1 owl:sameAs iri2
-        db_session.add(DDR(relationship_type=self.__key, iri1=iri1, iri2=iri2))
+    def bulk_index(self, pairs):
+        data = [{
+            'relationship_type': self.__key,
+            'iri1': a,
+            'iri2': b
+        } for (a, b) in pairs if ((a is not None) and (len(a) > 0) and (b is not None) and (len(b) > 0))]
         if self.__symmetric:
-            db_session.add(DDR(relationship_type=self.__key, iri1=iri2, iri2=iri1))
-        db_session.commit()
+            data.extend([{
+                'relationship_type': self.__key,
+                'iri1': b,
+                'iri2': a
+            } for (a, b) in pairs if ((a is not None) and (len(a) > 0) and (b is not None) and (len(b) > 0))])
+        if len(data) > 0:
+            insert_stmt=insert(DDR).values(data).on_conflict_do_nothing()
+            try:
+                db_session.execute(insert_stmt)
+                db_session.commit()
+            except:
+                logging.getLogger(__name__).exception("Failed do commit, rolling back bulk index")
+                db_session.rollback()
 
     def finalize(self):
         graph = defaultdict(set)
@@ -36,12 +50,19 @@ class Index:
             for ddr in db_session.query(DDR).filter_by(relationship_type=self.__key):
                 graph[ddr.iri1].add(ddr.iri2)
 
+            ddr_vals = []
             for node in graph.keys():  # noqa: consider-iterating-dictionary
                 visited = self.__bfs(graph, node)
                 # add all reachable nodes into index (transitivity)
                 for iri in visited:
-                    db_session.add(DDR(iri1=node, iri2=iri, relationship_type=self.__key))
+                    ddr_vals.append({'iri1': node, 'iri2': iri, 'relationship_type': self.__key})
+            insert_stmt=insert(DDR).values(ddr_vals).on_conflict_do_nothing()
+            try:
+                db_session.execute(insert_stmt)
                 db_session.commit()
+            except:
+                logging.getLogger(__name__).exception("Failed fo finalize index")
+                db_session.rollback()
         except:
             logging.getLogger(__name__).exception("Oops")
 

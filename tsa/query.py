@@ -2,7 +2,6 @@ import logging
 
 from celery import chain
 
-from tsa.notification import message_to_mattermost
 from tsa.tasks.query import (
     cache_labels,
     compile_analyses,
@@ -20,7 +19,7 @@ from tsa.tasks.query import (
 def query():
     log = logging.getLogger(__name__)
     log.info("query: build celery canvas")
-    message_to_mattermost("building query canvas")
+    # message_to_mattermost("building query canvas")
     return chain(
         [
             finalize_sameas.si(),  # no dependecies

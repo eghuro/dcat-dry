@@ -333,7 +333,11 @@ def import_labels(labels):
                     label = value
                 )
                 db_session.add(label)
-    db_session.commit()
+    try:
+        db_session.commit()
+    except:
+        logging.getLogger(__name__).exception("Failed do commit, rolling back import labels")
+        db_session.rollback()
 
 
 def export_related():

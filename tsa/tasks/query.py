@@ -17,7 +17,6 @@ from tsa.ddr import concept_index, dsd_index, ddr_index
 from tsa.model import DatasetDistribution, Relationship, SubjectObject
 from tsa.extensions import mongo_db, redis_pool, db
 from tsa.sameas import same_as_index
-from tsa.notification import message_to_mattermost
 from tsa.redis import EXPIRATION_CACHED
 from tsa.redis import sanitize_key
 from tsa.report import export_labels
@@ -86,9 +85,16 @@ def compile_analyses():
                 db_session.commit()
             except ProgrammingError:
                 log.exception("Programming error")
+            except:
+                log.exception("Failed to commit in compile analyses")
+                db_session.rollback()
 
-            db_session.query(DatasetDistribution).filter_by(distr=distr_iri, ds=ds_iri).update({'relevant': True})
-            db_session.commit()
+            try:
+                db_session.query(DatasetDistribution).filter_by(distr=distr_iri, ds=ds_iri).update({'relevant': True})
+                db_session.commit()
+            except:
+                log.exception("Failed to mark relevant distributions")
+                db_session.rollback()
             dataset_iris.add(ds_iri)
 
     return list(dataset_iris), batch_id
@@ -313,8 +319,12 @@ def ruian_reference():
     RuianInspector.process_references(ruian_references)
 
 def report_relationship_bulk(reports):
-    db_session.execute(insert(Relationship, reports))
-    db_session.commit()
+    try:
+        db_session.execute(insert(Relationship, reports))
+        db_session.commit()
+    except:
+        logging.getLogger(__name__).exception("Failed to bulk report relationships")
+        db_session.rollback()
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def concept_usage():
