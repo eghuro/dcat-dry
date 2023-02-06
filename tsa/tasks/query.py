@@ -6,7 +6,7 @@ from json import JSONEncoder
 
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
-from sqlalchemy import select
+from sqlalchemy import select, insert
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import join
 from celery import chord
@@ -312,9 +312,9 @@ def ruian_reference():
     log.info(f"RUIAN references: {len(list(ruian_references))}")
     RuianInspector.process_references(ruian_references)
 
-
-def report_relationship(session, rel_type, resource_iri, distr_iri):
-    session.add(Relationship(type=rel_type, group=resource_iri, candidate=distr_iri))
+def report_relationship_bulk(reports):
+    db_session.execute(insert(Relationship, reports))
+    db_session.commit()
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def concept_usage():
@@ -324,6 +324,7 @@ def concept_usage():
     counter = 0
     ddr_types = ddr_index.types()
     sameAs = same_as_index.snapshot()
+    reports = []
     for o in db_session.query(DatasetDistribution).filter_by(relevant=True):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         distr_iri = o.distr
@@ -337,22 +338,23 @@ def concept_usage():
             # indexuji T -> (a, b); mam jedno z (a, b)
             if concept_index.is_concept(resource_iri):
                 # pouzit koncept (polozka ciselniku)
-                report_relationship(db_session, "conceptUsage", resource_iri, distr_iri)
+                reports.append({
+                    "type": "conceptUsage",
+                    "group": resource_iri,
+                    "candidate": distr_iri})
                 counter = counter + 1
 
                 for token in ddr_types:
                     for skos_resource_iri in ddr_index.lookup(token, resource_iri):
                         for final_resource_iri in sameAs[skos_resource_iri]:
                             # pouzit related concept
-                            report_relationship(
-                                db_session,
-                                "relatedConceptUsage",
-                                final_resource_iri,
-                                distr_iri,
-                            )
+                            reports.append({
+                                "type": "relatedConceptUsage",
+                                "group": final_resource_iri,
+                                "candidate": distr_iri
+                            })
                             counter = counter + 1
-            db_session.commit()
-
+    report_relationship_bulk(reports)
     log.info(f"Found relationships: {counter}")
 
 
@@ -362,6 +364,7 @@ def concept_definition():
     log = logging.getLogger(__name__)
     log.info("Find datasets with information about concepts (codelists)")
     sameAs = same_as_index.snapshot()
+    reports = []
     for concept in concept_index.iter_concepts():
         for resource_iri in sameAs[concept]:
             for doc in mongo_db.dsanalyses.find({"generic.subjects": resource_iri}):
@@ -373,9 +376,12 @@ def concept_definition():
                     "conceptOnDimension",
                     "relatedConceptOnDimension",
                 ]:
-                    report_relationship(db_session, rel_type, resource_iri, distr_iri)
+                    reports.append({
+                        "type": rel_type,
+                        "group": resource_iri,
+                        "candidate": distr_iri})
                     count = count + 1
-        db_session.commit()
+    report_relationship_bulk(reports)
     log.info(f"Found {count} relationship candidates")
 
 
@@ -387,13 +393,18 @@ def cross_dataset_sameas():
     sameAs = same_as_index.snapshot()
     stmt = select(DatasetDistribution).select_from(join(DatasetDistribution, SubjectObject, DatasetDistribution.distr == SubjectObject.distribution_iri)).filter(DatasetDistribution.relevant==True, SubjectObject.pureSubject==True).distinct()
     log = logging.getLogger(__name__)
+    reports = []
     for row in db_session.execute(stmt).all():
         log.debug(row)
         distr_iri = row[2]
         resource = row[5]
         for iri in sameAs[resource]:
-            report_relationship(db_session, "crossSameas", iri, distr_iri)
-    db_session.commit()
+            reports.append({
+                "type": "crossSameas",
+                "group": iri,
+                "candidate": distr_iri
+            })
+    report_relationship_bulk(reports)
 
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
@@ -421,18 +432,24 @@ def data_driven_relationships():
                         for final_resource_iri in sameAs[str(skos_resource_iri)]:
                             # report related concept na dimenzi
                             report.append(
-                                (
-                                    "relatedConceptOnDimension",
-                                    final_resource_iri,
-                                    distr_iri,
-                                )
+                                {
+                                    "type": "relatedConceptOnDimension",
+                                    "group": final_resource_iri,
+                                    "candidate": distr_iri,
+                                }
                             )
-                report.append(("conceptOnDimension", resource_iri, distr_iri))
-            report.append(("resourceOnDimension", resource_iri, distr_iri))
+                report.append({
+                    "type": "conceptOnDimension",
+                    "group": resource_iri,
+                    "candidate": distr_iri
+                })
+            report.append({
+                "type": "resourceOnDimension",
+                "group": resource_iri,
+                "candidate": distr_iri
+            })
     log.info(f"Report {len(report)} relationship candidates")
-    for (rel_type, resource_iri, distr_iri) in report:
-        report_relationship(db_session, rel_type, resource_iri, distr_iri)
-    db_session.commit()
+    report_relationship_bulk(report)
 
 
 # ## MISC ###
