@@ -11,7 +11,7 @@ from tsa.tasks.query import (
     cross_dataset_sameas,
     data_driven_relationships,
     finalize_sameas,
-    gen_related_ds,
+    gen2,
     ruian_reference,
     store_to_mongo,
 )
@@ -32,6 +32,6 @@ def query():
             concept_usage.si(),  # mongo + sameas + ddr (related concept)
             concept_definition.si(),
             cache_labels.si(),
-            gen_related_ds.si(),
+            gen2.si(),
         ]
     ).apply_async(queue="query")

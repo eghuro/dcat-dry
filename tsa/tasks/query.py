@@ -7,6 +7,7 @@ from json import JSONEncoder
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
 from sqlalchemy.exc import ProgrammingError
+from celery import chord
 
 from tsa.celery import celery
 from tsa.db import db_session
@@ -84,7 +85,7 @@ def compile_analyses():
             except ProgrammingError:
                 log.exception("Programming error")
 
-            db_session.query(DatasetDistribution).filter_by(ds=ds_iri, distr=distr_iri).update({'relevant': True})
+            db_session.query(DatasetDistribution).filter_by(distr=distr_iri, ds=ds_iri).update({'relevant': True})
             db_session.commit()
             dataset_iris.add(ds_iri)
 
@@ -149,6 +150,56 @@ reltypes = [
 ]
 
 
+# gen_related_ds in chord, Tasks used within a chord must not ignore their results. 
+
+@celery.task(ignore_result=False)
+def gen_pair(rel_type, token):
+    related_dist = set()
+    for sameas_iri in same_as_index.lookup(token):
+        for s in db_session.query(Relationship).filter_by(type=rel_type, group=sameas_iri):
+            rel_dist = s.candidate
+            related_dist.add(rel_dist)
+        # these are related by sameAs of token
+    all_related = set()
+    for distr_iri in related_dist:
+        for s in db_session.query(DatasetDistribution).filter_by(dist=distr_iri):
+            all_related.add(s.ds)
+    if (len(all_related) > 1):
+        red = redis.Redis(connection_pool=redis_pool)
+        red.sadd('interesting_datasets', *all_related)
+        # do not consider sets on one candidate for conciseness
+        return {"iri": token, "related": list(all_related), "type": rel_type}
+
+@celery.task
+def related_to_mongo(related_ds):
+    red = redis.Redis(connection_pool=redis_pool)
+    interesting_datasets = red.smembers('interesting_datasets')
+    try:
+        mongo_db.related.delete_many({})
+        if len(related_ds) > 0:
+            mongo_db.related.insert_many(related_ds)
+
+        mongo_db.interesting.delete_many({})
+        mongo_db.interesting.insert_one({"iris": list(interesting_datasets)})
+
+        log = logging.getLogger(__name__)
+        log.info(
+            f"Successfully stored related datasets, interesting: {len(interesting_datasets)}"
+        )
+        # log.debug(related_ds)
+    except DocumentTooLarge:
+        logging.getLogger(__name__).exception("Failed to store related datasets")
+
+
+@celery.task(ignore_result=False, base=SqlAlchemyTask)
+def gen2():
+    pairs = []
+    for rel_type in reltypes:
+        for r in db_session.query(Relationship).filter_by(type=rel_type).distinct():
+            pairs.append((rel_type, r.token))
+    return chord(gen_pair.si(rel_type, token) for (rel_type, token) in pairs)(related_to_mongo.s())
+
+
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def gen_related_ds():
     log = logging.getLogger(__name__)
@@ -162,13 +213,14 @@ def gen_related_ds():
             log.debug(f"type: {rel_type}, token: {token}")
             related_dist = set()
             for sameas_iri in same_as_index.lookup(token):
-                for rel_dist in db_session.query(Relationship.candidate).filter_by(type=rel_type, group=sameas_iri):
+                for s in db_session.query(Relationship).filter_by(type=rel_type, group=sameas_iri):
+                    rel_dist = s.candidate
                     related_dist.add(rel_dist)
                 # these are related by sameAs of token
             all_related = set()
             for distr_iri in related_dist:
-                for ds in db_session.query(DatasetDistribution.ds).filter_by(dist=distr_iri):
-                    all_related.add(ds)
+                for s in db_session.query(DatasetDistribution).filter_by(dist=distr_iri):
+                    all_related.add(s.ds)
             if (len(all_related) > 1):
                 # do not consider sets on one candidate for conciseness
                 related_ds.append(
@@ -201,7 +253,7 @@ def gen_related_ds():
 def finalize_sameas():
     log = logging.getLogger(__name__)
     log.info("Finalize sameAs index")
-    message_to_mattermost("Finalize sameAs index - query pipeline started")
+    # message_to_mattermost("Finalize sameAs index - query pipeline started")
     same_as_index.finalize()
     # skos not needed - not transitive
     log.info("Successfully finalized sameAs index")
