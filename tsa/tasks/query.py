@@ -6,7 +6,9 @@ from json import JSONEncoder
 
 import redis
 from pymongo.errors import DocumentTooLarge, OperationFailure
+from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import join
 from celery import chord
 
 from tsa.celery import celery
@@ -383,12 +385,14 @@ def cross_dataset_sameas():
     # delete from ddr where id not in (select max(id) from ddr group by relationship_type, iri1, iri2 );
     # pure_subject -> select PureSubject with respective distribution iri
     sameAs = same_as_index.snapshot()
-    for a in db_session.query(DatasetDistribution).filter_by(relevant=True).distinct():
-        distr_iri = a.distr
-        for b in db_session.query(SubjectObject).filter_by(distribution_iri=distr_iri, pureSubject=True).distinct():
-            resource = b.subject_iri
-            for iri in sameAs[resource]:
-                report_relationship(db_session, "crossSameas", iri, distr_iri)
+    stmt = select(DatasetDistribution).select_from(join(DatasetDistribution, SubjectObject, DatasetDistribution.distr == SubjectObject.distribution_iri)).filter(DatasetDistribution.relevant==True, SubjectObject.pureSubject==True).distinct()
+    log = logging.getLogger(__name__)
+    for row in db_session.execute(stmt).all():
+        log.debug(row)
+        distr_iri = row[2]
+        resource = row[5]
+        for iri in sameAs[resource]:
+            report_relationship(db_session, "crossSameas", iri, distr_iri)
     db_session.commit()
 
 
