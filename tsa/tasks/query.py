@@ -208,12 +208,13 @@ def gen_related_ds():
     related_ds = []
     interesting_datasets = set()
 
+    sameAs = same_as_index.snapshot()
     for rel_type in reltypes:
         for r in db_session.query(Relationship).filter_by(type=rel_type).distinct():
             token = r.token
             log.debug(f"type: {rel_type}, token: {token}")
             related_dist = set()
-            for sameas_iri in same_as_index.lookup(token):
+            for sameas_iri in sameAs[token]:
                 for s in db_session.query(Relationship).filter_by(type=rel_type, group=sameas_iri):
                     rel_dist = s.candidate
                     related_dist.add(rel_dist)
@@ -276,10 +277,11 @@ def cache_labels():
 
 
 def iter_subjects_objects(generic_analysis):
+    sameAs = same_as_index.snapshot()
     for initial_iri in set(
         iri for iri in generic_analysis["generic"]["subjects"]
     ).union(set(iri for iri in generic_analysis["generic"]["objects"])):
-        for iri in same_as_index.lookup(initial_iri):
+        for iri in sameAs[initial_iri]:
             yield iri
 
 
@@ -293,10 +295,11 @@ def ruian_reference():
     log = logging.getLogger(__name__)
     log.info("Look for RUIAN references")
     ruian_references = set()
+    sameAs = same_as_index.snapshot()
     for doc in iter_generic(mongo_db):
         ds_ruian_references = set()
         for initial_iri in iter_subjects_objects(doc):
-            for iri in same_as_index.lookup(initial_iri):
+            for iri in sameAs[initial_iri]:
                 if iri.startswith("https://linked.cuzk.cz/resource/ruian/"):
                     ruian_references.add(iri)
                     ds_ruian_references.add(iri)
@@ -317,6 +320,7 @@ def concept_usage():
 
     counter = 0
     ddr_types = ddr_index.types()
+    sameAs = same_as_index.snapshot()
     for doc in iter_generic(mongo_db):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
         ds_iri = doc["ds_iri"]
@@ -336,9 +340,7 @@ def concept_usage():
 
                 for token in ddr_types:
                     for skos_resource_iri in ddr_index.lookup(token, resource_iri):
-                        for final_resource_iri in same_as_index.lookup(
-                            skos_resource_iri
-                        ):
+                        for final_resource_iri in sameAs[skos_resource_iri]:
                             # pouzit related concept
                             report_relationship(
                                 db_session,
@@ -357,8 +359,9 @@ def concept_definition():
     count = 0
     log = logging.getLogger(__name__)
     log.info("Find datasets with information about concepts (codelists)")
+    sameAs = same_as_index.snapshot()
     for concept in concept_index.iter_concepts():
-        for resource_iri in same_as_index.lookup(concept):
+        for resource_iri in sameAs[concept]:
             for doc in mongo_db.dsanalyses.find({"generic.subjects": resource_iri}):
                 ds_iri = doc["ds_iri"]
                 distr_iri = db_session.query(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
@@ -377,13 +380,14 @@ def concept_definition():
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def cross_dataset_sameas():
     # pure_subject -> select PureSubject with respective distribution iri
+    sameAs = same_as_index.snapshot()
     for generic in iter_generic(mongo_db):
         ds_iri = generic["ds_iri"]
         for a in db_session.query(DatasetDistribution).filter_by(ds=ds_iri).distinct():
             distr_iri = a.distr
             for b in db_session.query(PureSubject).filter_by(distribution_iri=distr_iri).distinct():
                 resource = b.subject_iri
-                for iri in same_as_index.lookup(resource):
+                for iri in sameAs[resource]:
                     report_relationship(db_session, "crossSameas", iri, distr_iri)
     db_session.commit()
 
@@ -395,9 +399,10 @@ def data_driven_relationships():
     # projet z DSD vsechny dimenze a miry, zda to neni concept
     
     rel_types = ddr_index.types()
+    sameAs = same_as_index.snapshot()
     report = []
     for resource, distr_iri in dsd_index.resources_on_dimension():
-        for resource_iri in same_as_index.lookup(resource):
+        for resource_iri in sameAs[resource]:
             # report resource na dimenzi
             if concept_index.is_concept(resource_iri):
                 # report concept na dimenzi
@@ -409,9 +414,7 @@ def data_driven_relationships():
                             continue
                         if isinstance(skos_resource_iri, list):
                             skos_resource_iri = skos_resource_iri[0]
-                        for final_resource_iri in same_as_index.lookup(
-                            str(skos_resource_iri)
-                        ):
+                        for final_resource_iri in sameAs[str(skos_resource_iri)]:
                             # report related concept na dimenzi
                             report.append(
                                 (
