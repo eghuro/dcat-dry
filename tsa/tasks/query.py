@@ -153,9 +153,9 @@ reltypes = [
 # gen_related_ds in chord, Tasks used within a chord must not ignore their results. 
 
 @celery.task(ignore_result=False)
-def gen_pair(rel_type, token):
+def gen_pair(rel_type, token, sameAs):
     related_dist = set()
-    for sameas_iri in same_as_index.lookup(token):
+    for sameas_iri in sameAs[token]:
         for s in db_session.query(Relationship).filter_by(type=rel_type, group=sameas_iri):
             rel_dist = s.candidate
             related_dist.add(rel_dist)
@@ -193,11 +193,12 @@ def related_to_mongo(related_ds):
 
 @celery.task(ignore_result=False, base=SqlAlchemyTask)
 def gen2():
+    sameAs = same_as_index.snapshot()
     pairs = []
     for rel_type in reltypes:
         for r in db_session.query(Relationship).filter_by(type=rel_type).distinct():
             pairs.append((rel_type, r.token))
-    return chord(gen_pair.si(rel_type, token) for (rel_type, token) in pairs)(related_to_mongo.s())
+    return chord(gen_pair.si(rel_type, token, sameAs) for (rel_type, token) in pairs)(related_to_mongo.s())
 
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)

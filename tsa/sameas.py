@@ -31,6 +31,15 @@ class Index:
                 "TypeError in lookup, iri: %s", base_iri
             )
 
+    def snapshot(self):
+        index = defaultdict(set)
+        for record in db_session.query(DDR).filter_by(relationship_type=self.__key):
+            if check_iri(record.iri2) and check_iri(record.iri1):
+                index[record.iri1].add(record.iri2)
+                index[record.iri2].add(record.iri1)
+        return index
+
+
     def index(self, iri1, iri2):
         # iri1 owl:sameAs iri2
         db_session.add(DDR(relationship_type=self.__key, iri1=iri1, iri2=iri2))
