@@ -19,7 +19,6 @@ class Index:
         try:
             if check_iri(base_iri):
                 yielded_base = False
-                logging.getLogger(__name__).info("About to query: %s, %s" % (self.__key, base_iri))
                 for iri in db_session.query(DDR.iri2).filter_by(relationship_type=self.__key, iri1=base_iri).distinct():
                     if check_iri(iri):
                         yield iri

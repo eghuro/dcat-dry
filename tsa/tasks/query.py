@@ -153,13 +153,12 @@ reltypes = [
 def gen_related_ds():
     log = logging.getLogger(__name__)
     log.warning("Generate related datasets")
-    red = redis.Redis(connection_pool=redis_pool)
     related_ds = []
-
     interesting_datasets = set()
 
     for rel_type in reltypes:
-        for token in db_session.query(Relationship.group).filter_by(type=rel_type).distinct():
+        for r in db_session.query(Relationship).filter_by(type=rel_type).distinct():
+            token = r.token
             log.debug(f"type: {rel_type}, token: {token}")
             related_dist = set()
             for sameas_iri in same_as_index.lookup(token):
@@ -193,6 +192,7 @@ def gen_related_ds():
     except DocumentTooLarge:
         logging.getLogger(__name__).exception("Failed to store related datasets")
 
+    red = redis.Redis(connection_pool=redis_pool)
     red.set("shouldQuery", 0)
     # message_to_mattermost("Done!")
 
