@@ -46,11 +46,12 @@ class DatasetEndpoint(Base):
     ds = db.Column(db.String, nullable=False)
     endpoint = db.Column(db.String, nullable=False)
 
-class PureSubject(Base):
-    __tablename__ = 'pure_subject'
+class SubjectObject(Base):
+    __tablename__ = 'subject_object'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     distribution_iri = db.Column(db.String, nullable=False)
-    subject_iri = db.Column(db.String, nullable=False)
+    iri = db.Column(db.String, nullable=False)
+    pureSubject = db.Column(db.Boolean, nullable=True, default=False)
 
 class Relationship(Base):
     __tablename__ = 'relationship'

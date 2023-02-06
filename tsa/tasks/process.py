@@ -16,7 +16,7 @@ from tsa.celery import celery
 from tsa.compression import decompress_7z, decompress_gzip
 from tsa.db import db_session
 from tsa.extensions import redis_pool
-from tsa.model import DatasetDistribution, DatasetEndpoint, PureSubject
+from tsa.model import DatasetDistribution, DatasetEndpoint, SubjectObject
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import (
     NoContent,
@@ -297,7 +297,7 @@ def expand_graph_with_dereferences(
 
 def store_pure_subjects(iri, graph):
     for sub, _, _ in graph:
-        db_session.add(PureSubject(distribution_iri=iri, subject_iri=str(sub)))
+        db_session.add(SubjectObject(distribution_iri=iri, iri=str(sub), pureSubject=True))
     db_session.commit()
 
 

@@ -15,22 +15,6 @@ class Index:
         self.__key = index_key
         self.__symmetric = symmetric
 
-    def lookup(self, base_iri):
-        try:
-            if check_iri(base_iri):
-                yielded_base = False
-                for iri in db_session.query(DDR.iri2).filter_by(relationship_type=self.__key, iri1=base_iri).distinct():
-                    if check_iri(iri):
-                        yield iri
-                        if iri == base_iri:
-                            yielded_base = True
-                if not yielded_base:
-                    yield base_iri  # reflexivity
-        except TypeError:
-            logging.getLogger(__name__).exception(
-                "TypeError in lookup, iri: %s", base_iri
-            )
-
     def snapshot(self):
         index = defaultdict(set)
         for record in db_session.query(DDR).filter_by(relationship_type=self.__key):
@@ -38,7 +22,6 @@ class Index:
                 index[record.iri1].add(record.iri2)
                 index[record.iri2].add(record.iri1)
         return index
-
 
     def index(self, iri1, iri2):
         # iri1 owl:sameAs iri2

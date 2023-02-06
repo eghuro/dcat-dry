@@ -29,7 +29,8 @@ def upgrade() -> None:
     sa.Column('relevant', sa.Boolean, nullable=True, default=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('dataset_distribution_index', 'dataset_distribution', ['ds', 'distr'])
+    op.create_index('dataset_distribution_index_ds', 'dataset_distribution', ['ds'])
+    op.create_index('dataset_distribution_index_distr', 'dataset_distribution', ['distr'])
     op.create_table('datacube',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('iri', sa.String(), nullable=False),
@@ -49,7 +50,8 @@ def upgrade() -> None:
     sa.Column('iri2', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ddr_index', 'ddr', ['relationship_type', 'iri1'])
+    op.create_index('ddr_index', 'ddr', ['relationship_type', 'iri1'], unique=True)
+    op.create_index('ddr_rtype', 'ddr', ['relationship_type'], postgresql_using='HASH')
     op.create_table('label',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('iri', sa.String(), nullable=False),
@@ -57,12 +59,17 @@ def upgrade() -> None:
     sa.Column('label', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('pure_subject',
+
+    op.create_table('subject_object',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('distribution_iri', sa.String(), nullable=False),
-    sa.Column('subject_iri', sa.String(), nullable=False),
+    sa.Column('iri', sa.String(), nullable=False),
+    sa.Column('pureSubject', sa.Boolean, nullable=True, default=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('subject_object_index', 'subject_object', ['distribution_iri', 'iri'], unique=True)
+    op.create_index('subject_object_index_distr', 'subject_object', ['distribution_iri'], postgresql_using='HASH')
+
     op.create_table('relationship',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('type', sa.String(), nullable=False),
@@ -70,7 +77,11 @@ def upgrade() -> None:
     sa.Column('candidate', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('relationship_index', 'relationship', ['type', 'group', 'candidate'])
+    #op.create_index('relationship_index', 'relationship', ['type', 'group', 'candidate'], unique=True)
+    op.create_index('relationship_index_type', 'relationship', ['type'], postgresql_using='HASH')
+    #op.create_index('relationship_index_group', 'relationship', ['group'], postgresql_using='HASH')
+    op.create_index('relationship_index_candidate', 'relationship', ['candidate'], postgresql_using='HASH')
+
     op.create_table('robots_delay',
     sa.Column('iri', sa.String(), nullable=False),
     sa.Column('expiration', sa.DateTime(), nullable=False),

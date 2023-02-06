@@ -8,11 +8,12 @@ from typing import Any, DefaultDict, Generator, Optional, Tuple
 import rdflib
 from rdflib import RDF, Graph
 from rdflib.exceptions import ParserError
+from sqlalchemy.dialects.postgresql import insert
 
 from tsa.db import db_session
 from tsa.ddr import concept_index, dsd_index, ddr_index
 from tsa.sameas import same_as_index
-from tsa.model import Label
+from tsa.model import Label, SubjectObject
 from tsa.util import check_iri
 
 
@@ -432,6 +433,19 @@ class GenericAnalyzer(AbstractAnalyzer):
         external_1 = objects.difference(subjects)
         external_2 = objects.difference(locally_typed)
         # toto muze byt SKOS Concept definovany jinde
+
+        for o in objects:
+            db_session.add(SubjectObject(distribution_iri=iri, iri=o))
+        db_session.commit()
+
+        for s in subjects:
+            insert_stmt = insert(SubjectObject).values(
+                distribution_iri=iri,
+                iri=s
+            )
+            insert_stmt.on_conflict_do_nothing()
+            db_session.execute(insert_stmt)
+        db_session.commit()
 
         self.get_details(graph)
 

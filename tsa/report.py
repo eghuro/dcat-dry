@@ -67,6 +67,7 @@ def query_related(ds_iri):
         # return out
 
         ### untested ###
+        sameAs = same_as_index.snapshot()
         out = defaultdict(list)
         for reltype in reltypes:
             log.info(reltype)
@@ -83,7 +84,7 @@ def query_related(ds_iri):
                         # log.debug(related_ds_iri)
                         obj = {"type": reltype, "common": token}
 
-                        for sameas_iri in same_as_index.lookup(token):
+                        for sameas_iri in sameAs[token]:
                             for enricher in enrichers:
                                 try:
                                     obj[enricher.token] = enricher.enrich(sameas_iri)

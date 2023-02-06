@@ -12,7 +12,7 @@ from celery import chord
 from tsa.celery import celery
 from tsa.db import db_session
 from tsa.ddr import concept_index, dsd_index, ddr_index
-from tsa.model import DatasetDistribution, Relationship, PureSubject
+from tsa.model import DatasetDistribution, Relationship, SubjectObject
 from tsa.extensions import mongo_db, redis_pool, db
 from tsa.sameas import same_as_index
 from tsa.notification import message_to_mattermost
@@ -260,7 +260,6 @@ def finalize_sameas():
     # skos not needed - not transitive
     log.info("Successfully finalized sameAs index")
 
-
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def cache_labels():
     log = logging.getLogger(__name__)
@@ -284,6 +283,11 @@ def iter_subjects_objects(generic_analysis):
         for iri in sameAs[initial_iri]:
             yield iri
 
+def iter_subjects_objects_sql(distr_iri):
+    sameAs = same_as_index.snapshot()
+    for record in db_session.query(SubjectObject).filter_by(distr_iri):
+        for iri in sameAs[record.iri]:
+            yield iri
 
 def iter_generic(mongo_db):
     for doc in mongo_db.dsanalyses.find({"generic": {"$exists": True}}):
@@ -295,14 +299,12 @@ def ruian_reference():
     log = logging.getLogger(__name__)
     log.info("Look for RUIAN references")
     ruian_references = set()
-    sameAs = same_as_index.snapshot()
     for doc in iter_generic(mongo_db):
         ds_ruian_references = set()
-        for initial_iri in iter_subjects_objects(doc):
-            for iri in sameAs[initial_iri]:
-                if iri.startswith("https://linked.cuzk.cz/resource/ruian/"):
-                    ruian_references.add(iri)
-                    ds_ruian_references.add(iri)
+        for iri in iter_subjects_objects(doc):  #jiz zahrnuje sameAs
+            if iri.startswith("https://linked.cuzk.cz/resource/ruian/"):
+                ruian_references.add(iri)
+                ds_ruian_references.add(iri)
         doc["ruian"] = list(ds_ruian_references)
         mongo_db.dsanalyses.update_one({"_id": doc["_id"]}, {"$set": doc})
     log.info(f"RUIAN references: {len(list(ruian_references))}")
@@ -312,7 +314,6 @@ def ruian_reference():
 def report_relationship(session, rel_type, resource_iri, distr_iri):
     session.add(Relationship(type=rel_type, group=resource_iri, candidate=distr_iri))
 
-
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def concept_usage():
     log = logging.getLogger(__name__)
@@ -321,13 +322,12 @@ def concept_usage():
     counter = 0
     ddr_types = ddr_index.types()
     sameAs = same_as_index.snapshot()
-    for doc in iter_generic(mongo_db):
+    for o in db_session.query(DatasetDistribution).filter_by(relevant=True):
         # z profilu najit vsechna s & o resources a podivat se, zda to neni skos Concept
-        ds_iri = doc["ds_iri"]
-        distr_iri = db_session.query(DatasetDistribution.distr).filter_by(ds=ds_iri).first()
+        distr_iri = o.distr
 
         resource_iri_cache = set()
-        for resource_iri in iter_subjects_objects(doc):
+        for resource_iri in iter_subjects_objects_sql(distr_iri):
             if resource_iri in resource_iri_cache:
                 continue
             resource_iri_cache.add(resource_iri)
@@ -379,16 +379,16 @@ def concept_definition():
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def cross_dataset_sameas():
+    # to cleanup duplicit records:
+    # delete from ddr where id not in (select max(id) from ddr group by relationship_type, iri1, iri2 );
     # pure_subject -> select PureSubject with respective distribution iri
     sameAs = same_as_index.snapshot()
-    for generic in iter_generic(mongo_db):
-        ds_iri = generic["ds_iri"]
-        for a in db_session.query(DatasetDistribution).filter_by(ds=ds_iri).distinct():
-            distr_iri = a.distr
-            for b in db_session.query(PureSubject).filter_by(distribution_iri=distr_iri).distinct():
-                resource = b.subject_iri
-                for iri in sameAs[resource]:
-                    report_relationship(db_session, "crossSameas", iri, distr_iri)
+    for a in db_session.query(DatasetDistribution).filter_by(relevant=True).distinct():
+        distr_iri = a.distr
+        for b in db_session.query(SubjectObject).filter_by(distribution_iri=distr_iri, pureSubject=True).distinct():
+            resource = b.subject_iri
+            for iri in sameAs[resource]:
+                report_relationship(db_session, "crossSameas", iri, distr_iri)
     db_session.commit()
 
 
