@@ -30,8 +30,8 @@ class Config:
     MAX_RECURSION_LEVEL = 3
     MATTERMOST_CHANNEL = os.environ.get("CHANNEL", None)
     MATTERMOST_HOOK = os.environ.get("MATTERMOST", None)
-    COMPRESSED = False
-    LIMITED = False  # pouze vybrana URL - viz batch.py test_allowed
+    COMPRESSED = True
+    LIMITED = False  # True = pouze vybrana URL - viz batch.py test_allowed
     ROBOTS = True
     TIMEOUT = 10800 # 3H
 

@@ -3,6 +3,7 @@ geoportal.gov.cz
 gis.brno.cz
 vdp.cuzk.cz
 dataor.justice.cz
+www.sluzby-isvs.cz
 apl.czso.cz/iSMS/cisexp.jsp
 eagri.cz
 gis.nature.cz/arcgis/

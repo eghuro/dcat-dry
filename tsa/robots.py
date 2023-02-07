@@ -18,7 +18,7 @@ from reppy.parser import Rules
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent(
-    "DCAT DRY", tsa.__version__, extras=[("requests", requests.__version__)]
+    "DRYbot", tsa.__version__, extras=[("requests", requests.__version__)]
 )
 
 session = CachedSession('dry_dereference', backend=FileCache(use_temp=True), expire_after=3600, cache_control=True, allowable_codes=[200, 400, 404], stale_if_error=True)

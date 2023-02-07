@@ -262,6 +262,8 @@ def expand_graph_with_dereferences(
     graph: rdflib.ConjunctiveGraph, iri_distr: str
 ) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
+    if Config.MAX_RECURSION_LEVEL == 0:
+        return graph
     dereferenced = set()
     queue = [(iri_distr, 0)]
     while len(queue) > 0:
