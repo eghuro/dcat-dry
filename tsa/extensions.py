@@ -7,7 +7,6 @@ from atenvironment import environment
 from flask_caching import Cache
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from pymongo import MongoClient
 
 
 
@@ -36,24 +35,10 @@ def get_redis(redis_cfg=None):
     )
 
 
-@environment("MONGO", "MONGO_DB", default=[None, "dcat_dry"], onerror=on_error)
-def get_mongo(mongo_cfg=None, mongo_db_name=None):
-    log = logging.getLogger(__name__)
-    if mongo_cfg is None:
-        log.warning("Mongo cfg not provided, using default")
-        client = MongoClient()
-    else:
-        log.info("Setting up mongo")
-        client = MongoClient(mongo_cfg)
-    db = client[mongo_db_name]
-    return client, db
-
-
 @environment("STATSD_HOST", "STATSD_PORT", default=[None, 8125], onerror=on_error)
 def get_statsd(host=None, port=None):
     return StatsClient(host=host, port=port)
 
 
 redis_pool = get_redis()
-_, mongo_db = get_mongo()
 statsd_client = get_statsd()

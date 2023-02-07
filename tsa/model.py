@@ -1,5 +1,6 @@
 from tsa.extensions import db
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.dialects.postgresql import JSON
 
 class Base(DeclarativeBase):
     pass
@@ -59,6 +60,20 @@ class Relationship(Base):
     type = db.Column(db.String, nullable=False)
     group = db.Column(db.String, nullable=False)
     candidate = db.Column(db.String, nullable=False)
+
+class Analysis(Base):
+    __tablename__ = 'analysis'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    iri = db.Column(db.String, nullable=False)
+    analyzer = db.Column(db.String, nullable=False)
+    data = db.Column(JSON)
+
+class Related(Base):
+    __tablename__ = 'related'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    token = db.Column(db.String, nullable=False)
+    ds = db.Column(db.String, nullable=False)
+    type = db.Column(db.String, nullable=False)
 
 Base.registry.configure()
 ddr_index = DDR()

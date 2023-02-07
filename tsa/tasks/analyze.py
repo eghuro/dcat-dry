@@ -14,8 +14,7 @@ from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
 from tsa.monitor import TimedBlock
 from tsa.redis import analysis_dataset
-from tsa.extensions import db
-from tsa.model import Relationship
+from tsa.model import Relationship, Analysis
 from tsa.net import fetch, get_content
 
 
@@ -83,7 +82,7 @@ def load_graph(
     return None
 
 
-def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> None:
+def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug("Graph is None for %s", iri)
@@ -91,25 +90,32 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> Non
 
     log.debug("Analyze and index - execution: %s", iri)
 
-    analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, "token")]
     log.debug("Analyzers: %s", str(len(analyzers)))
 
+    store = []
     for analyzer_class in analyzers:
         analyzer_token = analyzer_class.token
         log.debug("Analyze and index %s with %s", iri, analyzer_token)
         analyzer = analyzer_class()
 
-        analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red)
+        token, res = analyze_and_index_one(analyzer, analyzer_class, graph, iri, log)
+        store.append({'iri': iri, 'analyzer': token, 'data': res})
         log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
     log.debug("Done processing %s, now storing", iri)
-    store_analysis_result(iri, analyses, red)
+    if len(store) > 0:
+        try:
+            db_session.execute(insert(Analysis, values=store))
+            db_session.commit()
+        except:
+            logging.getLogger(__name__).exception("Failed to store analyses in DB")
+            db_session.rollback()
     log.info("Done storing %s", iri)
 
 
 def analyze_and_index_one(
-    analyses, analyzer, analyzer_class, graph, iri, log, red
+    analyzer, analyzer_class, graph, iri, log
 ) -> None:
     log.info("Analyzing %s with %s", iri, analyzer_class.token)
     with TimedBlock(f"analyze.{analyzer_class.token}"):
@@ -117,7 +123,6 @@ def analyze_and_index_one(
     log.info(
         "Done analyzing %s with %s: %s", iri, analyzer_class.token, json.dumps(res)
     )
-    analyses.append({analyzer_class.token: res})
 
     log.debug("Find relations of %s in %s", analyzer_class.token, iri)
     try:
@@ -160,16 +165,5 @@ def analyze_and_index_one(
     except TypeError:
         log.debug("Skip %s for %s", analyzer_class.token, iri)
 
+    return analyzer_class.token, res
 
-def store_analysis_result(iri: str, analyses: List[dict], red: redis.Redis) -> None:
-    with TimedBlock("analyze.store"):
-        store = json.dumps(
-            {
-                "analysis": [x for x in analyses if ((x is not None) and (len(x) > 0))],
-                "iri": iri,
-            }
-        )
-        key_result = analysis_dataset(iri)
-        with red.pipeline() as pipe:
-            pipe.set(key_result, store)
-            pipe.execute()

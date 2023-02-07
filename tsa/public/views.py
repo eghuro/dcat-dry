@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 import tsa
 from tsa.cache import cached
-from tsa.extensions import mongo_db, redis_pool, db
+from tsa.extensions import redis_pool, db
 from tsa.sameas import same_as_index
 from tsa.report import (
     export_interesting,

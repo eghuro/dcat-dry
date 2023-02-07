@@ -45,12 +45,11 @@ def test_system():
 def api_test():
     iri = request.args["iri"]
     log = current_app.logger
-    red = redis.Redis(connection_pool=redis_pool)
     response = fetch(iri)
     guess, _ = guess_format(iri, response, log)
     content = get_content(iri, response).encode("utf-8")
     graph = load_graph(iri, content, guess)
-    do_analyze_and_index(graph, iri, red)
+    do_analyze_and_index(graph, iri)
     return ""
 
 

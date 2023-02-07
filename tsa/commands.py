@@ -12,10 +12,7 @@ from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 from tsa.sameas import same_as_index
 from tsa.query import query
-from tsa.report import import_interesting as import_interesting_impl
 from tsa.report import import_labels as import_labels_impl
-from tsa.report import import_profiles as import_profiles_impl
-from tsa.report import import_related as import_related_impl
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
@@ -79,39 +76,6 @@ def import_sameas(file):
     with open(file, "r", encoding="utf-8") as index_file:
         index = json.load(index_file)
         same_as_index.import_index(index)
-
-
-@click.command()
-@click.option(
-    "-f", "--file", required=True, help="JSON file from export related endpoint"
-)
-def import_related(file):
-    with open(file, "r", encoding="utf-8") as related_file:
-        related = json.load(related_file)
-        import_related_impl(related)
-
-
-@click.command()
-@click.option(
-    "-f", "--file", required=True, help="JSON file from export profiles endpoint"
-)
-def import_profiles(file):
-    with open(file, "r", encoding="utf-8") as profiles_file:
-        profiles = json.load(profiles_file)
-        import_profiles_impl(profiles)
-
-
-@click.command()
-@click.option(
-    "-f", "--file", required=True, help="JSON file from export interesting endpoint"
-)
-def import_interesting(file):
-    with open(file, "r", encoding="utf-8") as interesting_file:
-        interesting_datasets = json.load(interesting_file)
-        if isinstance(interesting_datasets, list):
-            import_interesting_impl(interesting_datasets)
-        else:
-            logging.getLogger(__name__).error("Incorrect file")
 
 
 @click.command()

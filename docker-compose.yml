@@ -17,7 +17,6 @@ services:
     environment:
       - REDIS=redis://redis:6379/0
       - REDIS_CELERY=redis://redis:6379/1
-      - MONGO=mongodb://mongo:27017/
       - TZ=Europe/Prague
       - LOGZIO_TOKEN=ZwNgGaJBmJaONhMeCEIlwCNbeQKZDnlk
       - DB=postgresql+psycopg2://postgres:example@db:5432/postgres
@@ -29,7 +28,6 @@ services:
     depends_on:
      - celery
      - redis
-     - mongo
      - db
      - alembic
   celery:
@@ -41,7 +39,6 @@ services:
     environment:
       - REDIS=redis://redis:6379/0
       - REDIS_CELERY=redis://redis:6379/1
-      - MONGO=mongodb://mongo:27017/
       - TZ=Europe/Prague
       - LOGZIO_TOKEN=ZwNgGaJBmJaONhMeCEIlwCNbeQKZDnlk
       - DB=postgresql+psycopg2://postgres:example@db:5432/postgres
@@ -50,7 +47,6 @@ services:
     command: celery -A tsa.celery worker -l debug -Q high_priority,default,query,low_priority -c 4
     depends_on:
       - redis
-      - mongo
       - db
       - alembic
   beat:
@@ -62,14 +58,12 @@ services:
     environment:
       - REDIS=redis://redis:6379/0
       - REDIS_CELERY=redis://redis:6379/1
-      - MONGO=mongodb://mongo:27017/
       - TZ=Europe/Prague
       - LOGZIO_TOKEN=ZwNgGaJBmJaONhMeCEIlwCNbeQKZDnlk
       - DB=postgresql+psycopg2://postgres:example@db:5432/postgres
     command: celery -A tsa.celery beat -l warning
     depends_on:
       - redis
-      - mongo
       - db
       - alembic
   redis:
@@ -77,12 +71,6 @@ services:
     image: "redis:alpine"
     ports:
       - "6379:6379"
-  mongo:
-    restart: on-failure
-    image: "mongo"
-    ports:
-      - "8081:8081"
-      - "27017:27017"
   db:
     image: postgres:14
     restart: always

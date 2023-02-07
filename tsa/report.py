@@ -5,14 +5,11 @@ from collections import defaultdict
 from rdflib import Graph
 from rdflib.exceptions import ParserError
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
-from bson.json_util import dumps as dumps_bson
-from pymongo.errors import DocumentTooLarge, OperationFailure
 
 from tsa.db import db_session
 from tsa.enricher import AbstractEnricher, NoEnrichment
-from tsa.extensions import mongo_db
 from tsa.sameas import same_as_index
-from tsa.model import Label
+from tsa.model import Label, Related, DatasetDistribution, Analysis
 from tsa.net import RobotsBlock, RobotsRetry, Skip
 from tsa.robots import USER_AGENT, session as online_session
 
@@ -36,108 +33,46 @@ def query_dataset(iri):
         "label": query_label(iri),
     }
 
-
-def get_all_related():
-    all_related = defaultdict(list)
-    for item in mongo_db.related.find({}):
-        record = {}
-        record["iri"] = item["iri"]
-        record["related"] = item["related"]
-        all_related[item["type"]].append(record)
-    return all_related
-
-
 def query_related(ds_iri):
     log = logging.getLogger(__name__)
     log.info("Query related: %s", ds_iri)
-    try:
-        all_related = get_all_related()
-        # out = {}
-        # for reltype in reltypes:
-        #    out[reltype] = dict()
-        #    for item in all_related[reltype]:
-        #        token = item['iri']
-        #        related = item['related']
-        #        if ds_iri in related:
-        #            out[reltype][token] = related
-        #            out[reltype][token].remove(ds_iri)
-        # return out
+    out = defaultdict(list)
+    sameAs = same_as_index.snapshot()
+    # (token, ds_type) k danemu ds_iri
+    for item in db_session.query(Related).filter_by(ds=ds_iri):
+        # ostatni ds pro (token, ds_type)
+        for related_ds in db_session.query(Related).filter(Related.token==item.token, Related.type==item.type, Related.ds != ds_iri):
+            # gen_related_ds jiz proslo sameAs
+            obj = {"type": related_ds.type, "common": related_ds.token}
 
-        ### untested ###
-        sameAs = same_as_index.snapshot()
-        out = defaultdict(list)
-        for reltype in reltypes:
-            log.info(reltype)
-            # log.info(all_related[reltype])
-            for item in all_related[reltype]:
-                token = item["iri"]
-                related = item["related"]
-                # related.remove(ds_iri)
-                if ds_iri in related:
-                    # log.info('JACKPOT!!!')
-                    # log.info(item)
-                    related.remove(ds_iri)  # make sure it's not out of the mongo doc!
-                    for related_ds_iri in related:
-                        # log.debug(related_ds_iri)
-                        obj = {"type": reltype, "common": token}
+            # enrichment
+            for sameas_iri in sameAs[related_ds.token]:
+                for enricher in enrichers:
+                    try:
+                        obj[enricher.token] = enricher.enrich(sameas_iri)
+                    except NoEnrichment:
+                        pass
 
-                        for sameas_iri in sameAs[token]:
-                            for enricher in enrichers:
-                                try:
-                                    obj[enricher.token] = enricher.enrich(sameas_iri)
-                                except NoEnrichment:
-                                    pass
-
-                        out[related_ds_iri].append(obj)
-                # elif (len(related) > 0) and (ds_iri not in related):
-                #        for iri in related:
-                #            out[iri].append({'type': reltype, 'common': token})
-
-                # for iri in related:
-                #    out[iri].append({'type': reltype, 'common': token})
-        out_with_labels = {}
-        for iri in out:
-            out_with_labels[iri] = {
-                "label": create_labels(iri, supported_languages),
-                "details": out[iri],
-            }
-        return out_with_labels
-
-    except TypeError:
-        log.exception("Failed to query related")
-        return {}
+            out[related_ds.ds].append(obj)
+    out_with_labels = {}
+    for iri in out:
+        out_with_labels[iri] = {
+            "label": create_labels(iri, supported_languages),
+            "details": out[iri],
+        }
+    return out_with_labels
 
 
 def query_profile(ds_iri):
     log = logging.getLogger(__name__)
-
-    # parse = urlparse(ds_iri)
-    # path = quote(parse.path)
-    # ds_iri = f'{parse.scheme}://{parse.netloc}{path}'
-
-    # log.info('iri: %s', ds_iri)
-    analyses = mongo_db.dsanalyses.find({"ds_iri": ds_iri})
-    # log.info("Retrieved analyses")
-    json_str = dumps_bson(analyses)
-    analyses = json.loads(json_str)
-    # log.info(analyses)
-
-    # so far, so good
     analysis_out = {}
-    for analysis in analyses:
-        log.info("...")
-        del analysis["_id"]
-        del analysis["ds_iri"]
-        for k in analysis.keys():
-            analysis_out[k] = analysis[k]
+    for dist in db_session.query(DatasetDistribution).filter_by(relevant=True, ds=ds_iri):
+        for analysis in db_session.query(Analysis).filter_by(iri=dist.distr):
+            analysis_out[analysis.analyzer] = analysis.data
 
     if len(analysis_out.keys()) == 0:
         log.error("Missing analysis_out for %s", ds_iri)
         return {}
-
-    # key = f'dsanalyses:{ds_iri}'
-    # red = redis.Redis(connection_pool=redis_pool)
-    # analysis_out = json.loads(red.get(key))  # raises TypeError if key is missing
 
     output = {}
     output["triples"] = analysis_out["generic"]["triples"]
@@ -206,34 +141,6 @@ def query_profile(ds_iri):
                 "label": create_labels(dataset["iri"], supported_languages),
             }
         )
-
-    # old
-    # dimensions, measures, resources_on_dimension = set(), set(), defaultdict(list)
-    # datasets = analysis_out["cube"]["datasets"]
-    # for class_analysis in datasets:
-    #    dataset = class_analysis['iri']
-    #    try:
-    #        dimensions.update([ y["dimension"] for y in class_analysis["dimensions"]])
-    #        for y in class_analysis["dimensions"]:
-    #            resources_on_dimension[y["dimension"]] = y["resources"]
-    #    except TypeError:
-    #        dimensions.update(class_analysis["dimensions"])
-    #    measures.update(class_analysis["measures"])
-    #
-    # output["dimensions"], output["measures"] = [], []
-    # for d in dimensions:
-    #    output["dimensions"].append({
-    #        'iri': d,
-    #        'label': create_labels(d, supported_languages),
-    #        'resources': resources_on_dimension[d],
-    #    })
-    #
-    # for m in measures:
-    #    output["measures"].append({
-    #        'iri': m,
-    #        'label': create_labels(m, supported_languages)
-    #    })
-
     return output
 
 
@@ -347,44 +254,30 @@ def import_labels(labels):
 
 
 def export_related():
-    return get_all_related()
+    all_related = defaultdict(defaultdict(set))
+    for item in db_session.query(Related):
+        if item.ds1 == item.ds2:
+            continue
+        all_related[item.type][item.ds1].add(item.ds2)
+    return all_related
 
 
 def export_profile():
-    for analysis in mongo_db.dsanalyses.find({}):
-        yield analysis
-
-
-def import_related(related):
-    try:
-        mongo_db.related.delete_many({})
-        mongo_db.related.insert(related)
-    except DocumentTooLarge:
-        logging.getLogger(__name__).exception("Failed to store related datasets")
-
-
-def import_profiles(profiles):
-    mongo_db.dsanalyses.delete_many({})
-    log = logging.getLogger(__name__)
-    for analysis in profiles:
-        try:
-            mongo_db.dsanalyses.insert_one(analysis)
-        except DocumentTooLarge:
-            iri = analysis["ds_iri"]
-            log.exception("Failed to store analysis for ds: %s", iri)
-        except OperationFailure:
-            log.exception("Operation failure")
-    log.info("Stored analyses")
+    analysis_out = {}
+    for dist in db_session.query(DatasetDistribution).filter_by(relevant=True):
+        for analysis in db_session.query(Analysis).filter_by(iri=dist.distr):
+            analysis_out[analysis.analyzer] = analysis.data
+    return analysis_out
 
 
 def export_interesting():
-    for doc in mongo_db.interesting.find({}):
-        return doc["iris"]
-
-
-def import_interesting(interesting_datasets):
-    mongo_db.interesting.delete_many({})
-    mongo_db.interesting.insert({"iris": list(interesting_datasets)})
+    interesting = set()
+    data = export_related()
+    for key in data.keys():
+        for ds in data[key].keys():
+            if len(data[key][ds]) > 0:
+                interesting.add(ds)
+    # ds, ze existuje (token, type) in Related t.z. existuje (token, type, ds2) in Related, kde ds != ds2 
 
 
 def list_datasets():

@@ -311,7 +311,7 @@ def store_pure_subjects(iri, graph):
 
 
 def process_content(
-    content: str, iri: str, guess: str, red: redis.Redis, log: logging.Logger
+    content: str, iri: str, guess: str, log: logging.Logger
 ) -> None:
     log.info("Analyze and index %s", iri)
     with TimedBlock("process.load"):
@@ -332,7 +332,7 @@ def process_content(
         except ValueError:
             log.exception("Failed to expand dereferenes: %s", iri)
     with TimedBlock("process.analyze_and_index"):
-        do_analyze_and_index(graph, iri, red)
+        do_analyze_and_index(graph, iri)
     log.debug("Done analyze and index %s (immediate)", iri)
     monitor.log_processed()
 
@@ -424,7 +424,7 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
             try:
                 log.debug("Get content of %s", iri)
                 content = get_content(iri, response)
-                process_content(content, iri, guess, red, log)
+                process_content(content, iri, guess, log)
             except requests.exceptions.ChunkedEncodingError as err:
                 task.retry(exc=err)
             except NoContent:
@@ -463,7 +463,7 @@ def do_decompress(red, iri, archive_type, request):
 
                 if sub_iri.endswith("/data"):  # extracted a file without a filename
                     process_content(
-                        data, sub_iri, "text/plain", red, log
+                        data, sub_iri, "text/plain", log
                     )  # this will allow for analysis to happen
                     continue
 
@@ -474,7 +474,7 @@ def do_decompress(red, iri, archive_type, request):
                 if guess is None:
                     log.warning("Unknown format after decompression: %s", sub_iri)
                 else:
-                    process_content(data, sub_iri, guess, red, log)
+                    process_content(data, sub_iri, guess, log)
         except (TypeError, ValueError):
             log.exception(
                 "Failed to decompress. iri: %s, archive_type: %s", iri, archive_type

@@ -87,6 +87,28 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('iri')
     )
 
+    op.create_table('analysis',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('iri', sa.String(), nullable=False),
+    sa.Column('analyzer', sa.String(), nullable=False),
+    sa.Column('data', sa.JSON()),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('analysis_index', 'analysis', ['iri', 'analyzer'], unique=True)
+    op.create_index('analysis_index_iri', 'analysis', ['iri'], postgresql_using='HASH')
+    op.create_index('analysis_index_analyzer', 'analysis', ['analyzer'], postgresql_using='HASH')
+
+    op.create_table('related',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('token', sa.String(), nullable=False),
+    sa.Column('ds', sa.String(), nullable=False),
+    sa.Column('type', sa.String(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('related_index_ds', 'related', ['ds'], postgresql_using='HASH')
+    op.create_index('related_index_token', 'related', ['token'], postgresql_using='HASH')
+    op.create_index('related_index_type', 'related', ['type'], postgresql_using='HASH')
+    op.create_index('related_index', 'related', ['ds', 'token', 'type'], unique=True)
 
 def downgrade() -> None:
     op.drop_index('dataset_distribution_index_ds')
@@ -97,6 +119,13 @@ def downgrade() -> None:
     op.drop_index('subject_object_index_distr')
     op.drop_index('relationship_index_type')
     op.drop_index('relationship_index_candidate')
+    op.drop_index('analysis_index')
+    op.drop_index('analysis_index_iri')
+    op.drop_index('analysis_index_type')
+    op.drop_index('related_index_ds')
+    op.drop_index('related_index_token')
+    op.drop_index('related_index_type')
+    op.drop_index('related_index')
     op.drop_table('robots_delay')
     op.drop_table('relationship')
     op.drop_table('pure_subject')
@@ -105,3 +134,5 @@ def downgrade() -> None:
     op.drop_table('dataset_endpoint')
     op.drop_table('dataset_distribution')
     op.drop_table('concept')
+    op.drop_table('analysis')
+    op.drop_table('related')
