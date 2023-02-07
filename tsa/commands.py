@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from typing import Any, Generator, List
-
+import redis
 import click
 from flask import current_app
 from flask.cli import with_appcontext
@@ -20,6 +20,7 @@ from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
 from tsa.public.views import get_results
+from tsa.extensions import redis_pool
 
 # register any new command in app.py: register_commands
 
@@ -46,11 +47,13 @@ def batch(graphs=None, sparql=None):
         return
     log.info("Analyzing endpoint %s", sparql)
 
+    red = redis.Redis(connection_pool=redis_pool)
+    key = 'batch:' + sparql
     with open(graphs, "r", encoding="utf-8") as graphs_file:
         lines = graphs_file.readlines()
         log.debug("Read lines")
         for iris in divide_chunks(lines, 1000):
-            graphs = [iri.strip() for iri in iris if check_iri(iri)]
+            graphs = [iri.strip() for iri in iris if check_iri(iri) and (red.pfadd(key, iri) == 0)]
             # inspect_graphs.si(graphs, sparql, False).apply_async()
             batch_inspect.si(sparql, graphs, 10).apply_async()
 
