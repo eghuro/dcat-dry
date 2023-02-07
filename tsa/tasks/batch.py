@@ -1,6 +1,6 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
 import logging
-
+import itertools
 import rdflib
 from celery import group
 from rdflib import Namespace
@@ -99,17 +99,17 @@ def _dcat_extractor(g, log, force, graph_iri):
     db_endpoints = []
     db_distributions = []
 
-    log.debug(f"Extracting distributions from {graph_iri}")
+    #log.debug(f"Extracting distributions from {graph_iri}")
     # DCAT dataset
     with TimedBlock("dcat_extractor"):
         distribution = False
         for ds in g.subjects(RDF.type, dcat.Dataset):
-            log.debug(f"DS: {ds!s}")
+            #log.debug(f"DS: {ds!s}")
             effective_ds = ds
 
             for parent in query_parent(ds, g, log):
                 effective_ds = parent
-            log.debug(f"effective DS: {effective_ds!s}")
+            #log.debug(f"effective DS: {effective_ds!s}")
 
             if effective_ds is None:
                 log.error('Effective DS is NONE')
@@ -161,13 +161,14 @@ def _dcat_extractor(g, log, force, graph_iri):
                                 'distr': str(url)
                             })
                         else:
-                            log.debug(f"Skipping {url} due to filter")
+                            #log.debug(f"Skipping {url} due to filter")
+                            pass
                     else:
                         # log.debug(f"{url} is not a valid download URL")
                         pass
 
                 # scan for DCAT2 data services here as well
-                for access in g.objects(d, dcat.accessService):
+                for access in itertools.chain.from_iterable(g.objects(d, dcat.accessService), g.subjects(dcat.servesDataset, d)):
                     log.debug(f"Service: {access!s}")
                     for endpoint in g.objects(access, dcat.endpointURL):
                         if check_iri(str(endpoint)):
