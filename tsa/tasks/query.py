@@ -65,8 +65,6 @@ def gen_pair(rel_type, token, sameAs):
         for s in db_session.query(DatasetDistribution).filter_by(dist=distr_iri):
             all_related.add(s.ds)
     if (len(all_related) > 1):
-        red = redis.Redis(connection_pool=redis_pool)
-        red.sadd('interesting_datasets', *all_related)
         # do not consider sets on one candidate for conciseness
         return {"iri": token, "related": list(all_related), "type": rel_type}
 

@@ -166,7 +166,7 @@ def _dcat_extractor(g, log, force):
                         pass
 
                 # scan for DCAT2 data services here as well
-                for access in itertools.chain.from_iterable(g.objects(d, dcat.accessService), g.subjects(dcat.servesDataset, d)):
+                for access in itertools.chain(g.objects(d, dcat.accessService), g.subjects(dcat.servesDataset, d)):
                     log.debug(f"Service: {access!s}")
                     for endpoint in g.objects(access, dcat.endpointURL):
                         if check_iri(str(endpoint)):

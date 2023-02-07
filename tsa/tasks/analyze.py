@@ -2,10 +2,8 @@
 import json
 import logging
 from collections import defaultdict
-from typing import List
 
 import rdflib
-import redis
 from pyld import jsonld
 from requests.exceptions import HTTPError, RequestException
 from sqlalchemy import insert
@@ -13,7 +11,6 @@ from sqlalchemy import insert
 from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
 from tsa.monitor import TimedBlock
-from tsa.redis import analysis_dataset
 from tsa.model import Relationship, Analysis
 from tsa.net import fetch, get_content
 
@@ -106,7 +103,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     log.debug("Done processing %s, now storing", iri)
     if len(store) > 0:
         try:
-            db_session.execute(insert(Analysis, values=store))
+            db_session.execute(insert(Analysis).values(store))
             db_session.commit()
         except:
             logging.getLogger(__name__).exception("Failed to store analyses in DB")

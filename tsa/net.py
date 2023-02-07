@@ -83,7 +83,7 @@ class RobotsBlock():
             logging.getLogger(__name__).exception("Failed do commit, rolling back expired delay removal")
             db_session.rollback()
 
-    def __exit__(self):
+    def __exit__(self, *args):
         if self.__delay is not None:
             log = logging.getLogger(__name__)
             log.info(f"Recording crawl-delay of {self.__delay} for {self.__iri}")
