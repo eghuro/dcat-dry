@@ -33,6 +33,7 @@ class Config:
     COMPRESSED = False
     LIMITED = True
     ROBOTS = True
+    TIMEOUT = 10800 # 3H
 
 
 class ProdConfig(Config):

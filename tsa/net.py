@@ -101,7 +101,7 @@ class RobotsBlock():
 def fetch(iri: str) -> requests.Response:
     """Fetch the distribution. Mind robots.txt."""
     with RobotsBlock(iri):  # can raise Skip, RobotsRetry
-        timeout = 10800  # 3h
+        timeout = Config.TIMEOUT
         # a guess for 100 KB/s on data that will still make it into redis (512 MB)
         # this is mostly a safe stop in case a known RDF (tasks not time constrained) hangs along the way
         # the idea is to allow for as much time as needed for the known RDF distros, while preventing task queue "jam"
