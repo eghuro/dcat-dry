@@ -1,5 +1,4 @@
 """User agent and robots cache."""
-import os
 import resource
 from functools import lru_cache
 from typing import Tuple, Union

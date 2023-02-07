@@ -2,21 +2,18 @@ import json
 import logging
 from collections import defaultdict
 
-import redis
 from rdflib import Graph
 from rdflib.exceptions import ParserError
-from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
+from rdflib.plugins.stores.sparqlstore import SPARQLStore
 from bson.json_util import dumps as dumps_bson
 from pymongo.errors import DocumentTooLarge, OperationFailure
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from tsa.db import db_session
 from tsa.enricher import AbstractEnricher, NoEnrichment
-from tsa.extensions import mongo_db, db
+from tsa.extensions import mongo_db
 from tsa.sameas import same_as_index
 from tsa.model import Label
-from tsa.redis import sanitize_key
+from tsa.net import RobotsBlock, RobotsRetry, Skip
 from tsa.robots import USER_AGENT, session as online_session
 
 supported_languages = ["cs", "en"]
@@ -273,10 +270,6 @@ def create_labels(ds_iri, tags):
     return label
 
 
-def sanitize_label_iri_for_mongo(iri):
-    return "+".join(iri.split("."))
-
-
 def query_label(ds_iri):
     print(f"Query label for {ds_iri}")
     result = defaultdict(set)
@@ -290,34 +283,47 @@ def query_label(ds_iri):
         )
         endpoint = "https://data.gov.cz/sparql"
         q = f"select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10"
-        store = SPARQLStore(
-            endpoint, session=online_session, headers={"User-Agent": USER_AGENT}
-        )
-        graph = Graph(store=store)
-        graph.open(endpoint)
         try:
-            for row in graph.query(q):
-                label = row["label"]
+            with RobotsBlock(endpoint):
+                store = SPARQLStore(
+                    endpoint, session=online_session, headers={"User-Agent": USER_AGENT}
+                )
+                graph = Graph(store=store)
+                graph.open(endpoint)
                 try:
-                    value, language = label.value, label.language
-                    result[language] = value
-                    result["default"] = value
-                except AttributeError:
-                    result["default"] = label
-        except ParserError:
-            logging.getLogger(__name__).exception(f"Failed to parse title for {ds_iri}")
+                    for row in graph.query(q):
+                        label = row["label"]
+                        try:
+                            value, language = label.value, label.language
+                            result[language] = value
+                            result["default"] = value
+                        except AttributeError:
+                            result["default"] = label
+                except ParserError:
+                    logging.getLogger(__name__).exception(f"Failed to parse title for {ds_iri}")
+        except (RobotsRetry, Skip):
+            logging.getLogger(__name__).warning(f"Not allowed to fetch {ds_iri} from endpoint right now")
 
+    result = dict(result)
+    for key in result.keys():
+        result[key] = list(result[key])
     return result
 
+def convert_labels_for_json_export(out):
+    for key1 in out.keys():
+        out[key1]=dict(out[key1])
+        for key2 in out[key1]:
+            out[key1][key2] = list(out[key1][key2])
+    return out
 
 def export_labels():
     out = {}
     for label in db_session.query(Label):
-        key1 = sanitize_label_iri_for_mongo(label.iri)
+        key1 = label.iri
         if key1 not in out.keys():
             out[key1] = defaultdict(set)
-        out[key1][sanitize_label_iri_for_mongo(label.language_code)].add(label.label)
-    return out
+        out[key1][label.language_code].add(label.label)
+    return convert_labels_for_json_export(out)
 
 
 def import_labels(labels):

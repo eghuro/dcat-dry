@@ -111,8 +111,7 @@ def export_labels_endpoint():
     server_timeout=1800,
 )
 def export_related_endpoint():
-    obj = export_related()
-    del obj["_id"]
+    obj = dict(export_related())
     return jsonify(obj)
 
 
@@ -127,7 +126,6 @@ def export_related_endpoint():
 def export_profile_endpoint():
     lst = []
     for entry in export_profile():
-        del entry["_id"]
         lst.append(entry)
     return jsonify(lst)
 
