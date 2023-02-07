@@ -31,7 +31,7 @@ def query_parent(ds, g, log):
         log.warning(f"Failed to query parent. Query was: {query}")
 
 
-def test_allowed(url: str) -> bool:
+def test_allowed(url: str) -> bool:  #WTF?
     for prefix in [
         "https://data.cssz.cz",
         "https://rpp-opendata.egon.gov.cz",
@@ -47,7 +47,7 @@ def test_allowed(url: str) -> bool:
     return False
 
 
-def _dcat_extractor(g, log, force, graph_iri):
+def _dcat_extractor(g, log, force):
     if g is None:
         return
     distributions, distributions_priority = [], []
@@ -102,7 +102,6 @@ def _dcat_extractor(g, log, force, graph_iri):
     #log.debug(f"Extracting distributions from {graph_iri}")
     # DCAT dataset
     with TimedBlock("dcat_extractor"):
-        distribution = False
         for ds in g.subjects(RDF.type, dcat.Dataset):
             #log.debug(f"DS: {ds!s}")
             effective_ds = ds
@@ -148,7 +147,6 @@ def _dcat_extractor(g, log, force, graph_iri):
                             })
                         elif test_allowed(url) or not Config.LIMITED:
                             downloads.append(url)
-                            distribution = True
                             log.debug(
                                 f"Distribution {url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})"
                             )
@@ -189,13 +187,12 @@ def _dcat_extractor(g, log, force, graph_iri):
                 db_session.execute(insert(DatasetDistribution).values(db_distributions))
             if len(db_endpoints) + len(db_distributions) > 0:
                 db_session.commit()
+                GenericAnalyzer().get_details(g)  # extrakce labelu
         except:
             log.exception("Failed to commit in DCAT extractor")
             db_session.rollback()
 
         # TODO: possibly scan for service description as well
-        if distribution:
-            GenericAnalyzer().get_details(g)  # extrakce labelu - heavy!
     tasks = [process_priority.si(a, force) for a in distributions_priority]
     tasks.extend(process.si(a, force) for a in distributions)
     monitor.log_tasks(len(tasks))
@@ -234,7 +231,7 @@ def do_inspect_graph(graph_iri, force, endpoint_iri):
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
         result = _dcat_extractor(
-            inspector.process_graph(graph_iri), log, force, graph_iri
+            inspector.process_graph(graph_iri), log, force
         )
     except (rdflib.query.ResultException, HTTPError):
         log.error(f"Failed to inspect graph {graph_iri}: ResultException or HTTP Error")

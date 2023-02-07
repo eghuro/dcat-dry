@@ -31,7 +31,7 @@ class Config:
     MATTERMOST_CHANNEL = os.environ.get("CHANNEL", None)
     MATTERMOST_HOOK = os.environ.get("MATTERMOST", None)
     COMPRESSED = False
-    LIMITED = True
+    LIMITED = False  # pouze vybrana URL - viz batch.py test_allowed
     ROBOTS = True
     TIMEOUT = 10800 # 3H
 
