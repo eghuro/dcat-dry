@@ -72,10 +72,11 @@ def process(self, iri, force):
 
 
 def filter_iri(iri):
+    iri = iri.strip()
     if iri.startswith("http"):
-        iri = iri[7:]
-    elif iri.startswith("https"):
         iri = iri[8:]
+    elif iri.startswith("https"):
+        iri = iri[9:]
     if len(trie.prefixes(iri)) > 0:
         return True
     return (
