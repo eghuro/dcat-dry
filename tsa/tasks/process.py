@@ -41,7 +41,7 @@ from tsa.util import check_iri
 
 trie = None
 with open(Config.EXCLUDE_PREFIX_LIST, 'r') as f:
-    trie = marisa_trie.Trie(f.readlines())
+    trie=marisa_trie.Trie([x.strip() for x in f.readlines()])
 
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
