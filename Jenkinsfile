@@ -26,7 +26,6 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
-						pip install pytest-cov WebTest
 						pytest --verbose --junitxml=pytest.xml --cov-report xml:cov.xml --cov=tsa
 						conda deactivate
 					'''
@@ -48,7 +47,6 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
-						pip install prospector[with_everything] types-requests types-redis radon
 						prospector -0
 						[[ $(radon cc -x B --total-average tsa app.py|tail -n1|cut -d' ' -f3) == "A" ]]
 						conda deactivate
@@ -65,7 +63,6 @@ pipeline {
 					sh '''#!/usr/bin/env bash
 						source /opt/conda/etc/profile.d/conda.sh
 						conda activate "${WORKSPACE}@tmp/${BUILD_NUMBER}"
-						pip install prospector[with_everything] types-requests types-redis flake8
 						prospector -0 -o pylint:prospector.txt tsa
 						flake8 --radon-max-cc 10 tsa/ app.py > flake8.txt
 						ochrona --report_type XML  > ochrona.xml
