@@ -63,7 +63,7 @@ def process_priority(self, iri, force):
 
 @celery.task(
     bind=True,
-    time_limit=600,
+    time_limit=300,
     base=TrackableTask,
     ignore_result=True,
     autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError),
