@@ -9,6 +9,7 @@ import rdflib
 from rdflib import RDF, Graph
 from rdflib.exceptions import ParserError
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.ddr import concept_index, dsd_index, ddr_index
@@ -474,7 +475,7 @@ class GenericAnalyzer(AbstractAnalyzer):
             )
             db_session.execute(insert_stmt)
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back generic analysis"
             )
@@ -519,7 +520,7 @@ class GenericAnalyzer(AbstractAnalyzer):
                 db_session.commit()
         except ParserError:
             logging.getLogger(__name__).exception(f"Failed to extract labels")
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back label extraction"
             )

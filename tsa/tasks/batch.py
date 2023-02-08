@@ -7,6 +7,7 @@ from rdflib import Namespace
 from rdflib.namespace import RDF
 from requests.exceptions import HTTPError
 from sqlalchemy import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.analyzer import GenericAnalyzer
 from tsa.celery import celery
@@ -185,7 +186,7 @@ def _dcat_extractor(g, log, force):
             if len(db_endpoints) + len(db_distributions) > 0:
                 db_session.commit()
                 GenericAnalyzer().get_details(g)  # extrakce labelu
-        except:
+        except SQLAlchemyError:
             log.exception("Failed to commit in DCAT extractor")
             db_session.rollback()
 

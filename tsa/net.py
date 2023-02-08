@@ -8,6 +8,7 @@ import requests
 import urllib3
 import rdflib
 import redis
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.model import RobotsDelay
@@ -79,7 +80,7 @@ class RobotsBlock:
             break
         try:
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back expired delay removal"
             )
@@ -95,7 +96,7 @@ class RobotsBlock:
                 db_session.commit()
             except ValueError:
                 log.error("Invalid delay value - could not convert to int")
-            except:
+            except SQLAlchemyError:
                 log.exception(
                     f"Failed to set crawl-delay for {self.__iri}: {self.__delay}"
                 )

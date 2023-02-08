@@ -5,6 +5,7 @@ from json import JSONEncoder
 import redis
 from sqlalchemy import select, insert
 from sqlalchemy.orm import join
+from sqlalchemy.exc import SQLAlchemyError
 from celery import chord
 
 from tsa.celery import celery
@@ -38,7 +39,7 @@ def compile_analyses():
     try:
         db_session.bulk_update_mappings(DatasetDistribution, update)
         db_session.commit()
-    except:
+    except SQLAlchemyError:
         log.exception("Failed to mark relevant distributions")
         db_session.rollback()
 
@@ -170,7 +171,7 @@ def ruian_reference(self):
     try:
         db_session.bulk_insert_mappings(Analysis, references)
         db_session.commit()
-    except:
+    except SQLAlchemyError:
         log.exception("Failed to mark relevant distributions")
         db_session.rollback()
     log.info(f"RUIAN references: {len(list(ruian_references))}")
@@ -184,7 +185,7 @@ def report_relationship_bulk(reports):
     try:
         db_session.execute(insert(Relationship, reports))
         db_session.commit()
-    except:
+    except SQLAlchemyError:
         logging.getLogger(__name__).exception("Failed to bulk report relationships")
         db_session.rollback()
 

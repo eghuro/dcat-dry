@@ -12,6 +12,7 @@ import SPARQLWrapper
 from celery.app.task import Task
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.celery import celery
 from tsa.db import db_session
@@ -336,7 +337,7 @@ def store_pure_subjects(iri, graph):
     try:
         db_session.execute(insert_stmt)
         db_session.commit()
-    except:
+    except SQLAlchemyError:
         logging.getLogger(__name__).error("Failed to store pure objects")
         db_session.rollback()
 

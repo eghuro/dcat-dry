@@ -3,6 +3,7 @@ from typing import Dict, Generator, List, Tuple
 
 import rfc3987
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.model import DDR, Concept, Datacube
@@ -44,7 +45,7 @@ class DataDrivenRelationshipIndex:
                 insert_stmt = insert(DDR).values(cleaned).on_conflict_do_nothing()
                 db_session.execute(insert_stmt)
                 db_session.commit()
-            except:
+            except SQLAlchemyError:
                 logging.getLogger(__name__).exception(
                     "Failed do commit, rolling back DataDrivenRelationshipIndex bulk index"
                 )
@@ -67,7 +68,7 @@ class DataDrivenRelationshipIndex:
                 DDR(relationship_type=relationship_type, iri1=iri2, iri2=iri1)
             )
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back DataDrivenRelationshipIndex index"
             )
@@ -102,7 +103,7 @@ class ConceptIndex:
         try:
             db_session.execute(insert_stmt)
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back ConceptIndex bulk index"
             )
@@ -112,7 +113,7 @@ class ConceptIndex:
         try:
             db_session.add(Concept(iri=iri))
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back ConceptIndex index"
             )
@@ -139,7 +140,7 @@ class DataCubeDefinitionIndex:
                     db_session.add(Datacube(iri=iri, rod=rod))
         try:
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back DataCubeDefinitionIndex index"
             )

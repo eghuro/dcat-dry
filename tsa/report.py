@@ -5,6 +5,7 @@ from collections import defaultdict
 from rdflib import Graph
 from rdflib.exceptions import ParserError
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.enricher import AbstractEnricher, NoEnrichment
@@ -255,7 +256,7 @@ def import_labels(labels):
                 db_session.add(label)
     try:
         db_session.commit()
-    except:
+    except SQLAlchemyError:
         logging.getLogger(__name__).exception(
             "Failed do commit, rolling back import labels"
         )

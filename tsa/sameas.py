@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.model import DDR
@@ -47,7 +48,7 @@ class Index:
             try:
                 db_session.execute(insert_stmt)
                 db_session.commit()
-            except:
+            except SQLAlchemyError:
                 logging.getLogger(__name__).exception(
                     "Failed do commit, rolling back bulk index"
                 )
@@ -71,7 +72,7 @@ class Index:
             try:
                 db_session.execute(insert_stmt)
                 db_session.commit()
-            except:
+            except SQLAlchemyError:
                 logging.getLogger(__name__).exception("Failed fo finalize index")
                 db_session.rollback()
         except:

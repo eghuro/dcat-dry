@@ -7,6 +7,7 @@ import rdflib
 from pyld import jsonld
 from requests.exceptions import HTTPError, RequestException
 from sqlalchemy import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
@@ -113,7 +114,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
         try:
             db_session.execute(insert(Analysis).values(store))
             db_session.commit()
-        except:
+        except SQLAlchemyError:
             logging.getLogger(__name__).exception("Failed to store analyses in DB")
             db_session.rollback()
     log.info("Done storing %s", iri)
@@ -164,7 +165,7 @@ def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> None:
             try:
                 db_session.execute(insert(Relationship).values(relationships))
                 db_session.commit()
-            except:
+            except SQLAlchemyError:
                 log.exception("Failed to store relations in DB")
                 db_session.rollback()
     except TypeError:
