@@ -15,11 +15,6 @@ def logging_setup(token=None, url=None):
     if token is None:
         logging.info("Remote logging into logz.io is not configured")
         return
-    try:
-        import logzio.handler.LogzioHandler
-    except ImportError:
-        logging.warning("Remote logging into logz.io is not possible")
-        return
     logging.config.dictConfig(
         {
             "version": 1,

@@ -1,4 +1,5 @@
 """User agent and robots cache."""
+import os
 import resource
 from typing import Tuple, Union
 
@@ -51,7 +52,7 @@ def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
     return robots.allowed(iri, USER_AGENT), robots.delay(USER_AGENT), robots_iri
 
 
-@lru_cache(conn=redis.Redis(connection_pool=redis_pool))
+@lru_cache(conn=redis.Redis.from_url(os.environ.get('REDIS', 'redis://localhost:6379/0')))
 def fetch_robots(robots_iri: str) -> Union[str, None]:
     if len(robots_iri) == 0:
         return None
