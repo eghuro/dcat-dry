@@ -148,7 +148,7 @@ def analyze_and_index_one(
             if key is None or len(key) == 0:
                 continue
             iris = item[1]
-            log.debug("Addding %s items into set", str(len(iris)))
+            # log.debug("Adding %s items into set", str(len(iris)))
             for iri in iris:
                 if iri is not None and len(iri) > 0:
                     relationships.append({'type': rel_type, 'group': key, 'candidate': iri})

@@ -9,7 +9,7 @@ from tsa.tasks.query import (
     cross_dataset_sameas,
     data_driven_relationships,
     finalize_sameas,
-    gen2,
+    gen_related_ds,
     ruian_reference
 )
 
@@ -27,6 +27,6 @@ def query():
             data_driven_relationships.si(),  # sameas, ruian
             concept_usage.si(),  # sameas + ddr (related concept)
             concept_definition.si(),
-            gen2.si(),
+            gen_related_ds.si(),
         ]
     ).apply_async(queue="query")
