@@ -54,27 +54,44 @@ requests-cache = "^0.9.8"
 requests-toolbelt = "^0.10.1"
 rfc3987 = "^1.3.8"
 
+[tool.poetry.group.statsd]
+optional = true
+
 [tool.poetry.group.statsd.dependencies]
 statsd = "^4.0.1"
+
+[tool.poetry.group.robots]
+optional = true
 
 [tool.poetry.group.robots.dependencies]
 reppy2 = "^0.3.6"
 
+[tool.poetry.group.sentry]
+optional = true
+
 [tool.poetry.group.sentry.dependencies]
 sentry-sdk = "^1.15.0"
 
+[tool.poetry.group.logzio]
+optional = true
 
 [tool.poetry.group.logzio.dependencies]
 logzio-python-handler = "^4.0.0"
 
+[tool.poetry.group.decompression]
+optional = true
 
 [tool.poetry.group.decompression.dependencies]
 libarchive-c = "^4.0"
 
+[tool.poetry.group.gevent]
+optional = true
 
 [tool.poetry.group.gevent.dependencies]
 gevent = "^22.10.2"
 
+[tool.poetry.group.test]
+optional = true
 
 [tool.poetry.group.test.dependencies]
 ochrona = "^2.0.2"

@@ -3041,14 +3041,14 @@ files = [
 
 [[package]]
 name = "trove-classifiers"
-version = "2023.1.20"
+version = "2023.2.8"
 description = "Canonical source for classifiers on PyPI (pypi.org)."
 category = "dev"
 optional = false
 python-versions = "*"
 files = [
-    {file = "trove-classifiers-2023.1.20.tar.gz", hash = "sha256:ed3fd4e1d2ea77ca9ed379380582566e6003a54d70a3e5521a9b2a7896609362"},
-    {file = "trove_classifiers-2023.1.20-py3-none-any.whl", hash = "sha256:e4fb91e744a1b8a4e416226dbd4c3a58717295f54608e412cee526287d5d14d0"},
+    {file = "trove-classifiers-2023.2.8.tar.gz", hash = "sha256:3b6960fb96c1d4cc9988bdc1b90bcd65fcf5d9843d884dfc86bd674ff81a4dea"},
+    {file = "trove_classifiers-2023.2.8-py3-none-any.whl", hash = "sha256:3aff899dd9792c4d095740980a5967eb98094ff881faf0b29afc775b75aaaac6"},
 ]
 
 [[package]]
@@ -3478,4 +3478,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7"
-content-hash = "e7abc330f33e8dc61ec6bc06e1b2411b33f49d5dff354fc669c20e33505e4c42"
+content-hash = "c42bd93fe3d7bbfc1a394c3240569c9386b76d53d26b21a7072cb09850e85a11"
