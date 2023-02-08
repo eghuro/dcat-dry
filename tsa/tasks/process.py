@@ -9,7 +9,10 @@ import rdflib
 import redis
 import requests
 import SPARQLWrapper
+from celery import states
 from celery.app.task import Task
+from celery.exceptions import Ignore
+from gevent.timeout import Timeout
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -451,7 +454,17 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         monitor.log_processed()
     except RobotsRetry as err:
         task.retry(countdown=err.delay)
+    except Timeout:
+        log.error("Failed to get %s: timeout", iri)
+        monitor.log_processed()
+        task.update_state(
+            state = states.FAILURE,
+            meta = 'Timeout'
+        )
+        raise Ignore()
     except:
+        if sys.exc_info()[0] == Ignore:
+            raise
         exc = sys.exc_info()[1]
         log.exception("Failed to get %s: %s", iri, str(exc))
         monitor.log_processed()
