@@ -20,7 +20,9 @@ class RuianInspector:
         endpoint = "https://linked.cuzk.cz.opendata.cz/sparql"
 
         with RobotsBlock(endpoint):
-            store = SPARQLStore(endpoint, session=session, headers={"User-Agent": USER_AGENT})
+            store = SPARQLStore(
+                endpoint, session=session, headers={"User-Agent": USER_AGENT}
+            )
             ruian = Graph(store=store)
             ruian.open(endpoint)
 
@@ -51,11 +53,9 @@ class RuianInspector:
                         queue.append(next_iri)
 
                         # report: (IRI, next_iri) - type: token
-                        ddr.append({
-                            'relationship_type': token,
-                            'iri1': iri,
-                            'iri2': next_iri
-                        })
+                        ddr.append(
+                            {"relationship_type": token, "iri1": iri, "iri2": next_iri}
+                        )
                         concepts.append(iri)
                         relationship_count = relationship_count + 1
             ddr_index.bulk_insert(ddr)

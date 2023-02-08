@@ -44,7 +44,7 @@ class RobotsRetry(Exception):
         super().__init__()
 
 
-class RobotsBlock():
+class RobotsBlock:
     def __init__(self, iri: str):
         self.__iri = iri
         self.__delay = None
@@ -80,7 +80,9 @@ class RobotsBlock():
         try:
             db_session.commit()
         except:
-            logging.getLogger(__name__).exception("Failed do commit, rolling back expired delay removal")
+            logging.getLogger(__name__).exception(
+                "Failed do commit, rolling back expired delay removal"
+            )
             db_session.rollback()
 
     def __exit__(self, *args):
@@ -88,13 +90,15 @@ class RobotsBlock():
             log = logging.getLogger(__name__)
             log.info(f"Recording crawl-delay of {self.__delay} for {self.__iri}")
             try:
-                expire = datetime.now()+timedelta(seconds=int(self.__delay))
+                expire = datetime.now() + timedelta(seconds=int(self.__delay))
                 db_session.add(RobotsDelay(iri=self.__iri, expiration=expire))
                 db_session.commit()
             except ValueError:
                 log.error("Invalid delay value - could not convert to int")
             except:
-                log.exception(f"Failed to set crawl-delay for {self.__iri}: {self.__delay}")
+                log.exception(
+                    f"Failed to set crawl-delay for {self.__iri}: {self.__delay}"
+                )
                 db_session.rollback()
 
 
@@ -105,7 +109,7 @@ def fetch(iri: str) -> requests.Response:
         # a guess for 100 KB/s on data that will still make it into redis (512 MB)
         # this is mostly a safe stop in case a known RDF (tasks not time constrained) hangs along the way
         # the idea is to allow for as much time as needed for the known RDF distros, while preventing task queue "jam"
-        #log.debug(f"Setting timeout {timeout!s} for {iri}")
+        # log.debug(f"Setting timeout {timeout!s} for {iri}")
         accept = ". ".join(
             [
                 "application/ld+json",

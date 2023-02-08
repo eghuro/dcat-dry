@@ -33,6 +33,7 @@ from tsa.redis import dereference as dereference_key
 from tsa.redis import root_name
 from tsa.robots import USER_AGENT, session
 from tsa.settings import Config
+
 try:
     from tsa.compression import decompress_7z, decompress_gzip
 except ImportError:
@@ -43,8 +44,8 @@ from tsa.util import check_iri
 
 
 trie = None
-with open(Config.EXCLUDE_PREFIX_LIST, 'r') as f:
-    trie=marisa_trie.Trie([x.strip() for x in f.readlines()])
+with open(Config.EXCLUDE_PREFIX_LIST, "r") as f:
+    trie = marisa_trie.Trie([x.strip() for x in f.readlines()])
 
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
@@ -71,9 +72,9 @@ def process(self, iri, force):
 
 
 def filter_iri(iri):
-    if iri.startswith('http'):
+    if iri.startswith("http"):
         iri = iri[7:]
-    elif iri.startswith('https'):
+    elif iri.startswith("https"):
         iri = iri[8:]
     if len(trie.prefixes(iri)) > 0:
         return True
@@ -132,11 +133,26 @@ def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Conjunctive
             with TimedBlock("dereference_from_endpoints.construct"):
                 graph = endpoint_graph.query(query).graph
         except SPARQLWrapper.SPARQLExceptions.QueryBadFormed:
-            log.error("Dereference %s from endpoint %s failed. Query:\n%s\n\n", iri, endpoint_iri, query)
+            log.error(
+                "Dereference %s from endpoint %s failed. Query:\n%s\n\n",
+                iri,
+                endpoint_iri,
+                query,
+            )
         except (rdflib.query.ResultException, requests.exceptions.HTTPError):
-            log.warning("Failed to dereference %s from endpoint %s: ResultException or HTTP Error", iri, endpoint_iri)
+            log.warning(
+                "Failed to dereference %s from endpoint %s: ResultException or HTTP Error",
+                iri,
+                endpoint_iri,
+            )
         except ValueError as err:  # usually an empty graph
-            log.debug("Failed to dereference %s from endpoint %s: %s, query: %s", iri, endpoint_iri, str(err), query)
+            log.debug(
+                "Failed to dereference %s from endpoint %s: %s, query: %s",
+                iri,
+                endpoint_iri,
+                str(err),
+                query,
+            )
         return graph
 
 
@@ -147,9 +163,7 @@ def sanitize_list(list_in: List[Optional[str]]) -> Generator[str, None, None]:
                 yield item
 
 
-def dereference_from_endpoints(
-    iri: str, iri_distr: str
-) -> rdflib.ConjunctiveGraph:
+def dereference_from_endpoints(iri: str, iri_distr: str) -> rdflib.ConjunctiveGraph:
     if not check_iri(iri):
         return None
     monitor.log_dereference_processed()
@@ -210,15 +224,20 @@ def dereference_one_impl(
         )
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except (requests.exceptions.HTTPError, UnicodeError):
-        #log.debug("HTTP Error dereferencing, will lookup in endpoints: %s", iri_to_dereference)
+        # log.debug("HTTP Error dereferencing, will lookup in endpoints: %s", iri_to_dereference)
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except requests.exceptions.RequestException:
-        log.debug("Failed to dereference (RequestException fetching): %s", iri_to_dereference)
+        log.debug(
+            "Failed to dereference (RequestException fetching): %s", iri_to_dereference
+        )
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except (Skip, NoContent):
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
     except:
-        log.exception("Unknown error dereferencing, will lookup in endpoints: %s", iri_to_dereference)
+        log.exception(
+            "Unknown error dereferencing, will lookup in endpoints: %s",
+            iri_to_dereference,
+        )
         return dereference_from_endpoints(iri_to_dereference, iri_distr)
 
 
@@ -302,11 +321,17 @@ def expand_graph_with_dereferences(
 def store_pure_subjects(iri, graph):
     if iri is None or len(iri) == 0:
         return
-    insert_stmt = insert(SubjectObject).values([{
-        'distribution_iri': iri,
-        'iri': str(sub),
-        'pureSubject': True
-    } for sub, _, _ in graph if ((sub is not None) and len(str(sub)) > 0)]).on_conflict_do_nothing()
+    insert_stmt = (
+        insert(SubjectObject)
+        .values(
+            [
+                {"distribution_iri": iri, "iri": str(sub), "pureSubject": True}
+                for sub, _, _ in graph
+                if ((sub is not None) and len(str(sub)) > 0)
+            ]
+        )
+        .on_conflict_do_nothing()
+    )
     try:
         db_session.execute(insert_stmt)
         db_session.commit()
@@ -315,9 +340,7 @@ def store_pure_subjects(iri, graph):
         db_session.rollback()
 
 
-def process_content(
-    content: str, iri: str, guess: str, log: logging.Logger
-) -> None:
+def process_content(content: str, iri: str, guess: str, log: logging.Logger) -> None:
     log.info("Analyze and index %s", iri)
     with TimedBlock("process.load"):
         graph = load_graph(iri, content, guess, True)

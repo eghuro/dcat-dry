@@ -97,7 +97,9 @@ def cached(
 ALLOW_NON_REDIS_CACHING = False
 
 _CacheInfo = namedtuple("CacheInfo", ["hits", "misses", "maxsize", "currsize"])
-_CacheInfoVerbose = namedtuple("CacheInfoVerbose", ["hits", "misses", "maxsize", "currsize", "paramsignatures"])
+_CacheInfoVerbose = namedtuple(
+    "CacheInfoVerbose", ["hits", "misses", "maxsize", "currsize", "paramsignatures"]
+)
 
 
 def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
@@ -314,17 +316,28 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
                 if ALLOW_NON_REDIS_CACHING:
                     return func(*args, **kwargs)  # Original behaviour (deprecated)
                 else:
-                    raise RuntimeWarning(f"redis_lru - no redis connection has been supplied "
-                                         f"for caching calls to '{func.__name__}'")
+                    raise RuntimeWarning(
+                        f"redis_lru - no redis connection has been supplied "
+                        f"for caching calls to '{func.__name__}'"
+                    )
 
         def cache_info(verbose=False):
             conn = lvars[0]
             size = int(conn.zcard(cache_keys) or 0)
-            hits, misses = int(conn.get(cache_hits) or 0), int(conn.get(cache_miss) or 0)
+            hits, misses = (
+                int(conn.get(cache_hits) or 0),
+                int(conn.get(cache_miss) or 0),
+            )
 
             if verbose:
                 paramsignatures = conn.zrange(cache_keys, 0, 9999)
-                return _CacheInfoVerbose(hits, misses, maxsize, size, [pickle.loads(sig) for sig in paramsignatures])
+                return _CacheInfoVerbose(
+                    hits,
+                    misses,
+                    maxsize,
+                    size,
+                    [pickle.loads(sig) for sig in paramsignatures],
+                )
 
             # return hits, misses, capacity, size  # Original Python 2
             return _CacheInfo(hits, misses, maxsize, size)

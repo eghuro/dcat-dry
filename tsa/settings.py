@@ -26,14 +26,14 @@ class Config:
         "https://data.cssz.cz/sparql",
     ]
     SD_BASE_IRI = "https://data.eghuro.cz/resource/"
-    EXCLUDE_PREFIX_LIST = '/tmp/exclude.txt'
+    EXCLUDE_PREFIX_LIST = "/tmp/exclude.txt"
     MAX_RECURSION_LEVEL = 3
     MATTERMOST_CHANNEL = os.environ.get("CHANNEL", None)
     MATTERMOST_HOOK = os.environ.get("MATTERMOST", None)
     COMPRESSED = True
     LIMITED = False  # True = pouze vybrana URL - viz batch.py test_allowed
     ROBOTS = True
-    TIMEOUT = 10800 # 3H
+    TIMEOUT = 10800  # 3H
 
 
 class ProdConfig(Config):

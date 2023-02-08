@@ -33,6 +33,7 @@ def query_dataset(iri):
         "label": query_label(iri),
     }
 
+
 def query_related(ds_iri):
     log = logging.getLogger(__name__)
     log.info("Query related: %s", ds_iri)
@@ -41,7 +42,9 @@ def query_related(ds_iri):
     # (token, ds_type) k danemu ds_iri
     for item in db_session.query(Related).filter_by(ds=ds_iri):
         # ostatni ds pro (token, ds_type)
-        for related_ds in db_session.query(Related).filter(Related.token==item.token, Related.type==item.type, Related.ds != ds_iri):
+        for related_ds in db_session.query(Related).filter(
+            Related.token == item.token, Related.type == item.type, Related.ds != ds_iri
+        ):
             # gen_related_ds jiz proslo sameAs
             obj = {"type": related_ds.type, "common": related_ds.token}
 
@@ -66,7 +69,9 @@ def query_related(ds_iri):
 def query_profile(ds_iri):
     log = logging.getLogger(__name__)
     analysis_out = {}
-    for dist in db_session.query(DatasetDistribution).filter_by(relevant=True, ds=ds_iri):
+    for dist in db_session.query(DatasetDistribution).filter_by(
+        relevant=True, ds=ds_iri
+    ):
         for analysis in db_session.query(Analysis).filter_by(iri=dist.distr):
             analysis_out[analysis.analyzer] = analysis.data
 
@@ -207,21 +212,27 @@ def query_label(ds_iri):
                         except AttributeError:
                             result["default"] = label
                 except ParserError:
-                    logging.getLogger(__name__).exception(f"Failed to parse title for {ds_iri}")
+                    logging.getLogger(__name__).exception(
+                        f"Failed to parse title for {ds_iri}"
+                    )
         except (RobotsRetry, Skip):
-            logging.getLogger(__name__).warning(f"Not allowed to fetch {ds_iri} from endpoint right now")
+            logging.getLogger(__name__).warning(
+                f"Not allowed to fetch {ds_iri} from endpoint right now"
+            )
 
     result = dict(result)
     for key in result.keys():
         result[key] = list(result[key])
     return result
 
+
 def convert_labels_for_json_export(out):
     for key1 in out.keys():
-        out[key1]=dict(out[key1])
+        out[key1] = dict(out[key1])
         for key2 in out[key1]:
             out[key1][key2] = list(out[key1][key2])
     return out
+
 
 def export_labels():
     out = {}
@@ -238,18 +249,16 @@ def import_labels(labels):
         for language_code in labels[ds_iri].keys():
             for value in labels[ds_iri][language_code]:
                 lang = language_code
-                if lang == 'default':
+                if lang == "default":
                     lang = None
-                label = Label(
-                    iri = ds_iri,
-                    language_code = lang,
-                    label = value
-                )
+                label = Label(iri=ds_iri, language_code=lang, label=value)
                 db_session.add(label)
     try:
         db_session.commit()
     except:
-        logging.getLogger(__name__).exception("Failed do commit, rolling back import labels")
+        logging.getLogger(__name__).exception(
+            "Failed do commit, rolling back import labels"
+        )
         db_session.rollback()
 
 
@@ -277,7 +286,7 @@ def export_interesting():
         for ds in data[key].keys():
             if len(data[key][ds]) > 0:
                 interesting.add(ds)
-    # ds, ze existuje (token, type) in Related t.z. existuje (token, type, ds2) in Related, kde ds != ds2 
+    # ds, ze existuje (token, type) in Related t.z. existuje (token, type, ds2) in Related, kde ds != ds2
 
 
 def list_datasets():

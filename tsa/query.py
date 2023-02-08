@@ -10,7 +10,7 @@ from tsa.tasks.query import (
     data_driven_relationships,
     finalize_sameas,
     gen_related_ds,
-    ruian_reference
+    ruian_reference,
 )
 
 
@@ -21,7 +21,7 @@ def query():
     return chain(
         [
             finalize_sameas.si(),  # no dependecies, must
-            compile_analyses.si(), # mark relevant
+            compile_analyses.si(),  # mark relevant
             cross_dataset_sameas.si(),  # must
             ruian_reference.si(),  # sameas -> bulk insert DDR, concept
             data_driven_relationships.si(),  # sameas, ruian

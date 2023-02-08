@@ -45,12 +45,16 @@ def batch(graphs=None, sparql=None):
     log.info("Analyzing endpoint %s", sparql)
 
     red = redis.Redis(connection_pool=redis_pool)
-    key = 'batch:' + sparql
+    key = "batch:" + sparql
     with open(graphs, "r", encoding="utf-8") as graphs_file:
         lines = graphs_file.readlines()
         log.debug("Read lines")
         for iris in divide_chunks(lines, 1000):
-            graphs = [iri.strip() for iri in iris if check_iri(iri) and (red.pfadd(key, iri) == 0)]
+            graphs = [
+                iri.strip()
+                for iri in iris
+                if check_iri(iri) and (red.pfadd(key, iri) == 0)
+            ]
             # inspect_graphs.si(graphs, sparql, False).apply_async()
             batch_inspect.si(sparql, graphs, 10).apply_async()
 

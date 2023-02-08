@@ -21,6 +21,7 @@ def create_app(config_object, dsn_str=None):
         try:
             import sentry_sdk
             from sentry_sdk.integrations.flask import FlaskIntegration
+
             sentry_sdk.init(dsn=dsn_str, integrations=[FlaskIntegration()])
         except ImportError:
             pass

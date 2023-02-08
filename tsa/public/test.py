@@ -61,11 +61,7 @@ def test_dereference1():
     try:
         to_dereference = frozenset(
             get_iris_to_dereference(
-                load_graph(
-                    iri,
-                    get_content(iri, fetch(iri)).encode("utf-8"),
-                    "trig",
-                ),
+                load_graph(iri, get_content(iri, fetch(iri)).encode("utf-8"), "trig",),
                 iri,
             )
         )
@@ -92,10 +88,7 @@ def test_dereference2():
     graph = rdflib.ConjunctiveGraph()
     try:
         graph = expand_graph_with_dereferences(
-            load_graph(
-                iri, get_content(iri, fetch(iri)).encode("utf-8"), "trig"
-            ),
-            iri,
+            load_graph(iri, get_content(iri, fetch(iri)).encode("utf-8"), "trig"), iri,
         ).serialize(format="trig")
         if graph is not None:
             return make_response(graph)

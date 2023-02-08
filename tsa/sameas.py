@@ -24,24 +24,33 @@ class Index:
         return index
 
     def bulk_index(self, pairs):
-        data = [{
-            'relationship_type': self.__key,
-            'iri1': a,
-            'iri2': b
-        } for (a, b) in pairs if ((a is not None) and (len(a) > 0) and (b is not None) and (len(b) > 0))]
+        data = [
+            {"relationship_type": self.__key, "iri1": a, "iri2": b}
+            for (a, b) in pairs
+            if ((a is not None) and (len(a) > 0) and (b is not None) and (len(b) > 0))
+        ]
         if self.__symmetric:
-            data.extend([{
-                'relationship_type': self.__key,
-                'iri1': b,
-                'iri2': a
-            } for (a, b) in pairs if ((a is not None) and (len(a) > 0) and (b is not None) and (len(b) > 0))])
+            data.extend(
+                [
+                    {"relationship_type": self.__key, "iri1": b, "iri2": a}
+                    for (a, b) in pairs
+                    if (
+                        (a is not None)
+                        and (len(a) > 0)
+                        and (b is not None)
+                        and (len(b) > 0)
+                    )
+                ]
+            )
         if len(data) > 0:
-            insert_stmt=insert(DDR).values(data).on_conflict_do_nothing()
+            insert_stmt = insert(DDR).values(data).on_conflict_do_nothing()
             try:
                 db_session.execute(insert_stmt)
                 db_session.commit()
             except:
-                logging.getLogger(__name__).exception("Failed do commit, rolling back bulk index")
+                logging.getLogger(__name__).exception(
+                    "Failed do commit, rolling back bulk index"
+                )
                 db_session.rollback()
 
     def finalize(self):
@@ -55,8 +64,10 @@ class Index:
                 visited = self.__bfs(graph, node)
                 # add all reachable nodes into index (transitivity)
                 for iri in visited:
-                    ddr_vals.append({'iri1': node, 'iri2': iri, 'relationship_type': self.__key})
-            insert_stmt=insert(DDR).values(ddr_vals).on_conflict_do_nothing()
+                    ddr_vals.append(
+                        {"iri1": node, "iri2": iri, "relationship_type": self.__key}
+                    )
+            insert_stmt = insert(DDR).values(ddr_vals).on_conflict_do_nothing()
             try:
                 db_session.execute(insert_stmt)
                 db_session.commit()
@@ -102,4 +113,5 @@ class Index:
                     pipe.sadd(self.__key(key), value)
                 pipe.execute()
 
-same_as_index = Index('sameAs', True)
+
+same_as_index = Index("sameAs", True)

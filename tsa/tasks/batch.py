@@ -31,7 +31,7 @@ def query_parent(ds, g, log):
         log.warning(f"Failed to query parent. Query was: {query}")
 
 
-def test_allowed(url: str) -> bool:  #WTF?
+def test_allowed(url: str) -> bool:  # WTF?
     for prefix in [
         "https://data.cssz.cz",
         "https://rpp-opendata.egon.gov.cz",
@@ -99,19 +99,19 @@ def _dcat_extractor(g, log, force):
     db_endpoints = []
     db_distributions = []
 
-    #log.debug(f"Extracting distributions from {graph_iri}")
+    # log.debug(f"Extracting distributions from {graph_iri}")
     # DCAT dataset
     with TimedBlock("dcat_extractor"):
         for ds in g.subjects(RDF.type, dcat.Dataset):
-            #log.debug(f"DS: {ds!s}")
+            # log.debug(f"DS: {ds!s}")
             effective_ds = ds
 
             for parent in query_parent(ds, g, log):
                 effective_ds = parent
-            #log.debug(f"effective DS: {effective_ds!s}")
+            # log.debug(f"effective DS: {effective_ds!s}")
 
             if effective_ds is None:
-                log.error('Effective DS is NONE')
+                log.error("Effective DS is NONE")
                 continue
 
             # DCAT Distribution
@@ -141,10 +141,9 @@ def _dcat_extractor(g, log, force):
                             log.info(
                                 f"Guessing {url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})"
                             )
-                            db_endpoints.append({
-                                'ds': effective_ds,
-                                'endpoint': str(url)
-                            })
+                            db_endpoints.append(
+                                {"ds": effective_ds, "endpoint": str(url)}
+                            )
                         elif test_allowed(url) or not Config.LIMITED:
                             downloads.append(url)
                             log.debug(
@@ -154,32 +153,30 @@ def _dcat_extractor(g, log, force):
                                 distributions_priority.append(url)
                             else:
                                 queue.append(url)
-                            db_distributions.append({
-                                'ds': str(effective_ds),
-                                'distr': str(url)
-                            })
+                            db_distributions.append(
+                                {"ds": str(effective_ds), "distr": str(url)}
+                            )
                         else:
-                            #log.debug(f"Skipping {url} due to filter")
+                            # log.debug(f"Skipping {url} due to filter")
                             pass
                     else:
                         # log.debug(f"{url} is not a valid download URL")
                         pass
 
                 # scan for DCAT2 data services here as well
-                for access in itertools.chain(g.objects(d, dcat.accessService), g.subjects(dcat.servesDataset, d)):
+                for access in itertools.chain(
+                    g.objects(d, dcat.accessService), g.subjects(dcat.servesDataset, d)
+                ):
                     log.debug(f"Service: {access!s}")
                     for endpoint in g.objects(access, dcat.endpointURL):
                         if check_iri(str(endpoint)):
-                            log.debug(
-                                f"Endpoint {endpoint!s} from DCAT dataset {ds!s}"
-                            )
+                            log.debug(f"Endpoint {endpoint!s} from DCAT dataset {ds!s}")
                             if str(effective_ds) is not None:
-                                db_endpoints.append({
-                                    'ds': str(effective_ds),
-                                    'endpoint': str(endpoint)
-                                })
+                                db_endpoints.append(
+                                    {"ds": str(effective_ds), "endpoint": str(endpoint)}
+                                )
                             else:
-                                log.error('Effective ds NONE in services loop')
+                                log.error("Effective ds NONE in services loop")
         try:
             if len(db_endpoints) > 0:
                 db_session.execute(insert(DatasetEndpoint).values(db_endpoints))
@@ -230,9 +227,7 @@ def do_inspect_graph(graph_iri, force, endpoint_iri):
     result = None
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        result = _dcat_extractor(
-            inspector.process_graph(graph_iri), log, force
-        )
+        result = _dcat_extractor(inspector.process_graph(graph_iri), log, force)
     except (rdflib.query.ResultException, HTTPError):
         log.error(f"Failed to inspect graph {graph_iri}: ResultException or HTTP Error")
     monitor.log_inspected()

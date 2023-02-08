@@ -7,17 +7,21 @@ from celery import Task
 from tsa.celery import celery
 from tsa.db import db_session
 
+
 class SqlAlchemyTask(Task):
     """An abstract Celery Task that ensures that the connection the the
     database is closed on task completion"""
+
     # http://www.prschmid.com/2013/04/using-sqlalchemy-with-celery-tasks.html
     abstract = True
 
     def after_return(self, status, retval, task_id, args, kwargs, einfo):
         db_session.remove()
 
+
 class TrackableTask(SqlAlchemyTask):
     pass
+
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def monitor(*args):  # pylint: disable=unused-argument

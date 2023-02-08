@@ -28,22 +28,30 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
         json_data = json.loads(data)
         options = {}
         if "@context" in json_data and isinstance(json_data["@context"], str):
-            if json_data["@context"].startswith('http'):
-                logging.getLogger(__name__).info("Fetch remote context %s", json_data["@context"])
-                json_data["@context"] = dereference_remote_context(json_data["@context"])
+            if json_data["@context"].startswith("http"):
+                logging.getLogger(__name__).info(
+                    "Fetch remote context %s", json_data["@context"]
+                )
+                json_data["@context"] = dereference_remote_context(
+                    json_data["@context"]
+                )
         if "@context" in json_data and "@base" in json_data["@context"]:
             options["base"] = json_data["@context"]["@base"]
         expanded = jsonld.expand(json_data, options=options)
         g.parse(data=json.dumps(expanded), format="json-ld")
     except (TypeError, rdflib.exceptions.ParserError):
-        #if expanded is not None:
+        # if expanded is not None:
         #    expanded_data = json.dumps(expanded)
-        #else:
+        # else:
         #    expanded_data = "**ERROR**, data was: " + str(data)
-        logging.getLogger(__name__).warning("Failed to parse expanded JSON-LD, falling back")
+        logging.getLogger(__name__).warning(
+            "Failed to parse expanded JSON-LD, falling back"
+        )
         g.parse(data=data, format="json-ld")
     except (HTTPError, RequestException):
-        logging.getLogger(__name__).warning("HTTP Error expanding JSON-LD, falling back")
+        logging.getLogger(__name__).warning(
+            "HTTP Error expanding JSON-LD, falling back"
+        )
         g.parse(data=data, format="json-ld")
     return g
 
@@ -97,7 +105,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
         analyzer = analyzer_class()
 
         token, res = analyze_and_index_one(analyzer, analyzer_class, graph, iri, log)
-        store.append({'iri': iri, 'analyzer': token, 'data': res})
+        store.append({"iri": iri, "analyzer": token, "data": res})
         log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
     log.debug("Done processing %s, now storing", iri)
@@ -111,9 +119,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     log.info("Done storing %s", iri)
 
 
-def analyze_and_index_one(
-    analyzer, analyzer_class, graph, iri, log
-) -> None:
+def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> None:
     log.info("Analyzing %s with %s", iri, analyzer_class.token)
     with TimedBlock(f"analyze.{analyzer_class.token}"):
         res = analyzer.analyze(graph, iri)
@@ -151,7 +157,9 @@ def analyze_and_index_one(
             # log.debug("Adding %s items into set", str(len(iris)))
             for iri in iris:
                 if iri is not None and len(iri) > 0:
-                    relationships.append({'type': rel_type, 'group': key, 'candidate': iri})
+                    relationships.append(
+                        {"type": rel_type, "group": key, "candidate": iri}
+                    )
         if len(relationships) > 0:
             try:
                 db_session.execute(insert(Relationship).values(relationships))
@@ -163,4 +171,3 @@ def analyze_and_index_one(
         log.debug("Skip %s for %s", analyzer_class.token, iri)
 
     return analyzer_class.token, res
-

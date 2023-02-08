@@ -10,7 +10,13 @@ from celery import chord
 from tsa.celery import celery
 from tsa.db import db_session
 from tsa.ddr import concept_index, dsd_index, ddr_index
-from tsa.model import DatasetDistribution, Relationship, SubjectObject, Analysis, Related
+from tsa.model import (
+    DatasetDistribution,
+    Relationship,
+    SubjectObject,
+    Analysis,
+    Related,
+)
 from tsa.net import RobotsRetry
 from tsa.extensions import redis_pool
 from tsa.sameas import same_as_index
@@ -18,6 +24,7 @@ from tsa.ruian import RuianInspector
 from tsa.tasks.common import SqlAlchemyTask
 
 # === ANALYSIS (PROFILE) ===
+
 
 @celery.task(base=SqlAlchemyTask)
 def compile_analyses():
@@ -27,7 +34,7 @@ def compile_analyses():
     update = []
     for d in db_session.query(DatasetDistribution):
         for _ in db_session.query(Analysis).filter_by(iri=d.distr).limit(1):
-            update.append([{'id': d.id, 'relevant': True}])
+            update.append([{"id": d.id, "relevant": True}])
     try:
         db_session.bulk_update_mappings(DatasetDistribution, update)
         db_session.commit()
@@ -50,13 +57,16 @@ reltypes = [
 ]
 
 
-# gen_related_ds in chord, Tasks used within a chord must not ignore their results. 
+# gen_related_ds in chord, Tasks used within a chord must not ignore their results.
+
 
 @celery.task(ignore_result=False)
 def gen_pair(rel_type, token, sameAs):
     related_dist = set()
     for sameas_iri in sameAs[token]:
-        for s in db_session.query(Relationship).filter_by(type=rel_type, group=sameas_iri):
+        for s in db_session.query(Relationship).filter_by(
+            type=rel_type, group=sameas_iri
+        ):
             rel_dist = s.candidate
             related_dist.add(rel_dist)
         # these are related by sameAs of token
@@ -64,7 +74,7 @@ def gen_pair(rel_type, token, sameAs):
     for distr_iri in related_dist:
         for s in db_session.query(DatasetDistribution).filter_by(dist=distr_iri):
             all_related.add(s.ds)
-    if (len(all_related) > 1):
+    if len(all_related) > 1:
         # do not consider sets on one candidate for conciseness
         return {"iri": token, "related": list(all_related), "type": rel_type}
 
@@ -76,7 +86,9 @@ def gen2():
     for rel_type in reltypes:
         for r in db_session.query(Relationship).filter_by(type=rel_type).distinct():
             pairs.append((rel_type, r.token))
-    return chord(gen_pair.si(rel_type, token, sameAs) for (rel_type, token) in pairs)(related_to_mongo.s())
+    return chord(gen_pair.si(rel_type, token, sameAs) for (rel_type, token) in pairs)(
+        related_to_mongo.s()
+    )
 
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
@@ -92,21 +104,23 @@ def gen_related_ds():
             log.debug(f"type: {rel_type}, token: {token}")
             related_dist = set()
             for sameas_iri in sameAs[token]:
-                for s in db_session.query(Relationship).filter_by(type=rel_type, group=sameas_iri):
+                for s in db_session.query(Relationship).filter_by(
+                    type=rel_type, group=sameas_iri
+                ):
                     rel_dist = s.candidate
                     related_dist.add(rel_dist)
                 # these are related by sameAs of token
             all_related = set()
             for distr_iri in related_dist:
-                for s in db_session.query(DatasetDistribution).filter_by(dist=distr_iri):
+                for s in db_session.query(DatasetDistribution).filter_by(
+                    dist=distr_iri
+                ):
                     all_related.add(s.ds)
-            if (len(all_related) > 1):
+            if len(all_related) > 1:
                 # do not consider sets on one candidate for conciseness
                 for ds in all_related:
-                    related_ds.append(
-                        {"token": token, "ds": ds, "type": rel_type}
-                    )
-    
+                    related_ds.append({"token": token, "ds": ds, "type": rel_type})
+
     db_session.bulk_insert_mappings(Related, related_ds)
     red = redis.Redis(connection_pool=redis_pool)
     red.set("shouldQuery", 0)
@@ -136,15 +150,23 @@ def ruian_reference(self):
     ruian_references = set()
     sameAs = same_as_index.snapshot()
     references = []
-    for analysis in db_session.query(Analysis).filter_by(analyzer='generic'):
+    for analysis in db_session.query(Analysis).filter_by(analyzer="generic"):
         ds_ruian_references = set()
         doc = analysis.data
-        for initial_iri in set(iri for iri in doc["generic"]["subjects"]).union(set(iri for iri in doc["generic"]["objects"])):
+        for initial_iri in set(iri for iri in doc["generic"]["subjects"]).union(
+            set(iri for iri in doc["generic"]["objects"])
+        ):
             for iri in sameAs[initial_iri]:
                 if iri.startswith("https://linked.cuzk.cz/resource/ruian/"):
                     ruian_references.add(iri)
                     ds_ruian_references.add(iri)
-        references.append({'iri': analysis.iri, 'analyzer': 'ruian', 'data': list(ds_ruian_references)})
+        references.append(
+            {
+                "iri": analysis.iri,
+                "analyzer": "ruian",
+                "data": list(ds_ruian_references),
+            }
+        )
     try:
         db_session.bulk_insert_mappings(Analysis, references)
         db_session.commit()
@@ -165,6 +187,7 @@ def report_relationship_bulk(reports):
     except:
         logging.getLogger(__name__).exception("Failed to bulk report relationships")
         db_session.rollback()
+
 
 @celery.task(ignore_result=True, base=SqlAlchemyTask)
 def concept_usage():
@@ -188,21 +211,26 @@ def concept_usage():
             # indexuji T -> (a, b); mam jedno z (a, b)
             if concept_index.is_concept(resource_iri):
                 # pouzit koncept (polozka ciselniku)
-                reports.append({
-                    "type": "conceptUsage",
-                    "group": resource_iri,
-                    "candidate": distr_iri})
+                reports.append(
+                    {
+                        "type": "conceptUsage",
+                        "group": resource_iri,
+                        "candidate": distr_iri,
+                    }
+                )
                 counter = counter + 1
 
                 for token in ddr_types:
                     for skos_resource_iri in ddr_index.lookup(token, resource_iri):
                         for final_resource_iri in sameAs[skos_resource_iri]:
                             # pouzit related concept
-                            reports.append({
-                                "type": "relatedConceptUsage",
-                                "group": final_resource_iri,
-                                "candidate": distr_iri
-                            })
+                            reports.append(
+                                {
+                                    "type": "relatedConceptUsage",
+                                    "group": final_resource_iri,
+                                    "candidate": distr_iri,
+                                }
+                            )
                             counter = counter + 1
     report_relationship_bulk(reports)
     log.info(f"Found relationships: {counter}")
@@ -225,10 +253,13 @@ def concept_definition():
                     "conceptOnDimension",
                     "relatedConceptOnDimension",
                 ]:
-                    reports.append({
-                        "type": rel_type,
-                        "group": resource_iri,
-                        "candidate": distr_iri})
+                    reports.append(
+                        {
+                            "type": rel_type,
+                            "group": resource_iri,
+                            "candidate": distr_iri,
+                        }
+                    )
                     count = count + 1
     report_relationship_bulk(reports)
     log.info(f"Found {count} relationship candidates")
@@ -240,7 +271,18 @@ def cross_dataset_sameas():
     # delete from ddr where id not in (select max(id) from ddr group by relationship_type, iri1, iri2 );
     # pure_subject -> select PureSubject with respective distribution iri
     sameAs = same_as_index.snapshot()
-    stmt = select(DatasetDistribution).select_from(join(DatasetDistribution, SubjectObject, DatasetDistribution.distr == SubjectObject.distribution_iri)).filter(DatasetDistribution.relevant==True, SubjectObject.pureSubject==True).distinct()
+    stmt = (
+        select(DatasetDistribution)
+        .select_from(
+            join(
+                DatasetDistribution,
+                SubjectObject,
+                DatasetDistribution.distr == SubjectObject.distribution_iri,
+            )
+        )
+        .filter(DatasetDistribution.relevant == True, SubjectObject.pureSubject == True)
+        .distinct()
+    )
     log = logging.getLogger(__name__)
     reports = []
     for row in db_session.execute(stmt).all():
@@ -248,11 +290,9 @@ def cross_dataset_sameas():
         distr_iri = row[2]
         resource = row[5]
         for iri in sameAs[resource]:
-            reports.append({
-                "type": "crossSameas",
-                "group": iri,
-                "candidate": distr_iri
-            })
+            reports.append(
+                {"type": "crossSameas", "group": iri, "candidate": distr_iri}
+            )
     report_relationship_bulk(reports)
 
 
@@ -261,7 +301,7 @@ def data_driven_relationships():
     log = logging.getLogger(__name__)
     log.info("Data driven relationships")
     # projet z DSD vsechny dimenze a miry, zda to neni concept
-    
+
     rel_types = ddr_index.types()
     sameAs = same_as_index.snapshot()
     report = []
@@ -287,16 +327,20 @@ def data_driven_relationships():
                                     "candidate": distr_iri,
                                 }
                             )
-                report.append({
-                    "type": "conceptOnDimension",
+                report.append(
+                    {
+                        "type": "conceptOnDimension",
+                        "group": resource_iri,
+                        "candidate": distr_iri,
+                    }
+                )
+            report.append(
+                {
+                    "type": "resourceOnDimension",
                     "group": resource_iri,
-                    "candidate": distr_iri
-                })
-            report.append({
-                "type": "resourceOnDimension",
-                "group": resource_iri,
-                "candidate": distr_iri
-            })
+                    "candidate": distr_iri,
+                }
+            )
     log.info(f"Report {len(report)} relationship candidates")
     report_relationship_bulk(report)
 
