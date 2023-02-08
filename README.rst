@@ -4,8 +4,8 @@ DCAT DRY
 
 .. |github| image:: https://img.shields.io/github/release-pre/eghuro/dcat-dry.svg
 .. |licence| image:: https://img.shields.io/github/license/eghuro/dcat-dry.svg
-
-|github|  |licence|
+.. |ochrona] image:: https://img.shields.io/badge/secured_by-ochrona-blue
+|github|  |licence|  |ochrona|
 
 
 DCAT-AP Dataset Relationship Indexer. Indexing linked data and relationships between datasets.
@@ -37,7 +37,7 @@ For the full environment use docker-compose:
 
 Build & run manually
 ----------
-CPython 3.8+ is supported.
+CPython 3.7+ is supported.
 
 Install redis server first. In following example we will assume it runs on localhost, port 6379 and DB 0 is used.
 Setup postgresql server as well. In the following example we will assume it runs on localhost, port 5432, DB is postgres and user/password is postgres:example
