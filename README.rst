@@ -46,7 +46,7 @@ Run the following commands to bootstrap your environment ::
 
     git clone https://github.com/eghuro/dcat-dry
     cd dcat-dry
-    pip install -r requirements.txt
+    poetry install --only-root
 
     # Start redis and postgres servers
 
