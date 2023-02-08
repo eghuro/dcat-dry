@@ -2104,6 +2104,17 @@ files = [
 ]
 
 [[package]]
+name = "psycogreen"
+version = "1.0.2"
+description = "psycopg2 integration with coroutine libraries"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "psycogreen-1.0.2.tar.gz", hash = "sha256:c429845a8a49cf2f76b71265008760bcd7c7c77d80b806db4dc81116dbcd130d"},
+]
+
+[[package]]
 name = "psycopg2-binary"
 version = "2.9.5"
 description = "psycopg2 - Python-PostgreSQL Database Adapter"
@@ -3478,4 +3489,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7"
-content-hash = "c42bd93fe3d7bbfc1a394c3240569c9386b76d53d26b21a7072cb09850e85a11"
+content-hash = "77421897792c6ff17934da894672d2f4714e3f50abb78ddfb72b99d9096be955"

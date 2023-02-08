@@ -6,6 +6,13 @@ from atenvironment import environment
 from tsa.extensions import on_error
 from tsa.log import logging_setup
 
+from gevent import monkey
+monkey.patch_all()
+try:
+    import psycogreen.gevent
+    psycogreen.gevent.patch_psycopg()
+except ImportError:
+    pass
 
 @environment("DSN", default=[None], onerror=on_error)
 def init_sentry(dsn_str=None):

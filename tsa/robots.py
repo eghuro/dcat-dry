@@ -11,7 +11,6 @@ from requests_cache.backends.filesystem import FileCache
 
 import tsa
 from tsa.cache import redis_lru as lru_cache
-from tsa.extensions import redis_pool
 from tsa.settings import Config
 
 try:

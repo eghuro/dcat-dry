@@ -89,6 +89,7 @@ optional = true
 
 [tool.poetry.group.gevent.dependencies]
 gevent = "^22.10.2"
+psycogreen = "^1.0.2"
 
 [tool.poetry.group.test]
 optional = true
