@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 """The app module, containing the app factory function."""
 
-import sentry_sdk
 from atenvironment import environment
 from flask import Flask, render_template
-from sentry_sdk.integrations.flask import FlaskIntegration
 
 from tsa import commands, public
-from tsa.extensions import cache, cors, csrf, on_error
+from tsa.extensions import cache, cors, db, on_error
 from tsa.log import logging_setup
 
 
@@ -20,7 +18,13 @@ def create_app(config_object, dsn_str=None):
     """
     logging_setup()
     if dsn_str:
-        sentry_sdk.init(dsn=dsn_str, integrations=[FlaskIntegration()])
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.flask import FlaskIntegration
+
+            sentry_sdk.init(dsn=dsn_str, integrations=[FlaskIntegration()])
+        except ImportError:
+            pass
 
     app = Flask(__name__.split(".", maxsplit=1)[0])
     app.config.from_object(config_object)
@@ -37,6 +41,7 @@ def register_extensions(app):
     """Register Flask extensions."""
     cache.init_app(app)
     cors.init_app(app)
+    db.init_app(app)
     # csrf.init_app(app)
 
 
@@ -80,8 +85,5 @@ def register_commands(app):
     app.cli.add_command(commands.import_labels)
     app.cli.add_command(commands.import_labels)
     app.cli.add_command(commands.import_sameas)
-    app.cli.add_command(commands.import_related)
-    app.cli.add_command(commands.import_profiles)
-    app.cli.add_command(commands.import_interesting)
     app.cli.add_command(commands.dereference)
     app.cli.add_command(commands.finalize)

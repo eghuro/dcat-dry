@@ -4,8 +4,8 @@ DCAT DRY
 
 .. |github| image:: https://img.shields.io/github/release-pre/eghuro/dcat-dry.svg
 .. |licence| image:: https://img.shields.io/github/license/eghuro/dcat-dry.svg
-
-|github|  |licence|
+.. |ochrona] image:: https://img.shields.io/badge/secured_by-ochrona-blue
+|github|  |licence|  |ochrona|
 
 
 DCAT-AP Dataset Relationship Indexer. Indexing linked data and relationships between datasets.
@@ -37,22 +37,31 @@ For the full environment use docker-compose:
 
 Build & run manually
 ----------
-CPython 3.8+ is supported.
+CPython 3.7+ is supported.
 
 Install redis server first. In following example we will assume it runs on localhost, port 6379 and DB 0 is used.
+Setup postgresql server as well. In the following example we will assume it runs on localhost, port 5432, DB is postgres and user/password is postgres:example
 
 Run the following commands to bootstrap your environment ::
 
     git clone https://github.com/eghuro/dcat-dry
     cd dcat-dry
-    pip install -r requirements.txt
-    # Start redis server
+    poetry install --only-root
+
+    # Start redis and postgres servers
+
+    # Export environment variables
+    export REDIS_CELERY=redis://localhost:6379/1
+    export REDIS=redis://localhost:6379/0
+    export DB=postgresql+psycopg2://postgres:example@localhost:5432/postgres
+
+    # Setup the database
+    alembic upgrade head
+
     # Run concurrently
-    REDIS_CELERY=redis://localhost:6379/1 REDIS=redis://localhost:6379/0 celery worker -l warning -A tsa.celery -Q high_priority -c 10 -n high
-    REDIS_CELERY=redis://localhost:6379/1 REDIS=redis://localhost:6379/0 nice -n 10 celery worker -l info -A tsa.celery -Q default,query -c 20 -n default
-    REDIS_CELERY=redis://localhost:6379/1 REDIS=redis://localhost:6379/0 nice -n 20 celery worker -l warning -A tsa.celery -Q low_priority -c 5 -n low
-    REDIS_CELERY=redis://localhost:6379/1 REDIS=redis://localhost:6379/0 gunicorn -k gevent -w 4 -b 0.0.0.0:8000 autoapp:app
-    REDIS_CELERY=redis://localhost:6379/1 REDIS=redis://localhost:6379/0 nice -n 10 celery -l info -A tsa.celery beat
+    celery -A tsa.celery worker -l debug -Q high_priority,default,query,low_priority -c 4
+    gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug app:app
+    nice -n 10 celery -l info -A tsa.celery beat
 
 
 In general, before running shell commands, set the ``FLASK_APP`` and

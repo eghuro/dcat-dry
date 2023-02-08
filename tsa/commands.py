@@ -4,22 +4,20 @@ import json
 import logging
 import os
 from typing import Any, Generator, List
-
+import redis
 import click
 from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
-from tsa.extensions import same_as_index
+from tsa.sameas import same_as_index
 from tsa.query import query
-from tsa.report import import_interesting as import_interesting_impl
 from tsa.report import import_labels as import_labels_impl
-from tsa.report import import_profiles as import_profiles_impl
-from tsa.report import import_related as import_related_impl
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
 from tsa.public.views import get_results
+from tsa.extensions import redis_pool
 
 # register any new command in app.py: register_commands
 
@@ -46,11 +44,17 @@ def batch(graphs=None, sparql=None):
         return
     log.info("Analyzing endpoint %s", sparql)
 
+    red = redis.Redis(connection_pool=redis_pool)
+    key = "batch:" + sparql
     with open(graphs, "r", encoding="utf-8") as graphs_file:
         lines = graphs_file.readlines()
         log.debug("Read lines")
         for iris in divide_chunks(lines, 1000):
-            graphs = [iri.strip() for iri in iris if check_iri(iri)]
+            graphs = [
+                iri.strip()
+                for iri in iris
+                if check_iri(iri) and (red.pfadd(key, iri) == 0)
+            ]
             # inspect_graphs.si(graphs, sparql, False).apply_async()
             batch_inspect.si(sparql, graphs, 10).apply_async()
 
@@ -76,39 +80,6 @@ def import_sameas(file):
     with open(file, "r", encoding="utf-8") as index_file:
         index = json.load(index_file)
         same_as_index.import_index(index)
-
-
-@click.command()
-@click.option(
-    "-f", "--file", required=True, help="JSON file from export related endpoint"
-)
-def import_related(file):
-    with open(file, "r", encoding="utf-8") as related_file:
-        related = json.load(related_file)
-        import_related_impl(related)
-
-
-@click.command()
-@click.option(
-    "-f", "--file", required=True, help="JSON file from export profiles endpoint"
-)
-def import_profiles(file):
-    with open(file, "r", encoding="utf-8") as profiles_file:
-        profiles = json.load(profiles_file)
-        import_profiles_impl(profiles)
-
-
-@click.command()
-@click.option(
-    "-f", "--file", required=True, help="JSON file from export interesting endpoint"
-)
-def import_interesting(file):
-    with open(file, "r", encoding="utf-8") as interesting_file:
-        interesting_datasets = json.load(interesting_file)
-        if isinstance(interesting_datasets, list):
-            import_interesting_impl(interesting_datasets)
-        else:
-            logging.getLogger(__name__).error("Incorrect file")
 
 
 @click.command()

@@ -1,11 +1,17 @@
 ARG PYTHON_VERSION=3.8.7
-FROM python:${PYTHON_VERSION}-slim
+FROM --platform=linux/amd64 python:${PYTHON_VERSION}-slim
+ENV PYTHONFAULTHANDLER=1 \
+  PYTHONUNBUFFERED=1 \
+  PYTHONHASHSEED=random \
+  PIP_NO_CACHE_DIR=off \
+  PIP_DISABLE_PIP_VERSION_CHECK=on \
+  PIP_DEFAULT_TIMEOUT=100 \
+  POETRY_VERSION=1.3.2 \
+  FLASK_DEBUG=0
+RUN apt-get update; apt-get install -y libxml2-dev libxslt-dev; python -m pip install "poetry==$POETRY_VERSION"
 WORKDIR /tmp
-RUN apt-get update; apt-get install -y libarchive-dev binutils libxml2-dev libxslt-dev #do not remove, as it's needed on runtime
-COPY requirements.txt .
-RUN apt-get install -y g++ gcc libffi-dev libssl-dev make && python -m pip install --upgrade pip && pip install -r requirements.txt && apt-get purge -y g++ gcc libffi-dev libssl-dev make
-
-COPY . .
-
-CMD gunicorn -k gevent -w 4 -b 0.0.0.0:8000 app:app
+COPY pyproject.toml poetry.lock /tmp/
+RUN poetry config virtualenvs.create false; poetry install --with logzio,robots --no-interaction --no-ansi --no-root
+COPY . /tmp
+CMD gunicorn -w 4 -b 0.0.0.0:8000 app:app
 EXPOSE 8000

@@ -2,16 +2,16 @@ import json
 import logging
 from collections import defaultdict
 
-import redis
 from rdflib import Graph
 from rdflib.exceptions import ParserError
-from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
-from bson.json_util import dumps as dumps_bson
-from pymongo.errors import DocumentTooLarge, OperationFailure
+from rdflib.plugins.stores.sparqlstore import SPARQLStore
+
+from tsa.db import db_session
 from tsa.enricher import AbstractEnricher, NoEnrichment
-from tsa.extensions import mongo_db, redis_pool, same_as_index
-from tsa.redis import sanitize_key
-from tsa.robots import USER_AGENT, session
+from tsa.sameas import same_as_index
+from tsa.model import Label, Related, DatasetDistribution, Analysis
+from tsa.net import RobotsBlock, RobotsRetry, Skip
+from tsa.robots import USER_AGENT, session as online_session
 
 supported_languages = ["cs", "en"]
 enrichers = [e() for e in AbstractEnricher.__subclasses__()]
@@ -34,106 +34,50 @@ def query_dataset(iri):
     }
 
 
-def get_all_related():
-    all_related = defaultdict(list)
-    for item in mongo_db.related.find({}):
-        record = {}
-        record["iri"] = item["iri"]
-        record["related"] = item["related"]
-        all_related[item["type"]].append(record)
-    return all_related
-
-
 def query_related(ds_iri):
     log = logging.getLogger(__name__)
     log.info("Query related: %s", ds_iri)
-    try:
-        all_related = get_all_related()
-        # out = {}
-        # for reltype in reltypes:
-        #    out[reltype] = dict()
-        #    for item in all_related[reltype]:
-        #        token = item['iri']
-        #        related = item['related']
-        #        if ds_iri in related:
-        #            out[reltype][token] = related
-        #            out[reltype][token].remove(ds_iri)
-        # return out
+    out = defaultdict(list)
+    sameAs = same_as_index.snapshot()
+    # (token, ds_type) k danemu ds_iri
+    for item in db_session.query(Related).filter_by(ds=ds_iri):
+        # ostatni ds pro (token, ds_type)
+        for related_ds in db_session.query(Related).filter(
+            Related.token == item.token, Related.type == item.type, Related.ds != ds_iri
+        ):
+            # gen_related_ds jiz proslo sameAs
+            obj = {"type": related_ds.type, "common": related_ds.token}
 
-        ### untested ###
-        out = defaultdict(list)
-        for reltype in reltypes:
-            log.info(reltype)
-            # log.info(all_related[reltype])
-            for item in all_related[reltype]:
-                token = item["iri"]
-                related = item["related"]
-                # related.remove(ds_iri)
-                if ds_iri in related:
-                    # log.info('JACKPOT!!!')
-                    # log.info(item)
-                    related.remove(ds_iri)  # make sure it's not out of the mongo doc!
-                    for related_ds_iri in related:
-                        # log.debug(related_ds_iri)
-                        obj = {"type": reltype, "common": token}
+            # enrichment
+            for sameas_iri in sameAs[related_ds.token]:
+                for enricher in enrichers:
+                    try:
+                        obj[enricher.token] = enricher.enrich(sameas_iri)
+                    except NoEnrichment:
+                        pass
 
-                        for sameas_iri in same_as_index.lookup(token):
-                            for enricher in enrichers:
-                                try:
-                                    obj[enricher.token] = enricher.enrich(sameas_iri)
-                                except NoEnrichment:
-                                    pass
-
-                        out[related_ds_iri].append(obj)
-                # elif (len(related) > 0) and (ds_iri not in related):
-                #        for iri in related:
-                #            out[iri].append({'type': reltype, 'common': token})
-
-                # for iri in related:
-                #    out[iri].append({'type': reltype, 'common': token})
-        out_with_labels = {}
-        for iri in out:
-            out_with_labels[iri] = {
-                "label": create_labels(iri, supported_languages),
-                "details": out[iri],
-            }
-        return out_with_labels
-
-    except TypeError:
-        log.exception("Failed to query related")
-        return {}
+            out[related_ds.ds].append(obj)
+    out_with_labels = {}
+    for iri in out:
+        out_with_labels[iri] = {
+            "label": create_labels(iri, supported_languages),
+            "details": out[iri],
+        }
+    return out_with_labels
 
 
 def query_profile(ds_iri):
     log = logging.getLogger(__name__)
-
-    # parse = urlparse(ds_iri)
-    # path = quote(parse.path)
-    # ds_iri = f'{parse.scheme}://{parse.netloc}{path}'
-
-    # log.info('iri: %s', ds_iri)
-    analyses = mongo_db.dsanalyses.find({"ds_iri": ds_iri})
-    # log.info("Retrieved analyses")
-    json_str = dumps_bson(analyses)
-    analyses = json.loads(json_str)
-    # log.info(analyses)
-
-    # so far, so good
     analysis_out = {}
-    for analysis in analyses:
-        log.info("...")
-        del analysis["_id"]
-        del analysis["ds_iri"]
-        for k in analysis.keys():
-            analysis_out[k] = analysis[k]
+    for dist in db_session.query(DatasetDistribution).filter_by(
+        relevant=True, ds=ds_iri
+    ):
+        for analysis in db_session.query(Analysis).filter_by(iri=dist.distr):
+            analysis_out[analysis.analyzer] = analysis.data
 
     if len(analysis_out.keys()) == 0:
         log.error("Missing analysis_out for %s", ds_iri)
         return {}
-
-    # key = f'dsanalyses:{ds_iri}'
-    # red = redis.Redis(connection_pool=redis_pool)
-    # analysis_out = json.loads(red.get(key))  # raises TypeError if key is missing
 
     output = {}
     output["triples"] = analysis_out["generic"]["triples"]
@@ -202,34 +146,6 @@ def query_profile(ds_iri):
                 "label": create_labels(dataset["iri"], supported_languages),
             }
         )
-
-    # old
-    # dimensions, measures, resources_on_dimension = set(), set(), defaultdict(list)
-    # datasets = analysis_out["cube"]["datasets"]
-    # for class_analysis in datasets:
-    #    dataset = class_analysis['iri']
-    #    try:
-    #        dimensions.update([ y["dimension"] for y in class_analysis["dimensions"]])
-    #        for y in class_analysis["dimensions"]:
-    #            resources_on_dimension[y["dimension"]] = y["resources"]
-    #    except TypeError:
-    #        dimensions.update(class_analysis["dimensions"])
-    #    measures.update(class_analysis["measures"])
-    #
-    # output["dimensions"], output["measures"] = [], []
-    # for d in dimensions:
-    #    output["dimensions"].append({
-    #        'iri': d,
-    #        'label': create_labels(d, supported_languages),
-    #        'resources': resources_on_dimension[d],
-    #    })
-    #
-    # for m in measures:
-    #    output["measures"].append({
-    #        'iri': m,
-    #        'label': create_labels(m, supported_languages)
-    #    })
-
     return output
 
 
@@ -266,124 +182,111 @@ def create_labels(ds_iri, tags):
     return label
 
 
-def sanitize_label_iri_for_mongo(iri):
-    return "+".join(iri.split("."))
-
-
 def query_label(ds_iri):
     print(f"Query label for {ds_iri}")
-    # LABELS: key = f'dstitle:{ds!s}:{t.language}' if t.language is not None else f'dstitle:{ds!s}'
-    # red.set(key, title)
-    red = redis.Redis(connection_pool=redis_pool)
-    result = {}
-    # for x in red.scan_iter(match=f'label:{ds_iri!s}*'): #red.keys(f'label:{ds_iri!s}*'):  #FIXME
+    result = defaultdict(set)
+    for label in db_session.query(Label).filter_by(iri=ds_iri):
+        if label.language_code in supported_languages:
+            result[label.language_code].add(label.label)
 
-    none = True
-    for lang in ["cs", "en"]:
-        title = red.get(f"label:{sanitize_key(ds_iri)}:{lang}")
-        result[lang] = title
-        if title is not None:
-            none = False
-    title = red.get(f"label:{sanitize_key(ds_iri)}")
-    result["default"] = title
-    if title is not None:
-        none = False
-
-    if none:
+    if len(result.keys()) == 0:
         logging.getLogger(__name__).warning(
             f"Fetching title for {ds_iri} from endpoint"
         )
         endpoint = "https://data.gov.cz/sparql"
         q = f"select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10"
-        store = SPARQLStore(
-            endpoint, session=session, headers={"User-Agent": USER_AGENT}
-        )
-        graph = Graph(store=store)
-        graph.open(endpoint)
         try:
-            for row in graph.query(q):
-                label = row["label"]
+            with RobotsBlock(endpoint):
+                store = SPARQLStore(
+                    endpoint, session=online_session, headers={"User-Agent": USER_AGENT}
+                )
+                graph = Graph(store=store)
+                graph.open(endpoint)
                 try:
-                    value, language = label.value, label.language
-                    result[language] = value
-                    result["default"] = value
-                except AttributeError:
-                    result["default"] = label
-        except ParserError:
-            logging.getLogger(__name__).exception(f"Failed to parse title for {ds_iri}")
+                    for row in graph.query(q):
+                        label = row["label"]
+                        try:
+                            value, language = label.value, label.language
+                            result[language] = value
+                            result["default"] = value
+                        except AttributeError:
+                            result["default"] = label
+                except ParserError:
+                    logging.getLogger(__name__).exception(
+                        f"Failed to parse title for {ds_iri}"
+                    )
+        except (RobotsRetry, Skip):
+            logging.getLogger(__name__).warning(
+                f"Not allowed to fetch {ds_iri} from endpoint right now"
+            )
 
+    result = dict(result)
+    for key in result.keys():
+        result[key] = list(result[key])
     return result
 
 
-def export_labels():
-    # key: label:{ds_iri}:{language}, ds_iri=https://
-    prefix = "label:"
-    out = defaultdict(dict)
-    red = redis.Redis(connection_pool=redis_pool)
-    for label_key in red.keys(f"{prefix}*"):
-        if ":" in label_key[len(prefix) :]:
-            (ds_iri, language_code) = label_key[len(prefix) :].split(":")
-        else:
-            language_code = "default"
-            ds_iri = label_key[len(prefix) :]
-        out[sanitize_label_iri_for_mongo(ds_iri)][
-            sanitize_label_iri_for_mongo(language_code)
-        ] = red.get(label_key)
+def convert_labels_for_json_export(out):
+    for key1 in out.keys():
+        out[key1] = dict(out[key1])
+        for key2 in out[key1]:
+            out[key1][key2] = list(out[key1][key2])
     return out
 
 
+def export_labels():
+    out = {}
+    for label in db_session.query(Label):
+        key1 = label.iri
+        if key1 not in out.keys():
+            out[key1] = defaultdict(set)
+        out[key1][label.language_code].add(label.label)
+    return convert_labels_for_json_export(out)
+
+
 def import_labels(labels):
-    red = redis.Redis(connection_pool=redis_pool)
-    with red.pipeline() as pipe:
-        for ds_iri in labels.keys():
-            for language_code in labels[ds_iri].keys():
-                if language_code == "default":
-                    key = f"label:{ds_iri}"
-                else:
-                    key = f"label:{ds_iri}:{language_code}"
-                pipe.set(key, labels[ds_iri][language_code])
-        pipe.execute()
+    for ds_iri in labels.keys():
+        for language_code in labels[ds_iri].keys():
+            for value in labels[ds_iri][language_code]:
+                lang = language_code
+                if lang == "default":
+                    lang = None
+                label = Label(iri=ds_iri, language_code=lang, label=value)
+                db_session.add(label)
+    try:
+        db_session.commit()
+    except:
+        logging.getLogger(__name__).exception(
+            "Failed do commit, rolling back import labels"
+        )
+        db_session.rollback()
 
 
 def export_related():
-    return get_all_related()
+    all_related = defaultdict(defaultdict(set))
+    for item in db_session.query(Related):
+        if item.ds1 == item.ds2:
+            continue
+        all_related[item.type][item.ds1].add(item.ds2)
+    return all_related
 
 
 def export_profile():
-    for analysis in mongo_db.dsanalyses.find({}):
-        yield analysis
-
-
-def import_related(related):
-    try:
-        mongo_db.related.delete_many({})
-        mongo_db.related.insert(related)
-    except DocumentTooLarge:
-        logging.getLogger(__name__).exception("Failed to store related datasets")
-
-
-def import_profiles(profiles):
-    mongo_db.dsanalyses.delete_many({})
-    log = logging.getLogger(__name__)
-    for analysis in profiles:
-        try:
-            mongo_db.dsanalyses.insert_one(analysis)
-        except DocumentTooLarge:
-            iri = analysis["ds_iri"]
-            log.exception("Failed to store analysis for ds: %s", iri)
-        except OperationFailure:
-            log.exception("Operation failure")
-    log.info("Stored analyses")
+    analysis_out = {}
+    for dist in db_session.query(DatasetDistribution).filter_by(relevant=True):
+        for analysis in db_session.query(Analysis).filter_by(iri=dist.distr):
+            analysis_out[analysis.analyzer] = analysis.data
+    return analysis_out
 
 
 def export_interesting():
-    for doc in mongo_db.interesting.find({}):
-        return doc["iris"]
-
-
-def import_interesting(interesting_datasets):
-    mongo_db.interesting.delete_many({})
-    mongo_db.interesting.insert({"iris": list(interesting_datasets)})
+    interesting = set()
+    data = export_related()
+    for key in data.keys():
+        for ds in data[key].keys():
+            if len(data[key][ds]) > 0:
+                interesting.add(ds)
+    # ds, ze existuje (token, type) in Related t.z. existuje (token, type, ds2) in Related, kde ds != ds2
 
 
 def list_datasets():

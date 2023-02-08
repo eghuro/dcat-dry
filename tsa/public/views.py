@@ -6,11 +6,13 @@ from collections import defaultdict
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 from flask.wrappers import Response
+from flask_rdf.flask import returns_rdf
+from sqlalchemy.orm import Session
 
 import tsa
-from flask_rdf.flask import returns_rdf
 from tsa.cache import cached
-from tsa.extensions import mongo_db, same_as_index, redis_pool
+from tsa.extensions import redis_pool, db
+from tsa.sameas import same_as_index
 from tsa.report import (
     export_interesting,
     export_labels,
@@ -19,10 +21,10 @@ from tsa.report import (
     list_datasets,
     query_dataset,
 )
+from tsa.model import DatasetDistribution
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.tasks.process import do_process
 from tsa.util import check_iri
-from tsa.redis import ds_distr
 from tsa.query import query
 
 blueprint = Blueprint("public", __name__, static_folder="../static")
@@ -109,8 +111,7 @@ def export_labels_endpoint():
     server_timeout=1800,
 )
 def export_related_endpoint():
-    obj = export_related()
-    del obj["_id"]
+    obj = dict(export_related())
     return jsonify(obj)
 
 
@@ -125,7 +126,6 @@ def export_related_endpoint():
 def export_profile_endpoint():
     lst = []
     for entry in export_profile():
-        del entry["_id"]
         lst.append(entry)
     return jsonify(lst)
 
@@ -147,7 +147,6 @@ def export_interesting_endpoint():
     return jsonify(export_interesting())
 
 
-#@blueprint.route("/list", methods=["GET"])  # noqa: unused-function
 @blueprint.route("/api/v1/list", methods=["GET"])  # noqa: unused-function
 @cached(
     True,
@@ -158,9 +157,9 @@ def export_interesting_endpoint():
 )
 def view_list():
     data = list_datasets()
-    #current_app.logger.debug(data)
+    # current_app.logger.debug(data)
     return jsonify(data)
-    #return render_template("list.html", datasets=data)
+    # return render_template("list.html", datasets=data)
 
 
 @blueprint.route("/detail", methods=["GET"])  # noqa: unused-function
@@ -201,12 +200,9 @@ def version():
 
 
 def record_distribution_dataset(iri, ds):
-    dsdistr, distrds = ds_distr()
-    red = redis.Redis(connection_pool=redis_pool)
-    with red.pipeline() as pipe:
-        pipe.sadd(f"{dsdistr}:{str(ds)}", iri)
-        pipe.sadd(f"{distrds}:{iri}", str(ds))
-        pipe.execute()
+    with Session(db) as session:
+        session.add(DatasetDistribution(ds=str(ds), distr=str(iri)))
+    session.commit()
 
 
 class FakeTask:

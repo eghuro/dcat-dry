@@ -10,6 +10,7 @@ from rdflib.query import ResultException
 
 from tsa.monitor import TimedBlock
 from tsa.robots import USER_AGENT, session
+from tsa.net import RobotsBlock
 from tsa.util import check_iri
 
 # workaround for https://github.com/RDFLib/rdflib/issues/1195
@@ -78,15 +79,16 @@ class SparqlEndpointAnalyzer:
             )
             raise ValueError(endpoint)
         self.__endpoint = endpoint
-        self.store = SPARQLStore(
-            endpoint,
-            True,
-            True,
-            _node_to_sparql,
-            "application/rdf+xml",
-            session=session,
-            headers={"User-Agent": USER_AGENT},
-        )
+        with RobotsBlock(endpoint):
+            self.store = SPARQLStore(
+                endpoint,
+                True,
+                True,
+                _node_to_sparql,
+                "application/rdf+xml",
+                session=session,
+                headers={"User-Agent": USER_AGENT},
+            )
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
         """Extract DCAT datasets from the given named graph of an endpoint."""
@@ -109,7 +111,7 @@ class SparqlEndpointAnalyzer:
                 "Failed to process %s in %s: %s", graph_iri, self.__endpoint, str(exc)
             )
         except ValueError as exc:
-            log.exception("Error in query: %s - %s", query, str(exc))
+            log.debug("Error in query: %s", str(exc))
 
         return None
 

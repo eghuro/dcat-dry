@@ -7,13 +7,16 @@ class Robots:
 class StatsClient:
     """Mock client for statsd with empty method implementations."""
 
-    def gauge(self, *args):
+    def __init__(self, *args, **kwargs):
         """Intentionally left blank."""
 
-    def set(self, *args):
+    def gauge(self, *args, **kwargs):
         """Intentionally left blank."""
 
-    def timing(self, *args):
+    def set(self, *args, **kwargs):
+        """Intentionally left blank."""
+
+    def timing(self, *args, **kwargs):
         """Intentionally left blank."""
 
     def delta(self, *args, **kwargs):
