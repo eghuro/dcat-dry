@@ -55,6 +55,6 @@ def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
 def fetch_robots(robots_iri: str) -> Union[str, None]:
     if len(robots_iri) == 0:
         return None
-    response = session.get(robots_iri, verify=False)
+    response = session.get(robots_iri, verify=False, timeout=Config.TIMEOUT)
     text = response.text
     return text
