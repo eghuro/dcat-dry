@@ -1,6 +1,5 @@
 """User agent and robots cache."""
 import resource
-from functools import lru_cache
 from typing import Tuple, Union
 
 import redis
@@ -10,6 +9,7 @@ from requests_cache import CachedSession
 from requests_cache.backends.filesystem import FileCache
 
 import tsa
+from tsa.cache import redis_lru as lru_cache
 from tsa.extensions import redis_pool
 from tsa.settings import Config
 
@@ -43,25 +43,10 @@ def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
     return robots.allowed(iri, USER_AGENT), robots.delay(USER_AGENT), robots_iri
 
 
-@lru_cache()
+@lru_cache(conn=redis.Redis(connection_pool=redis_pool))
 def fetch_robots(robots_iri: str) -> Union[str, None]:
     if len(robots_iri) == 0:
         return None
-    red = redis.Redis(connection_pool=redis_pool)
-    key = f"robots_{robots_iri}"
-    if red.exists(key):
-        return str(red.get(key))
-
     response = session.get(robots_iri, verify=False)
-    with red.pipeline() as pipe:
-        if response.status_code != 200:
-            pipe.set(key, "")
-            pipe.expire(key, 30 * 24 * 60 * 60)
-            pipe.execute()
-            return None
-
-        text = response.text
-        pipe.set(key, text)
-        pipe.expire(key, 30 * 24 * 60 * 60)
-        pipe.execute()
-        return text
+    text = response.text
+    return text
