@@ -256,22 +256,7 @@ def dereference_one(
     iri_to_dereference: str, iri_distr: str
 ) -> Tuple[rdflib.ConjunctiveGraph, bool]:
     try:
-        red = redis.Redis(connection_pool=redis_pool)
-        key = dereference_key(iri_to_dereference)
-        if red.exists(key):
-            data = red.get(key)
-            if data is not None:
-                graph = load_graph(iri_to_dereference, data, "n3", False)
-            else:
-                return rdflib.Graph(), False
-        else:
-            graph = dereference_one_impl(iri_to_dereference, iri_distr)
-            if graph is not None:
-                red.set(key, graph.serialize(format="n3"))
-            else:
-                red.set(key, "")
-            red.expire(key, 10800)
-
+        graph = dereference_one_impl(iri_to_dereference, iri_distr)
         return graph, has_same_as(graph)
     except FailedDereference:
         logging.getLogger(__name__).exception(
