@@ -9,7 +9,7 @@ ENV PYTHONFAULTHANDLER=1 \
   PIP_DEFAULT_TIMEOUT=100 \
   POETRY_VERSION=${POETRY_VERSION:-1.3.2} \
   FLASK_DEBUG=0
-RUN apt-get update; apt-get install -y libxml2-dev libxslt-dev; python -m pip install poetry==$POETRY_VERSION; apt-cache clean
+RUN apt-get update; apt-get install -y libxml2-dev libxslt-dev; python -m pip install poetry==$POETRY_VERSION
 
 WORKDIR /tmp
 COPY pyproject.toml poetry.lock /tmp/
