@@ -1,11 +1,44 @@
+[project]
+name = "dcat-dry"
+version = "0.4"
+description = "DCAT-AP Dataset relationship indexer."
+authors = [{name="Alexandr Mansurov", email="alex@eghuro.cz"}]
+license = "MIT"
+readme = "README.rst"
+requires-python = ">=3.7"
+classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Development Status :: 3 - Alpha",
+        "Framework :: Flask",
+        "Framework :: Celery",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering :: Information Analysis",
+        "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+        "Natural Language :: English",
+    ],
+[project.urls]
+homepage = "https://github.com/eghuro/dcat-dry"
+"Bug Tracker" = "https://github.com/eghuro/dcat-dry/issues"
+repository = "https://github.com/eghuro/dcat-dry.git"
+changelog = "https://github.com/eghuro/dcat-dry/blob/master/HISTORY.rst"
+
 [tool.poetry]
 name = "dcat-dry"
 version = "0.4"
 description = "DCAT-AP Dataset relationship indexer."
+packages = [{include = "tsa"}]
 authors = ["Alexandr Mansurov <alex@eghuro.cz>"]
-license = "MIT"
-readme = "README.md"
-packages = [{include = "dcat_dry"}]
+readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = "^3.7"
