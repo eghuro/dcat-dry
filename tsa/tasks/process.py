@@ -14,7 +14,6 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from sqlalchemy.dialects.postgresql import insert
 
 from tsa.celery import celery
-from tsa.compression import decompress_7z, decompress_gzip
 from tsa.db import db_session
 from tsa.extensions import redis_pool
 from tsa.model import DatasetDistribution, DatasetEndpoint, SubjectObject
@@ -34,6 +33,10 @@ from tsa.redis import dereference as dereference_key
 from tsa.redis import root_name
 from tsa.robots import USER_AGENT, session
 from tsa.settings import Config
+try:
+    from tsa.compression import decompress_7z, decompress_gzip
+except ImportError:
+    Config.COMPRESSED = False
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.common import TrackableTask
 from tsa.util import check_iri

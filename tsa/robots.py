@@ -13,8 +13,11 @@ import tsa
 from tsa.extensions import redis_pool
 from tsa.settings import Config
 
-from reppy import Utility
-from reppy.parser import Rules
+try:
+    from reppy import Utility
+    from reppy.parser import Rules
+except ImportError:
+    Config.ROBOTS = False
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent(

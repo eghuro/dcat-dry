@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """The app module, containing the app factory function."""
 
-import sentry_sdk
 from atenvironment import environment
 from flask import Flask, render_template
-from sentry_sdk.integrations.flask import FlaskIntegration
 
 from tsa import commands, public
 from tsa.extensions import cache, cors, db, on_error
@@ -20,7 +18,12 @@ def create_app(config_object, dsn_str=None):
     """
     logging_setup()
     if dsn_str:
-        sentry_sdk.init(dsn=dsn_str, integrations=[FlaskIntegration()])
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.flask import FlaskIntegration
+            sentry_sdk.init(dsn=dsn_str, integrations=[FlaskIntegration()])
+        except ImportError:
+            pass
 
     app = Flask(__name__.split(".", maxsplit=1)[0])
     app.config.from_object(config_object)
