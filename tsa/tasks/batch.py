@@ -45,7 +45,7 @@ def _dcat_extractor(
     tasks = [
         process_priority.si(iri, force) for iri in extractor.priority_distributions
     ]
-    tasks.extend(process.si(iri, force) for iri in extractor.distributions)
+    tasks.extend(process.si(iri, force) for iri in extractor.regular_distributions)
     monitor.log_tasks(len(tasks))
     return group(tasks).apply_async()
 
