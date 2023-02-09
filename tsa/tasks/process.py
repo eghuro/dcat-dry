@@ -66,7 +66,18 @@ def process(self, iri, force):
     do_process(iri, self, False, force)
 
 
-def filter_iri(iri):
+
+def filter_iri(iri: str) -> bool:
+    """
+    Filter out IRIs that are not valid.
+    Returns False if the IRI is valid, True if it should be skipped.
+
+    We skip IRIs that starts with a prefix in the exclude list or
+    ends with an unsupported filename extension.
+
+    :param iri: IRI to check
+    :return: True if the IRI should be skipped
+    """
     iri = iri.strip()
     if iri.startswith("http"):
         iri = iri[8:]

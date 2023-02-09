@@ -68,6 +68,15 @@ class CubeAnalyzer(AbstractAnalyzer):
 
     @staticmethod
     def __dimensions(graph: Graph) -> DefaultDict:
+        """
+        Return a dictionary of dimensions per Data Cube Definition.
+
+        The dictionary is indexed by Data Cube Definition IRI and contains
+        dimension IRIs.
+
+        :param graph: RDF graph
+        :return: dictionary of dimensions per Data Cube Definition
+        """
         dimensions = defaultdict(set)
         qb_query = """
         SELECT DISTINCT ?dsd ?dimension
