@@ -16,22 +16,6 @@ from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import process, process_priority
 
 
-def test_allowed(url: str) -> bool:  # WTF?
-    for prefix in [
-        "https://data.cssz.cz",
-        "https://rpp-opendata.egon.gov.cz",
-        "https://data.mpsv.cz",
-        "https://data.mvcr.gov.cz",
-        "https://cedropendata.mfcr.cz",
-        "https://opendata.praha.eu",
-        "https://data.ctu.cz",
-        "https://www.isvavai.cz",
-    ]:
-        if url.startswith(prefix):
-            return True
-    return False
-
-
 def _dcat_extractor(
     graph: Optional[rdflib.Graph], log: logging.Logger, force: bool
 ) -> Optional[AsyncResult]:
