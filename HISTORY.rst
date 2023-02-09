@@ -2,6 +2,19 @@
 History
 =======
 
+0.5.0 (2022-02-09)
+------------------
+
+* Dereferencing of external resources
+* Optimizations for processing of large DCAT-AP catalogs
+* Support for DCAT-AP 2.0.1
+* Labels extraction
+* New relationship indexes
+* Overall update of the codebase, API changes to commandline for triggers and REST for read-only
+* PostgreSQL for data storage, alembic for migrations
+* Improved robots.txt and caching
+* Improved JSON-LD processing
+
 0.4.0 (2019-04-22)
 ------------------
 
