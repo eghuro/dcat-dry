@@ -167,8 +167,8 @@ def ruian_reference(self):
     for analysis in db_session.query(Analysis).filter_by(analyzer="generic").all():
         ds_ruian_references = set()
         doc = analysis.data
-        for initial_iri in set(iri for iri in doc["generic"]["subjects"]).union(
-            set(iri for iri in doc["generic"]["objects"])
+        for initial_iri in set(iri for iri in doc["subjects"]).union(
+            set(iri for iri in doc["objects"])
         ):
             for iri in same_as[initial_iri]:
                 if iri.startswith("https://linked.cuzk.cz/resource/ruian/"):
@@ -260,7 +260,7 @@ def concept_definition():
     for concept in concept_index.iter_concepts():
         for resource_iri in same_as[concept]:
             for subject_object in db_session.query(SubjectObject).filter_by(
-                pureSubject=True
+                pure_subject=True
             ):
                 distr_iri = subject_object.distribution_iri
                 for rel_type in [

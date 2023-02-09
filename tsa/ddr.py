@@ -96,14 +96,12 @@ class ConceptIndex:
     def is_concept(iri: str) -> bool:
         if iri is None or len(iri) == 0:
             return False
-        for _ in db_session.query(Concept).filter_by(iri=iri).all():
-            return True
-        return False
+        return db_session.query(Concept).filter_by(iri=iri).count() > 0
 
     @staticmethod
     def iter_concepts() -> Generator[str, None, None]:
-        for concept in db_session.query(Concept).all():
-            yield concept.iri
+        for concept_iri in db_session.query(Concept.iri).distinct().all():
+            yield concept_iri
 
 
 class DataCubeDefinitionIndex:
