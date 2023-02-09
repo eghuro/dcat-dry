@@ -13,38 +13,20 @@ from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
 from tsa.monitor import TimedBlock
 from tsa.model import Relationship, Analysis
-from tsa.net import fetch, get_content
+from tsa.settings import Config
+from tsa.robots import USER_AGENT
 
-
-def dereference_remote_context(iri: str) -> dict:
-    response = fetch(iri)
-    content = get_content(iri, response)
-    return json.loads(content)["@context"]
-
+jsonld.set_document_loader(jsonld.requests_document_loader(timeout=Config.TIMEOUT, headers={"User-Agent": USER_AGENT}))
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     g = rdflib.ConjunctiveGraph()
-    expanded = None
     try:
         json_data = json.loads(data)
-        options = {}
-        if "@context" in json_data and isinstance(json_data["@context"], str):
-            if json_data["@context"].startswith("http"):
-                logging.getLogger(__name__).info(
-                    "Fetch remote context %s", json_data["@context"]
-                )
-                json_data["@context"] = dereference_remote_context(
-                    json_data["@context"]
-                )
-        if "@context" in json_data and "@base" in json_data["@context"]:
-            options["base"] = json_data["@context"]["@base"]
-        expanded = jsonld.expand(json_data, options=options)
-        g.parse(data=json.dumps(expanded), format="json-ld")
+        # normalize a document using the RDF Dataset Normalization Algorithm
+        # (URDNA2015), see: http://json-ld.github.io/normalization/spec/
+        normalized = jsonld.normalize(json_data, {'algorithm': 'URDNA2015', 'format': 'application/nquads'})
+        g.parse(data=normalized, format="application/n-quads")
     except (TypeError, rdflib.exceptions.ParserError):
-        # if expanded is not None:
-        #    expanded_data = json.dumps(expanded)
-        # else:
-        #    expanded_data = "**ERROR**, data was: " + str(data)
         logging.getLogger(__name__).warning(
             "Failed to parse expanded JSON-LD, falling back"
         )
