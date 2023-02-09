@@ -1,3 +1,4 @@
+import logging
 import logging.config
 
 from atenvironment import environment
@@ -13,7 +14,9 @@ from tsa.extensions import on_error
 )
 def logging_setup(token=None, url=None):
     if token is None:
-        logging.info("Remote logging into logz.io is not configured")
+        logging.getLogger(__name__).info(
+            "Remote logging into logz.io is not configured"
+        )
         return
     logging.config.dictConfig(
         {
@@ -38,7 +41,7 @@ def logging_setup(token=None, url=None):
                 "tsa": {"level": "DEBUG", "handlers": ["logzio"],},
                 "app.logger": {"level": "DEBUG", "handlers": ["logzio"],},
                 "gunicorn.error": {"level": "WARNING", "handlers": ["logzio"],},
-                "gunicorn.access": {"level": "WARNING", "handlers": ["logzio"],},
+                "gunicorn.access": {"level": "WARNING", " handlers": ["logzio"],},
                 "requests_cache": {"level": "WARNING"},
             },
         }

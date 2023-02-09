@@ -1,6 +1,7 @@
-from tsa.extensions import db
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.orm import DeclarativeBase
+
+from tsa.extensions import db
 
 
 class Base(DeclarativeBase):
@@ -61,7 +62,7 @@ class SubjectObject(Base):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     distribution_iri = db.Column(db.String, nullable=False)
     iri = db.Column(db.String, nullable=False)
-    pureSubject = db.Column(db.Boolean, nullable=True, default=False)
+    pure_subject = db.Column(db.Boolean, nullable=True, default=False)
 
 
 class Relationship(Base):

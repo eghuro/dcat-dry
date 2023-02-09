@@ -1,18 +1,19 @@
-import json
 import logging
 from collections import defaultdict
 
 from rdflib import Graph
 from rdflib.exceptions import ParserError
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
+from rdflib.query import ResultRow
 from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.enricher import AbstractEnricher, NoEnrichment
-from tsa.sameas import same_as_index
-from tsa.model import Label, Related, DatasetDistribution, Analysis
+from tsa.model import Analysis, DatasetDistribution, Label, Related
 from tsa.net import RobotsBlock, RobotsRetry, Skip
-from tsa.robots import USER_AGENT, session as online_session
+from tsa.robots import USER_AGENT
+from tsa.robots import session as online_session
+from tsa.sameas import same_as_index
 
 supported_languages = ["cs", "en"]
 enrichers = [e() for e in AbstractEnricher.__subclasses__()]
@@ -39,7 +40,7 @@ def query_related(ds_iri):
     log = logging.getLogger(__name__)
     log.info("Query related: %s", ds_iri)
     out = defaultdict(list)
-    sameAs = same_as_index.snapshot()
+    same_as = same_as_index.snapshot()
     # (token, ds_type) k danemu ds_iri
     for item in db_session.query(Related).filter_by(ds=ds_iri):
         # ostatni ds pro (token, ds_type)
@@ -50,7 +51,7 @@ def query_related(ds_iri):
             obj = {"type": related_ds.type, "common": related_ds.token}
 
             # enrichment
-            for sameas_iri in sameAs[related_ds.token]:
+            for sameas_iri in same_as[related_ds.token]:
                 for enricher in enrichers:
                     try:
                         obj[enricher.token] = enricher.enrich(sameas_iri)
@@ -159,13 +160,13 @@ def create_labels(ds_iri, tags):
 
     available = set()
 
-    if "default" in labels.keys():
+    if "default" in labels:
         for tag in tags:
             label[tag] = labels["default"]
             available.add(tag)
 
     for tag in tags:
-        if tag in labels.keys():
+        if tag in labels:
             label[tag] = labels[tag]
             available.add(tag)
 
@@ -192,10 +193,10 @@ def query_label(ds_iri):
 
     if len(result.keys()) == 0:
         logging.getLogger(__name__).warning(
-            f"Fetching title for {ds_iri} from endpoint"
+            "Fetching title for %s from endpoint", ds_iri
         )
         endpoint = "https://data.gov.cz/sparql"
-        q = f"select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10"
+        query = f"select ?label where {{<{ds_iri}> <http://purl.org/dc/terms/title> ?label}} LIMIT 10"
         try:
             with RobotsBlock(endpoint):
                 store = SPARQLStore(
@@ -204,7 +205,9 @@ def query_label(ds_iri):
                 graph = Graph(store=store)
                 graph.open(endpoint)
                 try:
-                    for row in graph.query(q):
+                    for row in graph.query(query):
+                        if not isinstance(row, ResultRow):
+                            continue
                         label = row["label"]
                         try:
                             value, language = label.value, label.language
@@ -214,17 +217,17 @@ def query_label(ds_iri):
                             result["default"] = label
                 except ParserError:
                     logging.getLogger(__name__).exception(
-                        f"Failed to parse title for {ds_iri}"
+                        "Failed to parse title for %s", ds_iri
                     )
         except (RobotsRetry, Skip):
             logging.getLogger(__name__).warning(
-                f"Not allowed to fetch {ds_iri} from endpoint right now"
+                "Not allowed to fetch %s from endpoint right now", ds_iri
             )
 
-    result = dict(result)
-    for key in result.keys():
-        result[key] = list(result[key])
-    return result
+    output = {}
+    for (key, value) in result.items():
+        output[key] = list(value)
+    return output
 
 
 def convert_labels_for_json_export(out):
@@ -237,9 +240,9 @@ def convert_labels_for_json_export(out):
 
 def export_labels():
     out = {}
-    for label in db_session.query(Label):
+    for label in db_session.query(Label).all():
         key1 = label.iri
-        if key1 not in out.keys():
+        if key1 not in out:
             out[key1] = defaultdict(set)
         out[key1][label.language_code].add(label.label)
     return convert_labels_for_json_export(out)
@@ -265,10 +268,13 @@ def import_labels(labels):
 
 def export_related():
     all_related = defaultdict(defaultdict(set))
-    for item in db_session.query(Related):
-        if item.ds1 == item.ds2:
-            continue
-        all_related[item.type][item.ds1].add(item.ds2)
+    for item in db_session.query(Related).all():
+        for related_item in db_session.query(Related).filter(
+            Related.token == item.token,
+            Related.type == item.type,
+            Related.ds != item.ds,
+        ):
+            all_related[related_item.type][item.ds].add(related_item.ds)
     return all_related
 
 
@@ -282,11 +288,10 @@ def export_profile():
 
 def export_interesting():
     interesting = set()
-    data = export_related()
-    for key in data.keys():
-        for ds in data[key].keys():
-            if len(data[key][ds]) > 0:
-                interesting.add(ds)
+    for (_, value) in export_related().items():
+        for dataset_iri in value.keys():
+            if len(value[dataset_iri]) > 0:
+                interesting.add(dataset_iri)
     # ds, ze existuje (token, type) in Related t.z. existuje (token, type, ds2) in Related, kde ds != ds2
 
 

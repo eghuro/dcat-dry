@@ -63,7 +63,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('distribution_iri', sa.String(), nullable=False),
     sa.Column('iri', sa.String(), nullable=False),
-    sa.Column('pureSubject', sa.Boolean, nullable=True, default=False),
+    sa.Column('pure_subject', sa.Boolean, nullable=True, default=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('subject_object_index', 'subject_object', ['distribution_iri', 'iri'], unique=True)

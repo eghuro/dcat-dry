@@ -3,8 +3,7 @@ import logging
 from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
-from tsa.ddr import concept_index
-from tsa.model import ddr_index
+from tsa.ddr import concept_index, ddr_index
 from tsa.net import RobotsBlock
 from tsa.robots import USER_AGENT, session
 from tsa.util import check_iri
@@ -58,7 +57,7 @@ class RuianInspector:
                         )
                         concepts.append(iri)
                         relationship_count = relationship_count + 1
-            ddr_index.bulk_insert(ddr)
+            ddr_index.bulk_index(ddr)
             concept_index.bulk_insert(concepts)
             log.info(
                 "Done proceessing RUIAN references. Processed %s, indexed %s relationships in RUIAN hierarchy.",

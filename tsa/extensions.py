@@ -8,7 +8,6 @@ from flask_caching import Cache
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
-
 try:
     from statsd import StatsClient
 except ImportError:
@@ -26,7 +25,7 @@ def on_error(missing_variable):
 
 
 @environment("REDIS", default=["redis://localhost:6379/0"], onerror=on_error)
-def get_redis(redis_cfg=None):
+def get_redis(redis_cfg=""):
     """Create a redis connectiion pool."""
     log = logging.getLogger(__name__)
     log.info("redis cfg: %s", redis_cfg)
@@ -35,7 +34,7 @@ def get_redis(redis_cfg=None):
 
 @environment("STATSD_HOST", "STATSD_PORT", default=[None, 8125], onerror=on_error)
 def get_statsd(host=None, port=None):
-    return StatsClient(host=host, port=port)
+    return StatsClient(host=host, port=port)  # type: ignore
 
 
 redis_pool = get_redis()

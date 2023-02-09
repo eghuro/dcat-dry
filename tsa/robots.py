@@ -40,7 +40,7 @@ session.mount("http://", adapter)
 session.mount("https://", adapter)
 
 
-def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
+def allowed(iri: str) -> Tuple[bool, Union[int, None], Union[str, None]]:
     if not Config.ROBOTS:
         return True, None, None
     robots_iri = Utility.roboturl(iri)

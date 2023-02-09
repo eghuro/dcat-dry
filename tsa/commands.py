@@ -4,20 +4,20 @@ import json
 import logging
 import os
 from typing import Any, Generator, List
-import redis
+
 import click
+import redis
 from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
-from tsa.sameas import same_as_index
+from tsa.extensions import redis_pool
 from tsa.query import query
 from tsa.report import import_labels as import_labels_impl
+from tsa.sameas import same_as_index
 from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
-from tsa.public.views import get_results
-from tsa.extensions import redis_pool
 
 # register any new command in app.py: register_commands
 
@@ -86,12 +86,6 @@ def import_sameas(file):
 @click.option("-i", "--iri", required=True, help="IRI to dereference")
 def dereference(iri=None):
     dereference_one(iri, "AD-HOC")
-
-
-@click.command()
-def results():
-    analyses, related = get_results()
-    print(json.dumps({"analyses": analyses, "related": related}))
 
 
 @click.command()

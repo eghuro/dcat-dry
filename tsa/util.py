@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import rfc3987
 
 
-def check_iri(iri: str) -> bool:
+def check_iri(iri: str | None) -> bool:
     """Checks if the provided iri is a valid http or https IRI."""
     return (
         iri is not None

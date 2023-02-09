@@ -81,7 +81,6 @@ def register_commands(app):
     app.cli.add_command(commands.clean)
     app.cli.add_command(commands.urls)
     app.cli.add_command(commands.batch)
-    app.cli.add_command(commands.results)
     app.cli.add_command(commands.import_labels)
     app.cli.add_command(commands.import_labels)
     app.cli.add_command(commands.import_sameas)

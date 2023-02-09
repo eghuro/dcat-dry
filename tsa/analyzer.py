@@ -12,9 +12,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
-from tsa.ddr import concept_index, dsd_index, ddr_index
-from tsa.sameas import same_as_index
+from tsa.ddr import concept_index, ddr_index, dsd_index
 from tsa.model import Label, SubjectObject
+from tsa.sameas import same_as_index
 from tsa.util import check_iri
 
 
@@ -431,7 +431,7 @@ class GenericAnalyzer(AbstractAnalyzer):
             locally_typed,
         )
 
-    def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
+    def analyze(self, graph: Graph, iri: str) -> dict:
         """Basic graph analysis."""
         (
             triples,
@@ -519,29 +519,30 @@ class GenericAnalyzer(AbstractAnalyzer):
                 db_session.execute(insert(Label).values(labels))
                 db_session.commit()
         except ParserError:
-            logging.getLogger(__name__).exception(f"Failed to extract labels")
+            logging.getLogger(__name__).exception("Failed to extract labels")
         except SQLAlchemyError:
             logging.getLogger(__name__).exception(
                 "Failed do commit, rolling back label extraction"
             )
             db_session.rollback()
 
-    def _extract_detail(self, row: rdflib.query.ResultRow, iri: str) -> None:
+    def _extract_detail(self, row: rdflib.query.ResultRow, iri: str) -> Optional[dict]:
         return self.extract_label(row["label"], iri)
         # self.extract_label(row["description"], iri, session)
 
     @staticmethod
-    def extract_label(literal: Any, iri: str) -> None:
+    def extract_label(literal: Any, iri: str) -> Optional[dict]:
         if literal is None:
-            return
+            return None
         try:
             value, language = literal.value, literal.language
             return {"iri": iri, "language_code": language, "label": value}
         except AttributeError:
             log = logging.getLogger(__name__)
-            log.exception(f"Failed to parse extract label for {iri}")
+            log.exception("Failed to parse extract label for %s", iri)
             log.debug(type(literal))
             log.debug(literal)
+            return None
 
     def find_relation(self, graph: Graph) -> None:
         """Two distributions are related if they share resources that are owl:sameAs."""

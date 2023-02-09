@@ -9,8 +9,8 @@ from rdflib.plugins.stores.sparqlstore import SPARQLStore, _node_to_sparql
 from rdflib.query import ResultException
 
 from tsa.monitor import TimedBlock
-from tsa.robots import USER_AGENT, session
 from tsa.net import RobotsBlock
+from tsa.robots import USER_AGENT, session
 from tsa.util import check_iri
 
 # workaround for https://github.com/RDFLib/rdflib/issues/1195

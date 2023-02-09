@@ -1,6 +1,8 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
-import logging
 import itertools
+import logging
+from typing import Optional
+
 import rdflib
 from celery import group
 from rdflib import Namespace
@@ -22,10 +24,10 @@ from tsa.tasks.process import filter_iri, process, process_priority
 from tsa.util import check_iri
 
 
-def query_parent(ds, g, log):
-    query = f"SELECT ?parent WHERE {{ <{ds!s}> <http://purl.org/dc/terms/isPartOf> ?parent }}"
+def query_parent(dataset_iri: str, graph: rdflib.Graph, log: logging.Logger):
+    query = f"SELECT ?parent WHERE {{ <{dataset_iri!s}> <http://purl.org/dc/terms/isPartOf> ?parent }}"
     try:
-        for parent in g.query(query):
+        for parent in graph.query(query):
             parent_iri = str(parent["parent"])
             yield str(parent_iri)
     except ValueError:
@@ -48,8 +50,8 @@ def test_allowed(url: str) -> bool:  # WTF?
     return False
 
 
-def _dcat_extractor(g, log, force):
-    if g is None:
+def _dcat_extractor(graph: Optional[rdflib.Graph], log: logging.Logger, force: bool):
+    if graph is None:
         return
     distributions, distributions_priority = [], []
     dcat = Namespace("http://www.w3.org/ns/dcat#")
@@ -103,11 +105,11 @@ def _dcat_extractor(g, log, force):
     # log.debug(f"Extracting distributions from {graph_iri}")
     # DCAT dataset
     with TimedBlock("dcat_extractor"):
-        for ds in g.subjects(RDF.type, dcat.Dataset):
+        for dataset in graph.subjects(RDF.type, dcat.Dataset):
             # log.debug(f"DS: {ds!s}")
-            effective_ds = ds
+            effective_ds = dataset
 
-            for parent in query_parent(ds, g, log):
+            for parent in query_parent(str(dataset), graph, log):
                 effective_ds = parent
             # log.debug(f"effective DS: {effective_ds!s}")
 
@@ -116,31 +118,31 @@ def _dcat_extractor(g, log, force):
                 continue
 
             # DCAT Distribution
-            for d in g.objects(ds, dcat.distribution):
+            for distribution in graph.objects(dataset, dcat.distribution):
                 # log.debug(f"Distr: {d!s}")
                 # put RDF distributions into a priority queue
-                for media in g.objects(d, dcat.mediaType):
+                for media in graph.objects(distribution, dcat.mediaType):
                     if str(media) in media_priority:
                         queue = distributions_priority
 
-                for distribution_format in g.objects(d, dcterms.format):
+                for distribution_format in graph.objects(distribution, dcterms.format):
                     if str(distribution_format) in format_priority:
                         queue = distributions_priority
 
                 # data.gov.cz specific
-                for distribution_format in g.objects(d, nkod.mediaType):
+                for distribution_format in graph.objects(distribution, nkod.mediaType):
                     if "rdf" in str(distribution_format):
                         queue = distributions_priority
 
                 # download URL to files
                 downloads = []
-                for download_url in g.objects(d, dcat.downloadURL):
+                for download_url in graph.objects(distribution, dcat.downloadURL):
                     # log.debug(f'Down: {download_url!s}')
                     url = str(download_url)
                     if check_iri(url) and not filter_iri(url):
                         if url.endswith("/sparql"):
                             log.info(
-                                f"Guessing {url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {ds!s} (effective: {effective_ds!s})"
+                                f"Guessing {url} is a SPARQL endpoint, will use for dereferences from DCAT dataset {dataset!s} (effective: {effective_ds!s})"
                             )
                             db_endpoints.append(
                                 {"ds": effective_ds, "endpoint": str(url)}
@@ -148,7 +150,7 @@ def _dcat_extractor(g, log, force):
                         elif test_allowed(url) or not Config.LIMITED:
                             downloads.append(url)
                             log.debug(
-                                f"Distribution {url!s} from DCAT dataset {ds!s} (effective: {effective_ds!s})"
+                                f"Distribution {url!s} from DCAT dataset {dataset!s} (effective: {effective_ds!s})"
                             )
                             if url.endswith("trig"):
                                 distributions_priority.append(url)
@@ -166,12 +168,15 @@ def _dcat_extractor(g, log, force):
 
                 # scan for DCAT2 data services here as well
                 for access in itertools.chain(
-                    g.objects(d, dcat.accessService), g.subjects(dcat.servesDataset, d)
+                    graph.objects(distribution, dcat.accessService),
+                    graph.subjects(dcat.servesDataset, distribution),
                 ):
                     log.debug(f"Service: {access!s}")
-                    for endpoint in g.objects(access, dcat.endpointURL):
+                    for endpoint in graph.objects(access, dcat.endpointURL):
                         if check_iri(str(endpoint)):
-                            log.debug(f"Endpoint {endpoint!s} from DCAT dataset {ds!s}")
+                            log.debug(
+                                f"Endpoint {endpoint!s} from DCAT dataset {dataset!s}"
+                            )
                             if str(effective_ds) is not None:
                                 db_endpoints.append(
                                     {"ds": str(effective_ds), "endpoint": str(endpoint)}
@@ -185,7 +190,7 @@ def _dcat_extractor(g, log, force):
                 db_session.execute(insert(DatasetDistribution).values(db_distributions))
             if len(db_endpoints) + len(db_distributions) > 0:
                 db_session.commit()
-                GenericAnalyzer().get_details(g)  # extrakce labelu
+                GenericAnalyzer().get_details(graph)  # extrakce labelu
         except SQLAlchemyError:
             log.exception("Failed to commit in DCAT extractor")
             db_session.rollback()
@@ -230,18 +235,11 @@ def do_inspect_graph(graph_iri, force, endpoint_iri):
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
         result = _dcat_extractor(inspector.process_graph(graph_iri), log, force)
     except (rdflib.query.ResultException, HTTPError):
-        log.error(f"Failed to inspect graph {graph_iri}: ResultException or HTTP Error")
+        log.error(
+            "Failed to inspect graph %s: ResultException or HTTP Error", graph_iri
+        )
     monitor.log_inspected()
     return result
-
-
-@celery.task(base=TrackableTask)
-def inspect_graphs(graphs, endpoint_iri, force):
-    do_inspect_graphs(graphs, endpoint_iri, force)
-
-
-def do_inspect_graphs(graphs, endpoint_iri, force):
-    return [do_inspect_graph(g, force, endpoint_iri) for g in graphs]
 
 
 def multiply(item, times):
@@ -259,7 +257,7 @@ def batch_inspect(endpoint_iri, graphs, chunks):
     items = len(graphs)
     monitor.log_graph_count(items)
     log = logging.getLogger(__name__)
-    log.info(f"Batch of {items} graphs in {endpoint_iri}")
+    log.info("Batch of %s graphs in %s", str(items), endpoint_iri)
     return inspect_graph.chunks(
         zip(multiply(endpoint_iri, items), graphs, multiply(True, items)), chunks
     ).apply_async()

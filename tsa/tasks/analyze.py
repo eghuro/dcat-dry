@@ -2,19 +2,21 @@
 import json
 import logging
 from collections import defaultdict
+from typing import Tuple
 
 import rdflib
 from pyld import jsonld
+from rdflib.exceptions import ParserError
 from requests.exceptions import HTTPError, RequestException
 from sqlalchemy import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
+from tsa.model import Analysis, Relationship
 from tsa.monitor import TimedBlock
-from tsa.model import Relationship, Analysis
-from tsa.settings import Config
 from tsa.robots import USER_AGENT
+from tsa.settings import Config
 
 jsonld.set_document_loader(
     jsonld.requests_document_loader(
@@ -24,7 +26,7 @@ jsonld.set_document_loader(
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
-    g = rdflib.ConjunctiveGraph()
+    graph = rdflib.ConjunctiveGraph()
     try:
         json_data = json.loads(data)
         # normalize a document using the RDF Dataset Normalization Algorithm
@@ -32,18 +34,20 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
         normalized = jsonld.normalize(
             json_data, {"algorithm": "URDNA2015", "format": "application/nquads"}
         )
-        g.parse(data=normalized, format="application/n-quads")
-    except (TypeError, rdflib.exceptions.ParserError):
+        if isinstance(normalized, dict):
+            raise TypeError()
+        graph.parse(data=normalized, format="application/n-quads")
+    except (TypeError, ParserError):
         logging.getLogger(__name__).warning(
             "Failed to parse expanded JSON-LD, falling back"
         )
-        g.parse(data=data, format="json-ld")
+        graph.parse(data=data, format="json-ld")
     except (HTTPError, RequestException):
         logging.getLogger(__name__).warning(
             "HTTP Error expanding JSON-LD, falling back"
         )
-        g.parse(data=data, format="json-ld")
-    return g
+        graph.parse(data=data, format="json-ld")
+    return graph
 
 
 def load_graph(
@@ -57,7 +61,7 @@ def load_graph(
             graph = rdflib.ConjunctiveGraph()
             graph.parse(data=data, format=format_guess.lower())
         return graph
-    except (TypeError, rdflib.exceptions.ParserError):
+    except (TypeError, ParserError):
         log.warning("Failed to parse %s (%s)", iri, format_guess)
     except (
         rdflib.plugin.PluginException,
@@ -74,7 +78,7 @@ def load_graph(
             format_guess,
             data[0:1000],
         )
-    return None
+    return rdflib.ConjunctiveGraph()
 
 
 def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
@@ -109,7 +113,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     log.info("Done storing %s", iri)
 
 
-def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> None:
+def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> Tuple[str, str]:
     log.info("Analyzing %s with %s", iri, analyzer_class.token)
     with TimedBlock(f"analyze.{analyzer_class.token}"):
         res = analyzer.analyze(graph, iri)
@@ -145,10 +149,10 @@ def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> None:
                 continue
             iris = item[1]
             # log.debug("Adding %s items into set", str(len(iris)))
-            for iri in iris:
-                if iri is not None and len(iri) > 0:
+            for candidate_iri in iris:
+                if candidate_iri is not None and len(candidate_iri) > 0:
                     relationships.append(
-                        {"type": rel_type, "group": key, "candidate": iri}
+                        {"type": rel_type, "group": key, "candidate": candidate_iri}
                     )
         if len(relationships) > 0:
             try:

@@ -91,7 +91,7 @@ class Index:
                         queue.append(neighbour)
                 except KeyError:
                     logging.getLogger(__name__).warning(
-                        "Key error in BFS: %s, key: %s", node, self.__key("")
+                        "Key error in BFS: %s, key: %s", node, self.__key
                     )
         return visited
 

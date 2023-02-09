@@ -1,19 +1,18 @@
 import logging
+from datetime import datetime, timedelta
 from io import BytesIO
 from random import randint
 from typing import Tuple
-from datetime import datetime, timedelta
 
-import requests
-import urllib3
 import rdflib
 import redis
+import requests
+import urllib3
 from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.model import RobotsDelay
 from tsa.monitor import monitor
-from tsa.redis import MAX_CONTENT_LENGTH
 from tsa.robots import USER_AGENT
 from tsa.robots import allowed as robots_allowed
 from tsa.robots import session
@@ -50,7 +49,8 @@ class RobotsBlock:
         self.__iri = iri
         self.__delay = None
 
-    def clear_cache(self, wait: int, log: logging.Logger) -> None:
+    @staticmethod
+    def clear_cache(wait: int, log: logging.Logger) -> None:
         if wait > 0 or (not Config.ROBOTS and randint(1, 1000) < 25):  # nosec
             try:
                 session.remove_expired_responses()
@@ -67,16 +67,15 @@ class RobotsBlock:
         log = logging.getLogger(__name__)
         is_allowed, self.__delay, robots_url = robots_allowed(self.__iri)
         if not is_allowed:
-            log.warn(f"Not allowed to fetch {self.__iri!s} as {USER_AGENT!s}")
+            log.warning("Not allowed to fetch %s as %s", self.__iri, USER_AGENT)
             raise Skip()
-        for d in db_session.query(RobotsDelay).filter_by(iri=robots_url):
-            wait = (d.expiration - datetime.now()).seconds
+        for delay in db_session.query(RobotsDelay).filter_by(iri=robots_url):
+            wait = (delay.expiration - datetime.now()).seconds
             self.clear_cache(wait, log)
             if wait > 0:
-                log.info(f"Analyze {self.__iri} in {wait} because of crawl-delay")
+                log.info("Analyze %s in %s because of crawl-delay", self.__iri, wait)
                 raise RobotsRetry(wait)
-            else:
-                db_session.delete(d)
+            db_session.delete(delay)
             break
         try:
             db_session.commit()
@@ -89,7 +88,7 @@ class RobotsBlock:
     def __exit__(self, *args):
         if self.__delay is not None:
             log = logging.getLogger(__name__)
-            log.info(f"Recording crawl-delay of {self.__delay} for {self.__iri}")
+            log.info("Recording crawl-delay of %s for %s", self.__delay, self.__iri)
             try:
                 expire = datetime.now() + timedelta(seconds=int(self.__delay))
                 db_session.add(RobotsDelay(iri=self.__iri, expiration=expire))
@@ -98,7 +97,7 @@ class RobotsBlock:
                 log.error("Invalid delay value - could not convert to int")
             except SQLAlchemyError:
                 log.exception(
-                    f"Failed to set crawl-delay for {self.__iri}: {self.__delay}"
+                    "Failed to set crawl-delay for %s: %s", self.__iri, self.__delay
                 )
                 db_session.rollback()
 
@@ -157,6 +156,17 @@ def get_content(iri: str, response: requests.Response) -> str:
     raise NoContent()
 
 
+def make_guess(iri: str, response: requests.Response) -> str:
+    """Guess the format."""
+    guess_candidate = rdflib.util.guess_format(iri)  # type: str | None
+    if guess_candidate is None:
+        guess_candidate = response.headers.get("content-type")  # type: str | None
+        if guess_candidate is not None:
+            return guess_candidate.split(";")[0]
+        return ""
+    return guess_candidate
+
+
 def guess_format(
     iri: str, response: requests.Response, log: logging.Logger
 ) -> Tuple[str, bool]:
@@ -165,11 +175,8 @@ def guess_format(
 
     Skip if not known 5* distribution format.
     """
-    guess = rdflib.util.guess_format(iri)
-    if guess is None:
-        guess = response.headers.get("content-type")
-        if guess is not None:
-            guess = guess.split(";")[0]
+
+    guess = make_guess(iri, response)
     monitor.log_format(str(guess))
     if "xml" in guess:
         guess = "xml"
@@ -210,13 +217,3 @@ def guess_format(
         raise Skip()
 
     return guess, (guess in priority)
-
-
-def test_content_length(iri, request, log):
-    """Test content length header if the distribution is not too large."""
-    if "Content-Length" in request.headers.keys():
-        conlen = int(request.headers.get("Content-Length"))
-        if conlen > MAX_CONTENT_LENGTH:
-            # Due to redis limitation
-            log.warn(f"Skipping {iri} as it is too large: {conlen!s}")
-            raise Skip()

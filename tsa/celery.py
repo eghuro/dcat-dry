@@ -2,11 +2,10 @@
 
 import celery
 from atenvironment import environment
+from gevent import monkey
 
 from tsa.extensions import on_error
 from tsa.log import logging_setup
-
-from gevent import monkey
 
 monkey.patch_all()
 try:
