@@ -5,6 +5,7 @@ import logging
 from tsa.app import create_app
 from tsa.settings import ProdConfig
 
+# Flask app factory.
 app = create_app(ProdConfig)
 
 

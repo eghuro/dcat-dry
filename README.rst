@@ -116,4 +116,3 @@ Get a full result ::
 Query a dataset ::
 
     /api/v1/query/dataset?iri=http://abc
-

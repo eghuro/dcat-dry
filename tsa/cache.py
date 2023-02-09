@@ -110,7 +110,7 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
     *maxsize*         maximum number of entries in LRU cache
     *slice*           slice object for restricting prototype args
     *optimisekwargs*  convert all parameter signatures into kwargs dict so only one cache
-                      entry needed for semantically equiv. calls 
+                      entry needed for semantically equiv. calls
                       (recommended, default is True)
 
     Original blog post
@@ -253,12 +253,12 @@ def redis_lru(maxsize=None, slice=slice(None), conn=None, optimisekwargs=True):
             Python 3, redis-py 3.0 fix
 
             zadd() - Set any number of element-name, score pairs to the key ``name``. Pairs
-            are specified as a dict of element-names keys to score values. The score values should 
+            are specified as a dict of element-names keys to score values. The score values should
             be the string representation of a double precision floating point number.
-            
-            redis-py 3.0 has changed these three commands to all accept a single positional 
-            argument named mapping that is expected to be a dict. For MSET and MSETNX, the 
-            dict is a mapping of key-names -> values. For ZADD, the dict is a mapping of 
+
+            redis-py 3.0 has changed these three commands to all accept a single positional
+            argument named mapping that is expected to be a dict. For MSET and MSETNX, the
+            dict is a mapping of key-names -> values. For ZADD, the dict is a mapping of
             element-names -> score. https://pypi.org/project/redis/
             """
             # conn.zadd(cache_keys, 0, key)  # Original Python 2

@@ -18,7 +18,7 @@ from tsa.util import check_iri
 
 
 class Extractor:
-    """ Extracts DCAT-AP metadata from an RDF graph. """
+    """Extracts DCAT-AP metadata from an RDF graph."""
 
     log = logging.getLogger(__name__)
     media_priority = set(
@@ -82,7 +82,7 @@ class Extractor:
         return self.__distributions
 
     def extract(self) -> None:
-        """ Extracts DCAT-AP metadata from an RDF graph. """
+        """Extracts DCAT-AP metadata from an RDF graph."""
         self.__db_endpoints = []
         self.__db_distributions = []
         for dataset in self.__graph.subjects(RDF.type, Extractor.dcat.Dataset):
@@ -90,7 +90,7 @@ class Extractor:
         self.__store_to_db()
 
     def __store_to_db(self) -> None:
-        """ Stores the extracted metadata to the database. """
+        """Stores the extracted metadata to the database."""
         try:
             if len(self.__db_endpoints) > 0:
                 db_session.execute(insert(DatasetEndpoint).values(self.__db_endpoints))
