@@ -1,5 +1,4 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
-import itertools
 import logging
 from typing import Optional
 
@@ -7,6 +6,7 @@ import rdflib
 from celery import group
 from celery.result import AsyncResult
 from requests.exceptions import HTTPError
+
 from tsa.celery import celery
 from tsa.dcat import Extractor
 from tsa.endpoint import SparqlEndpointAnalyzer
@@ -14,7 +14,6 @@ from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import process, process_priority
-
 
 
 def test_allowed(url: str) -> bool:  # WTF?
@@ -32,7 +31,10 @@ def test_allowed(url: str) -> bool:  # WTF?
             return True
     return False
 
-def _dcat_extractor(graph: Optional[rdflib.Graph], log: logging.Logger, force: bool) -> Optional[AsyncResult]:
+
+def _dcat_extractor(
+    graph: Optional[rdflib.Graph], log: logging.Logger, force: bool
+) -> Optional[AsyncResult]:
     if graph is None:
         return None
 
@@ -40,7 +42,9 @@ def _dcat_extractor(graph: Optional[rdflib.Graph], log: logging.Logger, force: b
     with TimedBlock("dcat_extractor"):
         extractor.extract()
 
-    tasks = [process_priority.si(iri, force) for iri in extractor.priority_distributions]
+    tasks = [
+        process_priority.si(iri, force) for iri in extractor.priority_distributions
+    ]
     tasks.extend(process.si(iri, force) for iri in extractor.distributions)
     monitor.log_tasks(len(tasks))
     return group(tasks).apply_async()

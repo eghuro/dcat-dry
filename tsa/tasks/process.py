@@ -66,7 +66,6 @@ def process(self, iri, force):
     do_process(iri, self, False, force)
 
 
-
 def filter_iri(iri: str) -> bool:
     """
     Filter out IRIs that are not valid.
