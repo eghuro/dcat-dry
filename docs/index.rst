@@ -12,6 +12,8 @@ Welcome to DCAT DRY's documentation!
 
    readme
    history
+   modules
+   cli
 
 
 

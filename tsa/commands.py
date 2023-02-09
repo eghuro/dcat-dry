@@ -19,12 +19,13 @@ from tsa.tasks.batch import batch_inspect
 from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
 
-# register any new command in app.py: register_commands
+# register any new command in app.py: register_commands and tsa.rst in docs
 
 
 def divide_chunks(
     list_to_split: List[Any], chunk_size: int
 ) -> Generator[Any, None, None]:
+    """Yield successive `chunk_size`-sized chunks from `list_to_split.`"""
     # looping till length of the list_to_split
     for i in range(0, len(list_to_split), chunk_size):
         yield list_to_split[i : i + chunk_size]
@@ -35,10 +36,10 @@ def divide_chunks(
 @click.option("-s", "--sparql", required=True, help="IRI of the SPARQL endpoint")
 def batch(graphs=None, sparql=None):
     """Trigger a batch execution.
-    Take a list of graphs in a text file and IRI of a SPARQL Endpoint and our API.
+    Take a list of graphs in a text file and IRI of a SPARQL Endpoint where
+    DCAT-AP catalogue is stored in the named graphs listed in the graph's file.
     """
     log = logging.getLogger(__name__)
-    print(graphs)
     if not check_iri(sparql):
         log.error("Not a valid SPARQL Endpoint: %s", sparql)
         return
@@ -89,21 +90,8 @@ def dereference(iri=None):
 
 
 @click.command()
-def clean():
-    """Remove *.pyc and *.pyo files recursively starting at current directory.
-
-    Borrowed from Flask-Script, converted to use Click.
-    """
-    for dirpath, _, filenames in os.walk("."):
-        for filename in filenames:
-            if filename.endswith(".pyc") or filename.endswith(".pyo"):
-                full_pathname = os.path.join(dirpath, filename)
-                click.echo(f"Removing {full_pathname}")
-                os.remove(full_pathname)
-
-
-@click.command()
 def finalize():
+    """Finalize the index after the batch scan is done."""
     query()
 
 

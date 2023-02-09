@@ -37,7 +37,7 @@ For the full environment use docker-compose:
 
 Build & run manually
 ---------------------
-CPython 3.7+ is supported.
+CPython 3.8+ is supported.
 
 Install redis server first. In following example we will assume it runs on localhost, port 6379 and DB 0 is used.
 

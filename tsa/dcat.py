@@ -75,10 +75,18 @@ class Extractor:
 
     @property
     def priority_distributions(self) -> List[str]:
+        """IRIs of distributions that contain RDF data."""
         return self.__distributions_priority
 
     @property
     def regular_distributions(self) -> List[str]:
+        """
+        IRIs of distributions that are not catalogized
+        as containing RDF data.
+
+        They are still processed by the analyzer as we skip
+        non-RDF data later on.
+        """
         return self.__distributions
 
     def extract(self) -> None:
@@ -106,6 +114,7 @@ class Extractor:
             db_session.rollback()
 
     def __process_dataset(self, dataset: str) -> None:
+        """Extracts distributions from a dataset."""
         effective_dataset_iri = self.__get_effective_dataset_iri(dataset)
         if effective_dataset_iri is None:
             return
@@ -113,13 +122,19 @@ class Extractor:
             URIRef(dataset), Extractor.dcat.distribution
         ):
             if isinstance(distribution, URIRef):
-                self.__process_distribution(distribution, effective_dataset_iri)
+                self.__process_distribution(
+                    distribution, URIRef(dataset), effective_dataset_iri
+                )
             else:
                 Extractor.log.warning("Invalid distribution: %s", distribution)
 
     def __process_distribution(
-        self, distribution: URIRef, effective_dataset_iri: str
+        self, distribution: URIRef, dataset_iri: URIRef, effective_dataset_iri: str
     ) -> None:
+        """
+        Extract download URLs from a distribution,
+        detect any services for the dataset.
+        """
         queue = self.__get_queue(distribution)
         for download_url in self.__graph.objects(
             distribution, Extractor.dcat.downloadURL
@@ -128,13 +143,19 @@ class Extractor:
                 str(download_url), effective_dataset_iri, queue
             )
         for service in itertools.chain(
-            self.__graph.objects(distribution, Extractor.dcat.accessService),
-            self.__graph.subjects(Extractor.dcat.servesDataset, distribution),
+            self.__graph.objects(dataset_iri, Extractor.dcat.accessService),
+            self.__graph.subjects(Extractor.dcat.servesDataset, dataset_iri),
         ):
             if isinstance(service, URIRef):
                 self.__process_service(service, effective_dataset_iri)
 
     def __process_service(self, service: URIRef, effective_dataset_iri: str):
+        """
+        Extracts SPARQL endpoints IRIs from a service. Apply IRI filters anc checks.
+
+        :param service: IRI of the service (DCAT:accessService)
+        :param effective_dataset_iri: IRI of the dataset (or series)
+        """
         Extractor.log.debug("Service: %s", str(service))
         for endpoint in self.__graph.objects(service, Extractor.dcat.endpointURL):
             url = str(endpoint)
@@ -145,6 +166,14 @@ class Extractor:
     def __process_distribution_url(
         self, url: str, effective_dataset_iri: str, queue: list
     ) -> None:
+        """
+        Extracts download URLs from a distribution. Apply IRI filters anc checks.
+        If we sense a SPARQL endpoint, we add it to the list of endpoints.
+
+        :param url: URL of the distribution
+        :param effective_dataset_iri: IRI of the dataset (or series)
+        :param queue: queue to which the URL is added (regular or priority)
+        """
         if not check_iri(url) or filter_iri(url):
             return
         if url.endswith("/sparql"):
@@ -160,6 +189,13 @@ class Extractor:
         queue.append({"ds": effective_dataset_iri, "distr": url})
 
     def __get_queue(self, distribution: URIRef) -> list:
+        """
+        Returns the queue to which the distribution should be added.
+        If format or media suggest RDF data, the distribution is added to the priority queue.
+
+        :param distribution: IRI of the distribution
+        :return: queue to which the distribution should be added
+        """
         for media_type in self.__graph.objects(distribution, Extractor.dcat.mediaType):
             if str(media_type) in Extractor.media_priority:
                 return self.__distributions_priority
@@ -174,13 +210,29 @@ class Extractor:
         return self.__distributions
 
     def __get_effective_dataset_iri(self, dataset: str) -> str:
+        """
+        Returns the IRI of the dataset (or series) that is the parent of the given dataset.
+
+        :param dataset: IRI of the dataset
+        :return: IRI of the parent dataset (or series) which could also be the original dataset if there is no parent
+        """
         effective_dataset_iri = dataset
-        for parent in self.__query_parent(dataset):
-            if parent is not None:
-                effective_dataset_iri = parent
+        try:
+            for parent in self.__query_parent(dataset):
+                if parent is not None:
+                    effective_dataset_iri = parent
+        except ValueError:
+            pass
         return effective_dataset_iri
 
     def __query_parent(self, dataset_iri: str) -> Generator[str, None, None]:
+        """
+        Queries the parent of the given dataset.
+        Parent is defined as the dataset that this one is isPartOf which.
+
+        :param dataset_iri: IRI of the dataset
+        :return: IRI of the parent dataset (or series)
+        """
         query = f"SELECT ?parent WHERE {{ <{dataset_iri!s}> <http://purl.org/dc/terms/isPartOf> ?parent }}"
         try:
             for parent in self.__graph.query(query):

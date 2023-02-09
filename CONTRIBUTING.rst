@@ -130,3 +130,11 @@ $ git push
 $ git push --tags
 
 Jenkins will then deploy to PyPI if tests pass.
+
+Generating Sphinx documentation
+-------------------------------
+
+From `docs` directory::
+
+    sphinx-apidoc -f -o . ../tsa  # generate rst files from docstrings
+    make html  # generate html docs

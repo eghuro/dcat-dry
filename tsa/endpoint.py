@@ -24,7 +24,7 @@ register_plugin(
 
 class SparqlEndpointAnalyzer:
 
-    """Extract DCAT datasets from a SPARQL endpoint."""
+    """Extracts DCAT-AP datasets from a SPARQL endpoint."""
 
     @staticmethod
     def __query(named: str) -> str:
@@ -73,6 +73,13 @@ class SparqlEndpointAnalyzer:
         return f"{str1} from <{named}> {str3}"
 
     def __init__(self, endpoint: str):
+        """
+        Initialize the analyzer.
+
+        Endpoint is checked for validity and robots.txt is checked.
+
+        :param endpoint: SPARQL endpoint URL
+        """
         if not check_iri(endpoint):
             logging.getLogger(__name__).warning(
                 "%s is not a valid endpoint URL", endpoint
@@ -91,7 +98,15 @@ class SparqlEndpointAnalyzer:
             )
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
-        """Extract DCAT datasets from the given named graph of an endpoint."""
+        """
+        Extract DCAT datasets from the given named graph of an endpoint.
+
+        We run a SPARQL CONSTRUCT query on the named graph to extract DCAT-AP datasets
+        and return them as a graph.
+
+        :param graph_iri: named graph IRI
+        :return: DCAT-AP dataset - graph
+        """
         log = logging.getLogger(__name__)
         graph_iri = graph_iri.strip()
         if not check_iri(graph_iri):

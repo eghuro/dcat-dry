@@ -21,7 +21,11 @@ release = "0.5"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["sphinx.ext.autodoc"]
+extensions = [
+    "celery.contrib.sphinx",
+    "sphinx_click",
+    "sphinx.ext.autodoc",
+]
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -34,3 +38,4 @@ include_patterns = ["**.rst"]
 html_theme = "alabaster"
 html_static_path = ["_static"]
 autosummary_generate = True
+celery_task_prefix = []
