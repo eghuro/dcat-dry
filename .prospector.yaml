@@ -8,6 +8,8 @@ ignore-paths:
     - tsa/settings.py
     - tsa/celeryconfig.py
     - tsa/cache.py
+    - alembic/
+    - conf/
 doc-warnings: false
 pylint:
     member-warnings: false

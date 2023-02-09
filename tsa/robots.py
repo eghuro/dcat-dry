@@ -1,32 +1,37 @@
 """User agent and robots cache."""
+import os
 import resource
-from functools import lru_cache
 from typing import Tuple, Union
 
 import redis
 import requests
 import requests_toolbelt
 from requests_cache import CachedSession
-from requests_cache.backends.redis import RedisCache
+from requests_cache.backends.filesystem import FileCache
 
 import tsa
-from tsa.extensions import redis_pool
+from tsa.cache import redis_lru as lru_cache
 from tsa.settings import Config
 
-if Config.ROBOTS:
-    try:
-        from reppy.robots import Robots
-    except ImportError:
-        from tsa.mocks import Robots  # type: ignore
-else:
-    from tsa.mocks import Robots  # type: ignore
+try:
+    from reppy import Utility
+    from reppy.parser import Rules
+except ImportError:
+    Config.ROBOTS = False
 
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent(
-    "DCAT DRY", tsa.__version__, extras=[("requests", requests.__version__)]
+    "DRYbot", tsa.__version__, extras=[("requests", requests.__version__)]
 )
 
-session = requests.Session()
+session = CachedSession(
+    "dry_dereference",
+    backend=FileCache(use_temp=True),
+    expire_after=3600,
+    cache_control=True,
+    allowable_codes=[200, 400, 404],
+    stale_if_error=True,
+)
 session.headers.update({"User-Agent": USER_AGENT})
 adapter = requests.adapters.HTTPAdapter(
     pool_connections=1000, pool_maxsize=(soft - 10), max_retries=3, pool_block=True
@@ -35,35 +40,23 @@ session.mount("http://", adapter)
 session.mount("https://", adapter)
 
 
-def allowed(iri: str) -> Tuple[bool, Union[int, None], str]:
-    robots_iri = Robots.robots_url(iri)
-
+def allowed(iri: str) -> Tuple[bool, Union[int, None], Union[str, None]]:
+    if not Config.ROBOTS:
+        return True, None, None
+    robots_iri = Utility.roboturl(iri)
     text = fetch_robots(robots_iri)
     if text is None:
         return True, None, robots_iri
-    robots = Robots.parse("", text)
-    return robots.allowed(iri, USER_AGENT), robots.agent(USER_AGENT).delay, robots_iri
+    robots = Rules(robots_iri, 200, text, None)
+    return robots.allowed(iri, USER_AGENT), robots.delay(USER_AGENT), robots_iri
 
 
-@lru_cache()
+@lru_cache(
+    conn=redis.Redis.from_url(os.environ.get("REDIS", "redis://localhost:6379/0"))
+)
 def fetch_robots(robots_iri: str) -> Union[str, None]:
     if len(robots_iri) == 0:
         return None
-    red = redis.Redis(connection_pool=redis_pool)
-    key = f"robots_{robots_iri}"
-    if red.exists(key):
-        return str(red.get(key))
-
-    response = session.get(robots_iri, verify=False)
-    with red.pipeline() as pipe:
-        if response.status_code != 200:
-            pipe.set(key, "")
-            pipe.expire(key, 30 * 24 * 60 * 60)
-            pipe.execute()
-            return None
-
-        text = response.text
-        pipe.set(key, text)
-        pipe.expire(key, 30 * 24 * 60 * 60)
-        pipe.execute()
-        return text
+    response = session.get(robots_iri, verify=False, timeout=Config.TIMEOUT)
+    text = response.text
+    return text

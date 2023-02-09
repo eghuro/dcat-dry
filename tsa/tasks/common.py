@@ -5,31 +5,29 @@ import redis as redis_lib
 from celery import Task
 
 from tsa.celery import celery
-from tsa.extensions import redis_pool
-from tsa.query import query
+from tsa.db import db_session
 
 
-class TrackableTask(Task):
-    _red = None
+class SqlAlchemyTask(Task):
+    """An abstract Celery Task that ensures that the connection the the
+    database is closed on task completion"""
 
-    @property
-    def redis(self):
-        if self._red is None:
-            self._red = redis_lib.Redis(connection_pool=redis_pool)
-        return self._red
+    # http://www.prschmid.com/2013/04/using-sqlalchemy-with-celery-tasks.html
+    abstract = True
 
-    def __call__(self, *args, **kwargs):
-        self.redis.set("shouldQuery", 1)
-        return super().__call__(*args, **kwargs)
+    def after_return(self, status, retval, task_id, args, kwargs, einfo):
+        db_session.remove()
 
 
-@celery.task(ignore_result=True)
+class TrackableTask(SqlAlchemyTask):
+    pass
+
+
+@celery.task(ignore_result=True, base=SqlAlchemyTask)
 def monitor(*args):  # pylint: disable=unused-argument
     log = logging.getLogger(__name__)
     redis_cfg = os.environ.get("REDIS_CELERY", None)
-    pool = redis_lib.ConnectionPool().from_url(
-        redis_cfg, charset="utf-8", decode_responses=True
-    )
+    pool = redis_lib.ConnectionPool().from_url(redis_cfg)
     red = redis_lib.Redis(connection_pool=pool)
     enqueued = (
         red.llen("default") + red.llen("high_priority") + red.llen("low_priority")
@@ -48,5 +46,3 @@ def monitor(*args):  # pylint: disable=unused-argument
             log.warning("Enqueued 0, we are done and we should query")
         else:
             return
-
-        query()

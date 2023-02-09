@@ -2,28 +2,52 @@
 import json
 import logging
 from collections import defaultdict
-from typing import List
+from typing import Tuple
 
 import rdflib
-import redis
-
 from pyld import jsonld
+from rdflib.exceptions import ParserError
+from requests.exceptions import HTTPError, RequestException
+from sqlalchemy import insert
+from sqlalchemy.exc import SQLAlchemyError
+
 from tsa.analyzer import AbstractAnalyzer
+from tsa.db import db_session
+from tsa.model import Analysis, Relationship
 from tsa.monitor import TimedBlock
-from tsa.redis import analysis_dataset
-from tsa.redis import related as related_key
+from tsa.robots import USER_AGENT
+from tsa.settings import Config
+
+jsonld.set_document_loader(
+    jsonld.requests_document_loader(
+        timeout=Config.TIMEOUT, headers={"User-Agent": USER_AGENT}
+    )
+)
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
-    json_data = json.loads(data)
-
-    options = {}
-    if "@context" in json_data and "@base" in json_data["@context"]:
-        options["base"] = json_data["@context"]["@base"]
-    expanded = jsonld.expand(json_data, options=options)
-    g = rdflib.ConjunctiveGraph()
-    g.parse(data=json.dumps(expanded), format="json-ld")
-    return g
+    graph = rdflib.ConjunctiveGraph()
+    try:
+        json_data = json.loads(data)
+        # normalize a document using the RDF Dataset Normalization Algorithm
+        # (URDNA2015), see: http://json-ld.github.io/normalization/spec/
+        normalized = jsonld.normalize(
+            json_data, {"algorithm": "URDNA2015", "format": "application/nquads"}
+        )
+        if isinstance(normalized, dict):
+            raise TypeError()
+        graph.parse(data=normalized, format="application/n-quads")
+    except (TypeError, ParserError):
+        logging.getLogger(__name__).warning(
+            "Failed to parse expanded JSON-LD, falling back"
+        )
+        graph.parse(data=data, format="json-ld")
+    except (HTTPError, RequestException):
+        logging.getLogger(__name__).warning(
+            "HTTP Error expanding JSON-LD, falling back"
+        )
+        graph.parse(data=data, format="json-ld")
+    return graph
 
 
 def load_graph(
@@ -37,7 +61,7 @@ def load_graph(
             graph = rdflib.ConjunctiveGraph()
             graph.parse(data=data, format=format_guess.lower())
         return graph
-    except (TypeError, rdflib.exceptions.ParserError):
+    except (TypeError, ParserError):
         log.warning("Failed to parse %s (%s)", iri, format_guess)
     except (
         rdflib.plugin.PluginException,
@@ -54,47 +78,48 @@ def load_graph(
             format_guess,
             data[0:1000],
         )
-    return None
+    return rdflib.ConjunctiveGraph()
 
 
-def do_analyze_and_index(graph: rdflib.Graph, iri: str, red: redis.Redis) -> None:
+def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug("Graph is None for %s", iri)
         return
 
     log.debug("Analyze and index - execution: %s", iri)
-    log.debug(graph.serialize(format="n3"))
 
-    analyses = []
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, "token")]
     log.debug("Analyzers: %s", str(len(analyzers)))
 
+    store = []
     for analyzer_class in analyzers:
         analyzer_token = analyzer_class.token
         log.debug("Analyze and index %s with %s", iri, analyzer_token)
         analyzer = analyzer_class()
 
-        analyze_and_index_one(analyses, analyzer, analyzer_class, graph, iri, log, red)
+        token, res = analyze_and_index_one(analyzer, analyzer_class, graph, iri, log)
+        store.append({"iri": iri, "analyzer": token, "data": res})
         log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
     log.debug("Done processing %s, now storing", iri)
-    store_analysis_result(iri, analyses, red)
+    if len(store) > 0:
+        try:
+            db_session.execute(insert(Analysis).values(store))
+            db_session.commit()
+        except SQLAlchemyError:
+            logging.getLogger(__name__).exception("Failed to store analyses in DB")
+            db_session.rollback()
     log.info("Done storing %s", iri)
 
 
-def analyze_and_index_one(
-    analyses, analyzer, analyzer_class, graph, iri, log, red
-) -> None:
+def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> Tuple[str, str]:
     log.info("Analyzing %s with %s", iri, analyzer_class.token)
-    log.info(graph.serialize(format="n3"))
-
     with TimedBlock(f"analyze.{analyzer_class.token}"):
         res = analyzer.analyze(graph, iri)
     log.info(
         "Done analyzing %s with %s: %s", iri, analyzer_class.token, json.dumps(res)
     )
-    analyses.append({analyzer_class.token: res})
 
     log.debug("Find relations of %s in %s", analyzer_class.token, iri)
     try:
@@ -113,30 +138,30 @@ def analyze_and_index_one(
                     iri
                 )  # this is so that we sadd whole list in one call
 
-        log.debug("Storing relations in redis")
+        log.debug("Storing relations in DB")
 
+        relationships = []
         for item in iris_found.items():
-            with red.pipeline() as pipe:
-                (rel_type, key) = item[0]
-                iris = item[1]
-                log.debug("Addding %s items into set", str(len(iris)))
-
-                key = related_key(rel_type, key)
-                pipe.sadd(key, *iris)
-                pipe.execute()
+            (rel_type, key) = item[0]
+            if rel_type is None or len(rel_type) == 0:
+                continue
+            if key is None or len(key) == 0:
+                continue
+            iris = item[1]
+            # log.debug("Adding %s items into set", str(len(iris)))
+            for candidate_iri in iris:
+                if candidate_iri is not None and len(candidate_iri) > 0:
+                    relationships.append(
+                        {"type": rel_type, "group": key, "candidate": candidate_iri}
+                    )
+        if len(relationships) > 0:
+            try:
+                db_session.execute(insert(Relationship).values(relationships))
+                db_session.commit()
+            except SQLAlchemyError:
+                log.exception("Failed to store relations in DB")
+                db_session.rollback()
     except TypeError:
         log.debug("Skip %s for %s", analyzer_class.token, iri)
 
-
-def store_analysis_result(iri: str, analyses: List[dict], red: redis.Redis) -> None:
-    with TimedBlock("analyze.store"):
-        store = json.dumps(
-            {
-                "analysis": [x for x in analyses if ((x is not None) and (len(x) > 0))],
-                "iri": iri,
-            }
-        )
-        key_result = analysis_dataset(iri)
-        with red.pipeline() as pipe:
-            pipe.set(key_result, store)
-            pipe.execute()
+    return analyzer_class.token, res
