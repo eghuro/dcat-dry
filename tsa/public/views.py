@@ -10,7 +10,14 @@ from flask_rdf.flask import returns_rdf
 
 import tsa
 from tsa.cache import cached
-from tsa.report import export_interesting, export_labels, export_profile, export_related, list_datasets, query_dataset
+from tsa.report import (
+    export_interesting,
+    export_labels,
+    export_profile,
+    export_related,
+    list_datasets,
+    query_dataset,
+)
 from tsa.sameas import same_as_index
 from tsa.sd import create_sd_iri, generate_service_description
 from tsa.util import check_iri

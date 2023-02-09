@@ -6,7 +6,11 @@ from flask import Blueprint, abort, current_app, make_response, request
 
 from tsa.net import fetch, get_content, guess_format
 from tsa.tasks.analyze import do_analyze_and_index, load_graph
-from tsa.tasks.process import dereference_one, expand_graph_with_dereferences, get_iris_to_dereference
+from tsa.tasks.process import (
+    dereference_one,
+    expand_graph_with_dereferences,
+    get_iris_to_dereference,
+)
 from tsa.tasks.system import hello, system_check
 from tsa.util import check_iri
 
@@ -55,7 +59,12 @@ def test_dereference1():
     try:
         to_dereference = frozenset(
             get_iris_to_dereference(
-                load_graph(iri, get_content(iri, fetch(iri)), "trig",), iri,
+                load_graph(
+                    iri,
+                    get_content(iri, fetch(iri)),
+                    "trig",
+                ),
+                iri,
             )
         )
         iri_of_interest = "https://data.cssz.cz/resource/ruian/vusc/27"
@@ -81,7 +90,8 @@ def test_dereference2():
     graph = rdflib.ConjunctiveGraph()
     try:
         graph = expand_graph_with_dereferences(
-            load_graph(iri, get_content(iri, fetch(iri)), "trig"), iri,
+            load_graph(iri, get_content(iri, fetch(iri)), "trig"),
+            iri,
         ).serialize(format="trig")
         if graph is not None:
             return make_response(graph)

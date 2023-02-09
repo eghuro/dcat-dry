@@ -38,10 +38,22 @@ def logging_setup(token=None, url=None):
                 },
             },
             "loggers": {
-                "tsa": {"level": "DEBUG", "handlers": ["logzio"],},
-                "app.logger": {"level": "DEBUG", "handlers": ["logzio"],},
-                "gunicorn.error": {"level": "WARNING", "handlers": ["logzio"],},
-                "gunicorn.access": {"level": "WARNING", " handlers": ["logzio"],},
+                "tsa": {
+                    "level": "DEBUG",
+                    "handlers": ["logzio"],
+                },
+                "app.logger": {
+                    "level": "DEBUG",
+                    "handlers": ["logzio"],
+                },
+                "gunicorn.error": {
+                    "level": "WARNING",
+                    "handlers": ["logzio"],
+                },
+                "gunicorn.access": {
+                    "level": "WARNING",
+                    " handlers": ["logzio"],
+                },
                 "requests_cache": {"level": "WARNING"},
             },
         }

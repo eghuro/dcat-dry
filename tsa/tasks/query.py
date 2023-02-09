@@ -12,7 +12,13 @@ from tsa.celery import celery
 from tsa.db import db_session
 from tsa.ddr import concept_index, ddr_index, dsd_index
 from tsa.extensions import redis_pool
-from tsa.model import Analysis, DatasetDistribution, Related, Relationship, SubjectObject
+from tsa.model import (
+    Analysis,
+    DatasetDistribution,
+    Related,
+    Relationship,
+    SubjectObject,
+)
 from tsa.net import RobotsRetry
 from tsa.ruian import RuianInspector
 from tsa.sameas import same_as_index
