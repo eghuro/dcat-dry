@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dcat-dry"
-version = "0.4"
+version = "0.5"
 description = "DCAT-AP Dataset relationship indexer."
 packages = [{include = "tsa"}]
 authors = ["Alexandr Mansurov <alex@eghuro.cz>"]
