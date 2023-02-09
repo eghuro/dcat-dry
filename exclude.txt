@@ -10,6 +10,8 @@ gis.nature.cz/arcgis/
 gis-aopkcr.opendata.arcgis.com/datasets/
 volby.cz/pls/
 services.cuzk.cz/
+linked.cuzk.cz/resource/ruian/
+publications.europa.eu/resource/authority/
 HIHI.com/
 IBCNServices.github.io/Folio-Ontology/Folio.owl#
 OSDUOntology.org/OSDU#
