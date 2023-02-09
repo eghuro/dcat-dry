@@ -7,12 +7,15 @@ from tsa.extensions import on_error
 from tsa.log import logging_setup
 
 from gevent import monkey
+
 monkey.patch_all()
 try:
     import psycogreen.gevent
+
     psycogreen.gevent.patch_psycopg()
 except ImportError:
     pass
+
 
 @environment("DSN", default=[None], onerror=on_error)
 def init_sentry(dsn_str=None):
@@ -20,6 +23,7 @@ def init_sentry(dsn_str=None):
         try:
             import sentry_sdk
             from sentry_sdk.integrations.celery import CeleryIntegration
+
             sentry_sdk.init(dsn_str, integrations=[CeleryIntegration()])
         except ImportError:
             pass

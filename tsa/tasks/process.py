@@ -457,10 +457,7 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     except Timeout:
         log.error("Failed to get %s: timeout", iri)
         monitor.log_processed()
-        task.update_state(
-            state = states.FAILURE,
-            meta = 'Timeout'
-        )
+        task.update_state(state=states.FAILURE, meta="Timeout")
         raise Ignore()
     except:
         if sys.exc_info()[0] == Ignore:

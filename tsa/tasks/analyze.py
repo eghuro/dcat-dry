@@ -16,7 +16,12 @@ from tsa.model import Relationship, Analysis
 from tsa.settings import Config
 from tsa.robots import USER_AGENT
 
-jsonld.set_document_loader(jsonld.requests_document_loader(timeout=Config.TIMEOUT, headers={"User-Agent": USER_AGENT}))
+jsonld.set_document_loader(
+    jsonld.requests_document_loader(
+        timeout=Config.TIMEOUT, headers={"User-Agent": USER_AGENT}
+    )
+)
+
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
     g = rdflib.ConjunctiveGraph()
@@ -24,7 +29,9 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
         json_data = json.loads(data)
         # normalize a document using the RDF Dataset Normalization Algorithm
         # (URDNA2015), see: http://json-ld.github.io/normalization/spec/
-        normalized = jsonld.normalize(json_data, {'algorithm': 'URDNA2015', 'format': 'application/nquads'})
+        normalized = jsonld.normalize(
+            json_data, {"algorithm": "URDNA2015", "format": "application/nquads"}
+        )
         g.parse(data=normalized, format="application/n-quads")
     except (TypeError, rdflib.exceptions.ParserError):
         logging.getLogger(__name__).warning(
