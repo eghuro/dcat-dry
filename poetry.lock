@@ -2313,6 +2313,21 @@ files = [
 ]
 
 [[package]]
+name = "pycouchdb"
+version = "1.14.2"
+description = "Modern pure python CouchDB Client."
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+files = [
+    {file = "pycouchdb-1.14.2-py2.py3-none-any.whl", hash = "sha256:434758aa6b49c6a67fcf89e71a11c36e2ec2df51e2998c38bcd570eab94cc288"},
+    {file = "pycouchdb-1.14.2.tar.gz", hash = "sha256:00bc6c7dd4744895920b9153cb9537bc5ecaff72002ea10209c05580e186e0eb"},
+]
+
+[package.dependencies]
+requests = ">=2.25,<3.0"
+
+[[package]]
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
@@ -3722,4 +3737,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "41bf79fc21a2bab34691d8f924ab8d6faea8856fd4af4d4b3bb949391e08f3fb"
+content-hash = "d7c30a3f18f6d8135e242cf715ef35eece1c0a6223cc6d2affcfc258bca04d5e"

@@ -1,5 +1,4 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
-import itertools
 import logging
 from typing import List, Optional, Any
 
@@ -75,7 +74,12 @@ def do_inspect_graph(
     result = None
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        result = _dcat_extractor(inspector.process_graph(graph_iri), force)
+        graph = inspector.process_graph(graph_iri)
+        result = _dcat_extractor(graph, force)
+
+        # populate the viewer / couchdb with the graph
+        viewer = ViewerProvider()
+        viewer.process_graph(graph_iri, graph)
     except (rdflib.query.ResultException, HTTPError):
         log.error(
             "Failed to inspect graph %s: ResultException or HTTP Error", graph_iri
