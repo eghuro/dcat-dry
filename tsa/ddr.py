@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Generator, List, Tuple
+from typing import Dict, Generator, Sequence, Tuple
 
 import rfc3987
 from sqlalchemy.dialects.postgresql import insert
@@ -74,12 +74,12 @@ ddr_index = DataDrivenRelationshipIndex()
 
 class ConceptIndex:
     @staticmethod
-    def bulk_insert(data):
+    def bulk_insert(data: Sequence[str]) -> None:
         if data is None or len(data) == 0:
             return
-        clean_data = [
+        clean_data = tuple(
             {"iri": iri} for iri in data if (iri is not None) and (len(iri) > 0)
-        ]
+        )
         if len(clean_data) == 0:
             return
         insert_stmt = insert(Concept).values(clean_data).on_conflict_do_nothing()
@@ -106,7 +106,7 @@ class ConceptIndex:
 
 class DataCubeDefinitionIndex:
     @staticmethod
-    def index(dsd: List[Dict], iri: str) -> None:
+    def index(dsd: Sequence[Dict], iri: str) -> None:
         # momentalne si jen ulozime resources na dimenzi
         for dataset in dsd:
             for dimension in dataset["dimensions"]:

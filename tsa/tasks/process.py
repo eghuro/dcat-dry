@@ -408,7 +408,7 @@ def do_fetch(
     force: bool,
     log: logging.Logger,
     red: redis.Redis,
-) -> Tuple[str, requests.Response]:
+) -> Tuple[str, Optional[str], requests.Response]:
     if iri.endswith("trig") and not is_prio:
         log.error("RDF TriG not in priority")
     try:
@@ -416,10 +416,10 @@ def do_fetch(
         log.info("Processing %s", iri)
         response = fetch(iri)
         # test_content_length(iri, response, log)
-        guess, priority = guess_format(iri, response, log)
+        guess, priority, archive_type = guess_format(iri, response, log)
         if not is_prio and priority:
             log.warn("Distribution is not in a priority channel: %s", iri)
-        return guess, response
+        return guess, archive_type, response
     except RobotsRetry as err:
         task.retry(countdown=err.delay)
     except requests.exceptions.HTTPError as err:
@@ -439,17 +439,8 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     red = redis.Redis(connection_pool=redis_pool)
 
     try:
-        guess, response = do_fetch(iri, task, is_prio, force, log, red)
-
-        if guess in [
-            "application/x-7z-compressed",
-            "application/x-zip-compressed",
-            "application/zip",
-        ]:
-            do_decompress(red, iri, "zip", response)
-        elif guess in ["application/gzip", "application/x-gzip"]:
-            do_decompress(red, iri, "gzip", response)
-        else:
+        guess, archive_type, response = do_fetch(iri, task, is_prio, force, log, red)
+        if archive_type is None:
             try:
                 log.debug("Get content of %s", iri)
                 content = get_content(iri, response)
@@ -458,6 +449,8 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
                 task.retry(exc=err)
             except NoContent:
                 log.warning("No content for %s", iri)
+        else:
+            do_decompress(red, iri, archive_type, response)
     except Skip:
         monitor.log_processed()  # any logging is handled already
     except ParserError as err:
@@ -504,7 +497,7 @@ def do_decompress(red, iri, archive_type, request):
                     continue
 
                 try:
-                    guess, _ = guess_format(sub_iri, request, log)
+                    guess, _, _ = guess_format(sub_iri, request, log)
                 except Skip:
                     continue
                 if guess is None:

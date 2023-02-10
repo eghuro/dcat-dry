@@ -52,14 +52,15 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
 
 def load_graph(
     iri: str, data: str, format_guess: str, log_error_as_exception: bool = False
-) -> rdflib.ConjunctiveGraph:  # noqa: E252
+) -> rdflib.ConjunctiveGraph:
     log = logging.getLogger(__name__)
     try:
-        if format_guess.lower() == "json-ld":
+        format_guess = format_guess.lower()
+        if format_guess == "json-ld":
             graph = convert_jsonld(data)
         else:
             graph = rdflib.ConjunctiveGraph()
-            graph.parse(data=data, format=format_guess.lower())
+            graph.parse(data=data, format=format_guess)
         return graph
     except (TypeError, ParserError):
         log.warning("Failed to parse %s (%s)", iri, format_guess)
@@ -92,16 +93,19 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, "token")]
     log.debug("Analyzers: %s", str(len(analyzers)))
 
-    store = []
-    for analyzer_class in analyzers:
-        analyzer_token = analyzer_class.token
-        log.debug("Analyze and index %s with %s", iri, analyzer_token)
-        analyzer = analyzer_class()
+    def gen_analyzes():
+        for analyzer_class in analyzers:
+            analyzer_token = analyzer_class.token
+            log.debug("Analyze and index %s with %s", iri, analyzer_token)
+            analyzer = analyzer_class()
 
-        token, res = analyze_and_index_one(analyzer, analyzer_class, graph, iri, log)
-        store.append({"iri": iri, "analyzer": token, "data": res})
-        log.debug("Done analyze and index %s with %s", iri, analyzer_token)
+            token, res = analyze_and_index_one(
+                analyzer, analyzer_class, graph, iri, log
+            )
+            yield {"iri": iri, "analyzer": token, "data": res}
+            log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
+    store = tuple(gen_analyzes())
     log.debug("Done processing %s, now storing", iri)
     if len(store) > 0:
         try:
@@ -140,20 +144,24 @@ def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> Tuple[st
 
         log.debug("Storing relations in DB")
 
-        relationships = []
-        for item in iris_found.items():
-            (rel_type, key) = item[0]
-            if rel_type is None or len(rel_type) == 0:
-                continue
-            if key is None or len(key) == 0:
-                continue
-            iris = item[1]
-            # log.debug("Adding %s items into set", str(len(iris)))
-            for candidate_iri in iris:
-                if candidate_iri is not None and len(candidate_iri) > 0:
-                    relationships.append(
-                        {"type": rel_type, "group": key, "candidate": candidate_iri}
-                    )
+        def gen_relations():
+            for item in iris_found.items():
+                (rel_type, key) = item[0]
+                if rel_type is None or len(rel_type) == 0:
+                    continue
+                if key is None or len(key) == 0:
+                    continue
+                iris = item[1]
+                # log.debug("Adding %s items into set", str(len(iris)))
+                for candidate_iri in iris:
+                    if candidate_iri is not None and len(candidate_iri) > 0:
+                        yield {
+                            "type": rel_type,
+                            "group": key,
+                            "candidate": candidate_iri,
+                        }
+
+        relationships = tuple(gen_relations())
         if len(relationships) > 0:
             try:
                 db_session.execute(insert(Relationship).values(relationships))

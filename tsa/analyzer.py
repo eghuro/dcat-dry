@@ -169,11 +169,11 @@ class CubeAnalyzer(AbstractAnalyzer):
                     "dimensions": [
                         {
                             "dimension": dimension,
-                            "resources": list(resource_dimension[dimension]),
+                            "resources": tuple(resource_dimension[dimension]),
                         }
                         for dimension in dataset.dimensions
                     ],
-                    "measures": list(dataset.measures),
+                    "measures": tuple(dataset.measures),
                 }
             )
 
@@ -395,7 +395,7 @@ class SkosAnalyzer(AbstractAnalyzer):
             concepts.append(str(row["b"]))
         ddr_index.bulk_index(ddr)
         concept_index.bulk_insert(
-            [concept_iri for concept_iri in concepts if check_iri(concept_iri)]
+            tuple(concept_iri for concept_iri in concepts if check_iri(concept_iri))
         )
 
 
@@ -405,7 +405,9 @@ class GenericAnalyzer(AbstractAnalyzer):
     token = "generic"  # nosec
 
     @staticmethod
-    def _count(graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
+    def _count(
+        graph: Graph,
+    ) -> Tuple[int, DefaultDict, DefaultDict, tuple, tuple, tuple]:
         triples = 0
         predicates_count = defaultdict(int)  # type: DefaultDict[str, int]
         classes_count = defaultdict(int)  # type: DefaultDict[str, int]
@@ -435,9 +437,9 @@ class GenericAnalyzer(AbstractAnalyzer):
             triples,
             predicates_count,
             classes_count,
-            objects,
-            subjects,
-            locally_typed,
+            tuple(objects),
+            tuple(subjects),
+            tuple(locally_typed),
         )
 
     def analyze(self, graph: Graph, iri: str) -> dict:
@@ -450,14 +452,14 @@ class GenericAnalyzer(AbstractAnalyzer):
             subjects_list,
             locally_typed_list,
         ) = self._count(graph)
-        predicates_count = [
+        predicates_count = tuple(
             {"iri": iri, "count": count}
             for (iri, count) in initial_predicates_count.items()
-        ]
-        classes_count = [
+        )
+        classes_count = tuple(
             {"iri": iri, "count": count}
             for (iri, count) in initial_classes_count.items()
-        ]
+        )
 
         # external resource ::
         #   - objekty, ktere nejsou subjektem v tomto grafu
@@ -496,10 +498,13 @@ class GenericAnalyzer(AbstractAnalyzer):
             "triples": triples,
             "predicates": predicates_count,
             "classes": classes_count,
-            "subjects": list(subjects),
-            "objects": list(objects),
-            "external": {"not_subject": list(external_1), "no_type": list(external_2)},
-            "internal": list(objects.difference(external_1.union(external_2))),
+            "subjects": tuple(subjects),
+            "objects": tuple(objects),
+            "external": {
+                "not_subject": tuple(external_1),
+                "no_type": tuple(external_2),
+            },
+            "internal": tuple(objects.difference(external_1.union(external_2))),
         }
         return summary
 

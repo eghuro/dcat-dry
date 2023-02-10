@@ -21,8 +21,8 @@ class Extractor:
     """Extracts DCAT-AP metadata from an RDF graph."""
 
     log = logging.getLogger(__name__)
-    media_priority = set(
-        [
+    media_priority = frozenset(
+        (
             "https://www.iana.org/assignments/media-types/application/rdf+xml",
             "https://www.iana.org/assignments/media-types/application/trig",
             "https://www.iana.org/assignments/media-types/text/n3",
@@ -37,11 +37,11 @@ class Extractor:
             "http://www.iana.org/assignments/media-types/application/n-triples",
             "http://www.iana.org/assignments/media-types/application/n-quads",
             "http://www.iana.org/assignments/media-types/text/turtle",
-        ]
+        )
     )  # IANA
 
-    format_priority = set(
-        [
+    format_priority = frozenset(
+        (
             "http://publications.europa.eu/resource/authority/file-type/RDF",
             "http://publications.europa.eu/resource/authority/file-type/RDFA",
             "http://publications.europa.eu/resource/authority/file-type/RDF_N_QUADS",
@@ -60,7 +60,7 @@ class Extractor:
             "https://publications.europa.eu/resource/authority/file-type/RDF_XML",
             "https://publications.europa.eu/resource/authority/file-type/JSON_LD",
             "https://publications.europa.eu/resource/authority/file-type/N3",
-        ]
+        )
     )  # EU
     dcat = Namespace("http://www.w3.org/ns/dcat#")
     dcterms = Namespace("http://purl.org/dc/terms/")

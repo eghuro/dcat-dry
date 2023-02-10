@@ -1,8 +1,9 @@
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from io import BytesIO
 from random import randint
-from typing import Tuple
+from typing import Tuple, Optional
 
 import rdflib
 import redis
@@ -102,25 +103,27 @@ class RobotsBlock:
                 db_session.rollback()
 
 
+accept = ", ".join(
+    (
+        "application/ld+json",
+        "application/trig",
+        "application/rdf+xml",
+        "text/turtle",
+        "text/n3;charset=utf-8",
+        "application/n-triples",
+        "application/n-quads",
+        "application/xml;q=0.9",
+        "text/xml;q=0.9",
+        "text/plain;q=0.9",
+        "*/*;q=0.8",
+    )
+)
+
+
 def fetch(iri: str) -> requests.Response:
     """Fetch the distribution. Mind robots.txt."""
     with RobotsBlock(iri):  # can raise Skip, RobotsRetry
         timeout = Config.TIMEOUT
-        accept = ". ".join(
-            [
-                "application/ld+json",
-                "application/trig",
-                "application/rdf+xml",
-                "text/turtle",
-                "text/n3;charset=utf-8",
-                "application/n-triples",
-                "application/n-quads",
-                "application/xml;q=0.9",
-                "text/xml;q=0.9",
-                "text/plain;q=0.9",
-                "*/*;q=0.8",
-            ]
-        )
         request = session.get(
             iri,
             stream=True,
@@ -167,9 +170,47 @@ def make_guess(iri: str, response: requests.Response) -> str:
     return guess_candidate
 
 
+priority = (
+    "hturtle",
+    "n3",
+    "nquads",
+    "nt",
+    "trix",
+    "trig",
+    "turtle",
+    "xml",
+    "json-ld",
+    "application/rdf+xml",
+    "application/ld+json",
+    "application/rss+xml",
+    "text/turtle",
+)
+regular = ("text/xml", "application/json", "text/plain", "html", "text/html")
+decompression_map = defaultdict(lambda: None)
+if Config.COMPRESSED:
+    priority = priority + tuple("application/x-7z-compressed")
+    regular = regular + (
+        "application/gzip",
+        "application/x-zip-compressed",
+        "application/zip",
+        "application/x-gzip",
+    )
+    decompression_map = defaultdict(
+        lambda: None,
+        {
+            "application/zip": "zip",
+            "application/x-zip-compressed": "zip",
+            "application/x-7z-compressed": "zip",
+            "application/gzip": "gzip",
+            "application/x-gzip": "gzip",
+        },
+    )
+accepted = priority + regular
+
+
 def guess_format(
     iri: str, response: requests.Response, log: logging.Logger
-) -> Tuple[str, bool]:
+) -> Tuple[str, bool, Optional[str]]:
     """
     Guess format of the distribution.
 
@@ -177,43 +218,15 @@ def guess_format(
     """
 
     guess = make_guess(iri, response)
-    monitor.log_format(str(guess))
+    monitor.log_format(guess)
     if "xml" in guess:
         guess = "xml"
     if "json" in guess:
         guess = "json-ld"
-    log.debug(f"Guessing format to be {guess!s}")
+    log.debug("Guessing format to be %s", guess)
 
-    priority = set(
-        [
-            "hturtle",
-            "n3",
-            "nquads",
-            "nt",
-            "trix",
-            "trig",
-            "turtle",
-            "xml",
-            "json-ld",
-            "application/rdf+xml",
-            "application/ld+json",
-            "application/rss+xml",
-            "text/turtle",
-        ]
-    )
-    regular = set(["text/xml", "application/json", "text/plain", "html", "text/html"])
-    if Config.COMPRESSED:
-        priority.add("application/x-7z-compressed")
-        regular.update(
-            [
-                "application/gzip",
-                "application/x-zip-compressed",
-                "application/zip",
-                "application/x-gzip",
-            ]
-        )
-    if guess not in priority.union(regular):
-        log.info(f"Skipping this distribution: {iri}")
+    if guess not in accepted:
+        log.info("Skipping this distribution: %s", iri)
         raise Skip()
 
-    return guess, (guess in priority)
+    return guess, (guess in priority), decompression_map[guess]

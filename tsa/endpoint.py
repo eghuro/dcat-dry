@@ -116,11 +116,11 @@ class SparqlEndpointAnalyzer:
         graph = Graph(store=self.store, identifier=graph_iri)
         graph.open(self.__endpoint)
 
-        query = None
         try:
             with TimedBlock("process_graph"):
-                query = SparqlEndpointAnalyzer.__query(graph_iri)
-                return graph.query(query).graph  # implementation detail for CONSTRUCT!
+                return graph.query(
+                    SparqlEndpointAnalyzer.__query(graph_iri)
+                ).graph  # implementation detail for CONSTRUCT!
         except ResultException as exc:
             log.error(
                 "Failed to process %s in %s: %s", graph_iri, self.__endpoint, str(exc)

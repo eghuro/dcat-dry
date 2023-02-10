@@ -1,4 +1,5 @@
 """Celery tasks for batch processing of endpoiint or DCAT catalog."""
+import itertools
 import logging
 from typing import List, Optional, Any
 
@@ -26,10 +27,15 @@ def _dcat_extractor(
     with TimedBlock("dcat_extractor"):
         extractor.extract()
 
-    tasks = [
-        process_priority.si(iri, force) for iri in extractor.priority_distributions
-    ]
-    tasks.extend(process.si(iri, force) for iri in extractor.regular_distributions)
+    tasks = tuple(
+        itertools.chain(
+            (
+                process_priority.si(iri, force)
+                for iri in extractor.priority_distributions
+            ),
+            (process.si(iri, force) for iri in extractor.regular_distributions),
+        )
+    )
     monitor.log_tasks(len(tasks))
     return group(tasks).apply_async()
 
