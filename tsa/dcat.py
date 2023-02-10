@@ -74,10 +74,18 @@ class Extractor:
 
     @property
     def tasks(self) -> int:
+        """Number of tasks created by the extractor."""
         return self.__task_count
 
-    def extract(self, priority, regular, force):
-        """Extracts DCAT-AP metadata from an RDF graph."""
+    def extract(self, priority, regular, force: bool):
+        """
+        Extracts DCAT-AP metadata from an RDF graph.
+
+        :param priority: Celery task signature for priority tasks - known RDF formats
+        :param regular: Celery task signature for regular tasks - likely not RDF format
+        :param force: Force processing of all distributions
+        :return: Generator of Celery tasks
+        """
         self.__db_endpoints = []
         self.__db_distributions = []
         for dataset in self.__graph.subjects(RDF.type, Extractor.dcat.Dataset):
@@ -100,8 +108,16 @@ class Extractor:
             Extractor.log.exception("Error while saving to database")
             db_session.rollback()
 
-    def __process_dataset(self, dataset: str, priority, regular, force):
-        """Extracts distributions from a dataset."""
+    def __process_dataset(self, dataset: str, priority, regular, force: bool):
+        """
+        Extracts distributions from a dataset.
+
+        :param dataset: IRI of the dataset
+        :param priority: Celery task signature for priority tasks - known RDF formats
+        :param regular: Celery task signature for regular tasks - likely not RDF format
+        :param force: Force processing of all distributions
+        :return: Generator of Celery tasks
+        """
         effective_dataset_iri = self.__get_effective_dataset_iri(dataset)
         if effective_dataset_iri is None:
             return
@@ -128,11 +144,19 @@ class Extractor:
         effective_dataset_iri: str,
         priority,
         regular,
-        force,
+        force: bool,
     ):
         """
         Extract download URLs from a distribution,
         detect any services for the dataset.
+
+        :param distribution: IRI of the distribution (DCAT:distribution)
+        :param dataset_iri: IRI of the dataset (DCAT:Dataset)
+        :param effective_dataset_iri: IRI of the dataset (DCAT:Dataset) or series it belongs to
+        :param priority: Celery task signature for priority tasks - known RDF formats
+        :param regular: Celery task signature for regular tasks - likely not RDF format
+        :param force: Force processing of all distributions
+        :return: Generator of Celery tasks
         """
         task = self.__get_task(distribution, priority, regular)
         for download_url in self.__graph.objects(
@@ -152,6 +176,7 @@ class Extractor:
     def __process_service(self, service: URIRef, effective_dataset_iri: str):
         """
         Extracts SPARQL endpoints IRIs from a service. Apply IRI filters anc checks.
+        Store in the list of endpoints for database storage.
 
         :param service: IRI of the service (DCAT:accessService)
         :param effective_dataset_iri: IRI of the dataset (or series)
@@ -164,7 +189,7 @@ class Extractor:
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
 
     def __process_distribution_url(
-        self, url: str, effective_dataset_iri: str, task, force, priority
+        self, url: str, effective_dataset_iri: str, task, force: bool, priority
     ):
         """
         Extracts download URLs from a distribution. Apply IRI filters anc checks.
@@ -172,7 +197,10 @@ class Extractor:
 
         :param url: URL of the distribution
         :param effective_dataset_iri: IRI of the dataset (or series)
-        :param queue: queue to which the URL is added (regular or priority)
+        :param task: Celery task to execute
+        :param force: Force processing of all distributions
+        :param priority: Celery task signature for priority tasks - in case we are sure the URL is RDF to override the default task
+        :return: Generator of Celery task signatures with proper URL and force flag
         """
         if not check_iri(url) or filter_iri(url):
             return
@@ -195,7 +223,9 @@ class Extractor:
         If format or media suggest RDF data, the distribution is added to the priority queue.
 
         :param distribution: IRI of the distribution
-        :return: queue to which the distribution should be added
+        :param priority: Celery task signature for priority tasks - known RDF formats
+        :param regular: Celery task signature for regular tasks - likely not RDF format
+        :return: task to execute (priority or regular)
         """
         for media_type in self.__graph.objects(distribution, Extractor.dcat.mediaType):
             if str(media_type) in Extractor.media_priority:

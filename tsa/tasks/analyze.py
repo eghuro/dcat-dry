@@ -1,7 +1,6 @@
 """Celery tasks for running analyses."""
 import json
 import logging
-from collections import defaultdict
 from typing import Tuple
 
 import rdflib
@@ -26,6 +25,13 @@ jsonld.set_document_loader(
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
+    """
+    Normalize and parse JSON-LD with possible context expansion.
+
+    :param data: JSON-LD data
+    :return: RDF graph
+    :raises ParserError: if the JSON-LD could not be parsed
+    """
     graph = rdflib.ConjunctiveGraph()
     try:
         json_data = json.loads(data)
@@ -53,6 +59,15 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
 def load_graph(
     iri: str, data: str, format_guess: str, log_error_as_exception: bool = False
 ) -> rdflib.ConjunctiveGraph:
+    """
+    Load a graph from a string with loaded distribution.
+
+    :param iri: IRI of the distribution
+    :param data: the data to load
+    :param format_guess: guessed format of the data
+    :param log_error_as_exception: log exceptions as exception with trace (if not, log errors as warning)
+    :return: the loaded graph or an empty graph if loading failed
+    """
     log = logging.getLogger(__name__)
     try:
         format_guess = format_guess.lower()
@@ -73,7 +88,7 @@ def load_graph(
         message = f"Failed to parse graph for {iri}"
         {True: log.exception, False: log.warning}[log_error_as_exception](message)
     except ValueError:
-        log.exception(
+        {True: log.exception, False: log.warning}[log_error_as_exception](
             "Missing data, iri: %s, format: %s, data: %s",
             iri,
             format_guess,
@@ -83,6 +98,12 @@ def load_graph(
 
 
 def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
+    """
+    Analyze and index a graph.
+
+    :param graph: the graph to analyze
+    :param iri: the IRI of the distribution
+    """
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug("Graph is None for %s", iri)
@@ -99,9 +120,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
             log.debug("Analyze and index %s with %s", iri, analyzer_token)
             analyzer = analyzer_class()
 
-            token, res = analyze_and_index_one(
-                analyzer, analyzer_class, graph, iri, log
-            )
+            token, res = analyze_and_index_one(analyzer, graph, iri, log)
             yield {"iri": iri, "analyzer": token, "data": res}
             log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
@@ -117,9 +136,22 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
 
 
 def analyze_and_index_one(
-    analyzer, analyzer_class, graph, distribution_iri, log
+    analyzer: AbstractAnalyzer,
+    graph: rdflib.Graph,
+    distribution_iri: str,
+    log: logging.Logger,
 ) -> Tuple[str, str]:
-    log.debug("Find relations of %s in %s", analyzer_class.token, distribution_iri)
+    """
+    Analyze and index a graph with single analyzer.
+
+    :param analyzer: the analyzer instance to use
+    :param analyzer_class: the analyzer class
+    :param graph: the graph to analyze
+    :param distribution_iri: the IRI of the distribution
+    :param log: the logger to use
+    :return: the analyzer token and the result
+    """
+    log.debug("Find relations of %s in %s", analyzer.token, distribution_iri)
     try:
 
         def check(common, group, rel_type):
@@ -132,7 +164,7 @@ def analyze_and_index_one(
             return True
 
         def gen_relations():
-            with TimedBlock(f"index.{analyzer_class.token}"):
+            with TimedBlock(f"index.{analyzer.token}"):
                 for common_iri, group, rel_type in analyzer.find_relation(graph):
                     log.debug(
                         "Distribution: %s, relationship type: %s, common resource: %s, significant resource: %s",
@@ -160,10 +192,10 @@ def analyze_and_index_one(
             log.exception("Failed to store relations in DB")
             db_session.rollback()
     except TypeError:
-        log.debug("Skip %s for %s", analyzer_class.token, distribution_iri)
+        log.debug("Skip %s for %s", analyzer.token, distribution_iri)
 
-    log.info("Analyzing %s with %s", distribution_iri, analyzer_class.token)
-    with TimedBlock(f"analyze.{analyzer_class.token}"):
+    log.info("Analyzing %s with %s", distribution_iri, analyzer.token)
+    with TimedBlock(f"analyze.{analyzer.token}"):
         res = analyzer.analyze(graph, distribution_iri)
-    log.info("Done analyzing %s with %s", distribution_iri, analyzer_class.token)
-    return analyzer_class.token, res
+    log.info("Done analyzing %s with %s", distribution_iri, analyzer.token)
+    return analyzer.token, res

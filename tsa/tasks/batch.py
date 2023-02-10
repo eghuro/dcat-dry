@@ -20,6 +20,13 @@ from tsa.tasks.process import process, process_priority
 def _dcat_extractor(
     graph: Optional[rdflib.Graph], force: bool
 ) -> Optional[AsyncResult]:
+    """
+    Extract DCAT datasets from a graph and trigger analysis of the distributions.
+
+    :param graph: graph to extract distributions from (DCAT-AP)
+    :param force: force reprocessing of the distributions
+    :return: Celery group with the analyses of the distributions
+    """
     if graph is None:
         return None
 

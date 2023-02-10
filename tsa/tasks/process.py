@@ -50,9 +50,11 @@ try:
         trie = marisa_trie.Trie([x.strip() for x in f.readlines()])
 except FileNotFoundError:
     pass
+
 # Following 2 tasks are doing the same thing but with different priorities
 # This is to speed up known RDF distributions
-# Time limit on process priority is to ensure we will do postprocessing after a while
+
+
 @celery.task(
     bind=True,
     base=TrackableTask,
@@ -60,6 +62,14 @@ except FileNotFoundError:
     autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError),
 )
 def process_priority(self, iri, force):
+    """
+    Process a distribution and trigger analysis.
+    Task is not time limited as the distribution is prioritized.
+    In case of redis connection error, the task is retried.
+
+    :param iri: IRI of the distribution
+    :param force: force reprocessing of the distribution
+    """
     do_process(iri, self, True, force)
 
 
@@ -70,7 +80,15 @@ def process_priority(self, iri, force):
     ignore_result=True,
     autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError),
 )
-def process(self, iri, force):
+def process(self, iri: str, force: bool) -> None:
+    """
+    Process a distribution and trigger analysis.
+    Task is limited to 5 minutes as the distribution is not prioritized.
+    In case of redis connection error, the task is retried.
+
+    :param iri: IRI of the distribution
+    :param force: force reprocessing of the distribution
+    """
     do_process(iri, self, False, force)
 
 
@@ -185,6 +203,12 @@ def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Graph:
 
 
 def sanitize_list(list_in: Optional[Sequence[str]]) -> Generator[str, None, None]:
+    """
+    Sanitize a list of strings: remove None values.
+
+    :param list_in: List to sanitize
+    :return: Generator of sanitized strings
+    """
     if list_in is not None:
         for item in list_in:
             if item is not None:
@@ -192,6 +216,17 @@ def sanitize_list(list_in: Optional[Sequence[str]]) -> Generator[str, None, None
 
 
 def dereference_from_endpoints(iri: str, iri_distr: str) -> rdflib.ConjunctiveGraph:
+    """
+    Dereference an IRI from all endpoints.
+    Endpoints are defined in the config file and in the environment variable ENDPOINT.
+    Endpoints are filtered by the prefix of the IRI.
+    If there was an endpoint defined in DCAT-AP, it is also used - unconditionally.
+    Resulting graphs are merged.
+
+    :param iri: IRI to dereference
+    :param iri_distr: distribution IRI to extract the endpoint from DCAT-AP
+    :return: Graph with the resource and its neighbors (in the endpoints)
+    """
     if not check_iri(iri):
         return rdflib.ConjunctiveGraph()
     monitor.log_dereference_processed()
@@ -231,6 +266,15 @@ class FailedDereference(ValueError):
 def dereference_one_impl(
     iri_to_dereference: Optional[str], iri_distr: str
 ) -> rdflib.ConjunctiveGraph:  # can raise RobotsRetry
+    """
+    Dereference one IRI. In case of any error, try to dereference from endpoints.
+
+    :param iri_to_dereference: IRI to dereference
+    :param iri_distr: IRI of the distribution (used for logging)
+    :return: Graph with the resource and its neighbors
+    :raises FailedDereference: If the IRI cannot be dereferenced
+    :raises RobotsRetry: If the IRI cannot be dereferenced from endpoints due to robots.txt
+    """
     log = logging.getLogger(__name__)
     log.debug("Dereference: %s", iri_to_dereference)
     if not check_iri(iri_to_dereference):
@@ -244,7 +288,7 @@ def dereference_one_impl(
         except RobotsRetry:
             return dereference_from_endpoints(iri_to_dereference, iri_distr)
         # test_content_length(iri_to_dereference, response, log)
-        guess, _ = guess_format(iri_to_dereference, response, log)
+        guess, _, _ = guess_format(iri_to_dereference, response, log)
         content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
         graph = load_graph(iri_to_dereference, content, guess, False)
@@ -274,6 +318,12 @@ def dereference_one_impl(
 
 
 def has_same_as(graph: rdflib.Graph) -> bool:
+    """
+    Check if the graph contains owl:sameAs statements.
+
+    :param graph: Graph to check
+    :return: True if the graph contains owl:sameAs statements, False otherwise
+    """
     owl = rdflib.Namespace("http://www.w3.org/2002/07/owl#")
     for _ in graph.subject_objects(owl.sameAs):
         return True
@@ -283,6 +333,14 @@ def has_same_as(graph: rdflib.Graph) -> bool:
 def dereference_one(
     iri_to_dereference: Optional[str], iri_distr: str
 ) -> Tuple[rdflib.ConjunctiveGraph, bool]:
+    """
+    Dereference one IRI, return the graph and a boolean indicating if the graph contains owl:sameAs statements.
+
+    :param iri_to_dereference: IRI to dereference
+    :param iri_distr: IRI of the distribution
+    :return: Tuple of graph and boolean indicating if the graph contains owl:sameAs statements
+    :raises FailedDereference: if all attempts to dereference failed or if we are not allowed to dereference due to robots.txt
+    """
     try:
         graph = dereference_one_impl(iri_to_dereference, iri_distr)
         return graph, has_same_as(graph)
@@ -298,6 +356,15 @@ def dereference_one(
 def expand_graph_with_dereferences(
     graph: rdflib.ConjunctiveGraph, iri_distr: str
 ) -> rdflib.ConjunctiveGraph:
+    """
+    Expand the graph with dereferences of all iris in the graph.
+    Expansion is done recursively until no new iris are found, with maximum recursion depth set in Config.MAX_RECURSION_LEVEL.
+    If Config.MAX_RECURSION_LEVEL is 0, no dereferencing is done and original graph is returned.
+
+    :param graph: graph to expand
+    :param iri_distr: IRI of the distribution
+    :return: expanded graph
+    """
     log = logging.getLogger(__name__)
     if Config.MAX_RECURSION_LEVEL == 0:
         return graph
@@ -334,14 +401,20 @@ def expand_graph_with_dereferences(
     return graph
 
 
-def store_pure_subjects(iri, graph):
+def store_pure_subjects(iri: str, graph: rdflib.Graph) -> None:
+    """
+    Store all subjects that are present in the graph in the database.
+
+    :param iri: IRI of the distribution
+    :param graph: Graph to process
+    """
     if iri is None or len(iri) == 0:
         return
     insert_stmt = (
         insert(SubjectObject)
         .values(
             [
-                {"distribution_iri": iri, "iri": str(sub), "pureSubject": True}
+                {"distribution_iri": iri, "iri": str(sub), "pure_subject": True}
                 for sub, _, _ in graph
                 if ((sub is not None) and len(str(sub)) > 0)
             ]
@@ -357,6 +430,18 @@ def store_pure_subjects(iri, graph):
 
 
 def process_content(content: str, iri: str, guess: str, log: logging.Logger) -> None:
+    """
+    Process content from a given IRI.
+    - Parse the graph
+    - Store subjects that are present in the graph before dereferencing
+    - Dereference all resources
+    - Analyze and index the expanded graph
+
+    :param content: The content of the RDF distribution to process
+    :param iri: The IRI of the RDF distribution being processed
+    :param guess: The guessed format of the content
+    :param log: The logger to use
+    """
     log.info("Analyze and index %s", iri)
     with TimedBlock("process.load"):
         graph = load_graph(iri, content, guess, True)
@@ -384,6 +469,16 @@ def process_content(content: str, iri: str, guess: str, log: logging.Logger) -> 
 def _filter(
     iri: str, is_prio: bool, force: bool, log: logging.Logger, red: redis.Redis
 ) -> None:
+    """
+    Filter out distributions that should not be processed.
+
+    :param iri: IRI of the distribution
+    :param is_prio: Whether the distribution is in the priority channel
+    :param force: Whether to force processing of the distribution
+    :param log: The logger to use
+    :param red: The redis connection to use
+    :raises Skip: If the distribution should be skipped
+    """
     if filter_iri(iri):
         log.debug("Skipping distribution as it will not be supported: %s", iri)
         raise Skip()
@@ -409,8 +504,20 @@ def do_fetch(
     log: logging.Logger,
     red: redis.Redis,
 ) -> Tuple[str, Optional[str], requests.Response]:
-    if iri.endswith("trig") and not is_prio:
-        log.error("RDF TriG not in priority")
+    """
+    Fetches the content of the given IRI.
+    Returns the guessed format, possible type of compression and the response.
+    Type of compression is None if not compressed or zip or gzip otherwise.
+
+    :param iri: IRI to fetch
+    :param task: Celery task being executed (for retrying)
+    :param is_prio: Whether the IRI is in a priority channel
+    :param force: Whether to force processing of the IRI
+    :param log: Logger to use
+    :param red: Redis connection to use
+    :return: Tuple of guessed format, compression type and response to get content from
+    :raises Skip: If the IRI should be skipped
+    """
     try:
         _filter(iri, is_prio, force, log, red)
         log.info("Processing %s", iri)
@@ -434,7 +541,14 @@ def do_fetch(
 
 
 def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
-    """Analyze an RDF distribution under given IRI."""
+    """
+    Analyze an RDF distribution under given IRI.
+
+    :param iri: IRI of the distribution
+    :param task: Celery task being executed: used to retry on failure
+    :param is_prio: whether the distribution is in a priority channel
+    :param force: whether to force processing of the distribution
+    """
     log = logging.getLogger(__name__)
     red = redis.Redis(connection_pool=redis_pool)
 
@@ -463,15 +577,32 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         monitor.log_processed()
         task.update_state(state=states.FAILURE, meta="Timeout")
         raise Ignore()
-    except:
-        if sys.exc_info()[0] == Ignore:
+    except requests.exceptions.HTTPError as err:
+        log.warning(
+            "HTTP Error processing %s: %s", iri, str(err)
+        )  # this is a 404 or similar, not worth retrying
+    except requests.exceptions.RequestException as err:
+        task.retry(exc=err)
+    except Exception as err:
+        if isinstance(err, Ignore):
             raise
-        exc = sys.exc_info()[1]
-        log.exception("Failed to get %s: %s", iri, str(exc))
-        monitor.log_processed()
+        else:
+            exc = sys.exc_info()[1]
+            log.exception("Failed to get %s: %s", iri, str(exc))
+            monitor.log_processed()
 
 
-def do_decompress(red, iri, archive_type, request):
+def do_decompress(
+    red: redis.Redis, iri: str, archive_type: str, request: requests.Response
+) -> None:
+    """
+    Decompresses the given IRI and processes the content.
+
+    :param red: Redis connection to use
+    :param iri: IRI to decompress
+    :param archive_type: Type of compression
+    :param request: Response to get content from
+    """
     if not Config.COMPRESSED:
         return
 

@@ -24,11 +24,32 @@ class AbstractAnalyzer(ABC):
     @abstractmethod
     def find_relation(
         self, graph: Graph
-    ) -> Optional[Generator[Tuple[str, str, str], None, None]]:
+    ) -> Generator[Tuple[str, str, str], None, None]:
+        """
+        Find relationhip candidates in the graph.
+
+        :param graph: RDF graph
+        :return: generator of tuples (common IRI, group, relationship_type)
+        """
         pass
 
     @abstractmethod
     def analyze(self, graph: Graph, iri: str) -> dict:
+        """
+        Analyze the graph and return a dataset profile.
+
+        :param graph: RDF graph
+        :param iri: IRI of the distribution
+        :return: dataset profile as a dictionary - goes into the database as data and is processed in query
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def token(self) -> str:
+        """
+        Return a token identifying the analyzer in queries.
+        """
         pass
 
 
@@ -47,7 +68,9 @@ class QbDataset:
 class CubeAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on DataCube."""
 
-    token = "cube"  # nosec
+    @property
+    def token(self) -> str:
+        return "cube"
 
     def find_relation(
         self, graph: Graph
@@ -187,7 +210,9 @@ class CubeAnalyzer(AbstractAnalyzer):
 class SkosAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on SKOS."""
 
-    token = "skos"  # nosec
+    @property
+    def token(self) -> str:
+        return "skos"
 
     @staticmethod
     def _scheme_count_query(scheme: str) -> str:
@@ -309,7 +334,9 @@ class SkosAnalyzer(AbstractAnalyzer):
             "orderedCollection": ord_collections,
         }
 
-    def find_relation(self, graph: Graph) -> None:
+    def find_relation(
+        self, graph: Graph
+    ) -> Generator[Tuple[str, str, str], None, None]:
         """Lookup relationships based on SKOS vocabularies.
 
         Datasets are related if they share a resources that are:
@@ -398,11 +425,16 @@ class SkosAnalyzer(AbstractAnalyzer):
             tuple(concept_iri for concept_iri in concepts if check_iri(concept_iri))
         )
 
+        if False:
+            yield {"iri1": "a", "iri2": "b", "relationship_type": "c"}
+
 
 class GenericAnalyzer(AbstractAnalyzer):
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
-    token = "generic"  # nosec
+    @property
+    def token(self) -> str:
+        return "generic"
 
     @staticmethod
     def _count(
@@ -475,7 +507,7 @@ class GenericAnalyzer(AbstractAnalyzer):
 
         try:
             db_session.execute(
-                insert(SubjectObject).on_conflict_do_nothing,
+                insert(SubjectObject).on_conflict_do_nothing(),
                 ({"distribution_iri": iri, "iri": s} for s in subjects.union(objects)),
                 execution_options={"stream_results": True},
             )
@@ -555,17 +587,23 @@ class GenericAnalyzer(AbstractAnalyzer):
             log.debug(literal)
             return None
 
-    def find_relation(self, graph: Graph) -> None:
+    def find_relation(
+        self, graph: Graph
+    ) -> Generator[Tuple[str, str, str], None, None]:
         """Two distributions are related if they share resources that are owl:sameAs."""
         query = "SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }"
         same_as_index.bulk_index(
             [(str(row["a"]), str(row["b"])) for row in graph.query(query)]
         )
 
+        if False:
+            yield {}
+
 
 class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
-
-    token = "schema-hierarchical-geo"  # nosec
+    @property
+    def token(self) -> str:
+        return "schema-hierarchical-geo"
 
     def find_relation(
         self, graph: Graph
@@ -586,12 +624,19 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
 
 
 class AbstractEnricher(AbstractAnalyzer):
+    """
+    Enricher is an analyzer that does not discover relations.
+    It is used to enrich the query results with additional information about the dataset.
+    """
+
     def find_relation(self, graph: Graph) -> None:
         pass  # enrichers do not discover relations
 
 
 class TimeAnalyzer(AbstractEnricher):
-    token = "time"  # nosec
+    @property
+    def token(self):
+        return "time"
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
@@ -615,7 +660,9 @@ class TimeAnalyzer(AbstractEnricher):
 
 
 class RuianAnalyzer(AbstractEnricher):
-    token = "ruian"  # nosec
+    @property
+    def token(self):
+        return "ruian"
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
