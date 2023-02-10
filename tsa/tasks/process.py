@@ -106,6 +106,14 @@ def filter_iri(iri: str) -> bool:
 def get_iris_to_dereference(
     graph: rdflib.Graph, iri: str
 ) -> Generator[str, None, None]:
+    """
+    Get subject, predicate and object IRIs to dereference from a graph.
+    This is used to dereference all IRIs in a graph.
+
+    :param graph: Graph to get IRIs from
+    :param iri: distribution IRI (used for logging)
+    :return: Generator of IRIs to dereference
+    """
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug("Graph is None when dereferencing %s", iri)
@@ -125,6 +133,13 @@ def get_iris_to_dereference(
 
 
 def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Graph:
+    """
+    Construct a three-level graph from an IRI in the endpoint.
+
+    :param iri: IRI to dereference
+    :param endpoint_iri: Endpoint IRI
+    :return: Graph with the resource and its neighbors (in the endpoint)
+    """
     log = logging.getLogger(__name__)
     log.info("Dereference %s from endpoint %s", iri, endpoint_iri)
     with RobotsBlock(endpoint_iri):
