@@ -76,7 +76,7 @@ pipeline {
 				}
 			}
 		}
-		
+
 		stage('Cleanup') {
 			agent { label 'use' }
 			steps {
@@ -104,7 +104,7 @@ pipeline {
 				}
 			}
 		}
-		
+
 		stage ('Push docker') {
 			agent { label 'docker' }
 			when {
@@ -122,11 +122,11 @@ pipeline {
 						dockerImage.push("${env.BUILD_NUMBER}")
 						dockerImage.push("${GIT_COMMIT_HASH}")
 						dockerImage.push("latest")
-					}	 
+					}
 				}
 			}
 		}
-		
+
 		stage('Deploy') {
 			agent { label 'dry-prod' }
 		 	options { skipDefaultCheckout() }
@@ -167,7 +167,7 @@ pipeline {
 			}
 		}
 
-		
+
 	}
 	post {
         always {

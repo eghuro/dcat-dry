@@ -70,6 +70,7 @@ class Relationship(Base):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     type = db.Column(db.String, nullable=False)
     group = db.Column(db.String, nullable=False)
+    common = db.Column(db.String, nullable=False)
     candidate = db.Column(db.String, nullable=False)
 
 

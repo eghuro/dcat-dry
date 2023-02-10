@@ -34,6 +34,10 @@ def decompress_gzip(
     """Decompress gzip data.
 
     Loads response data in memory, decompresses it as gzip and decodes the result to string.
+
+    :param iri: the IRI to fetch
+    :param response: the response to read from
+    :return: the decompressed data as a single element generator
     """
     data = _load_data(iri, response)
 
@@ -83,7 +87,12 @@ def _load_entry_data(entry: libarchive.entry.ArchiveEntry) -> Tuple[int, BytesIO
 def decompress_7z(
     iri: str, response: requests.Response
 ) -> Generator[Tuple[str, str], None, None]:
-    """Download a 7z file, decompress it and store contents in redis."""
+    """Download a 7z file, decompress it and decode results to string.
+
+    :param iri: the IRI to fetch
+    :param response: the response to read from
+    :return: the decompressed data as a generator of (iri, decompressed data) pairs
+    """
     compressed_data = _load_data(iri, response)
     log = logging.getLogger(__name__)
 

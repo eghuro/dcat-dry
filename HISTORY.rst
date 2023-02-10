@@ -2,7 +2,7 @@
 History
 =======
 
-0.5.0 (2022-02-09)
+0.5.0 (2023-02-09)
 ------------------
 
 * Dereferencing of external resources

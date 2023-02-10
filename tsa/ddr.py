@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Generator, List, Tuple
+from typing import Dict, Generator, Sequence, Tuple
 
 import rfc3987
 from sqlalchemy.dialects.postgresql import insert
@@ -13,44 +13,55 @@ class DataDrivenRelationshipIndex:
     @staticmethod
     def bulk_index(data) -> None:
         log = logging.getLogger(__name__)
-        cleaned = []
-        for record in data:
-            iri1 = record["iri1"]
-            iri2 = record["iri2"]
-            relationship_type = record["relationship_type"]
-            if (
-                iri1 is None
-                or len(iri1) == 0
-                or iri2 is None
-                or len(iri2) == 0
-                or relationship_type is None
-                or len(relationship_type) == 0
-            ):
-                continue
-            if not rfc3987.match(iri1) or not iri1.startswith("http"):
-                log.debug(
-                    "Not an iri: %s (relationship_type: %s)", iri1, relationship_type
-                )
-                continue
-            if not rfc3987.match(iri2) or not iri2.startswith("http"):
-                log.debug(
-                    "Not an iri: %s (relationship_type: %s)", iri2, relationship_type
-                )
-                continue
-            cleaned.append(record)
-            cleaned.append(
-                {"relationship_type": relationship_type, "iri1": iri2, "iri2": iri1}
+
+        def gen_cleaned_data():
+            for record in data:
+                iri1 = record["iri1"]
+                iri2 = record["iri2"]
+                relationship_type = record["relationship_type"]
+                if (
+                    iri1 is None
+                    or len(iri1) == 0
+                    or iri2 is None
+                    or len(iri2) == 0
+                    or relationship_type is None
+                    or len(relationship_type) == 0
+                ):
+                    continue
+                if not rfc3987.match(iri1) or not iri1.startswith("http"):
+                    log.debug(
+                        "Not an iri: %s (relationship_type: %s)",
+                        iri1,
+                        relationship_type,
+                    )
+                    continue
+                if not rfc3987.match(iri2) or not iri2.startswith("http"):
+                    log.debug(
+                        "Not an iri: %s (relationship_type: %s)",
+                        iri2,
+                        relationship_type,
+                    )
+                    continue
+                yield record
+                yield {
+                    "relationship_type": relationship_type,
+                    "iri1": iri2,
+                    "iri2": iri1,
+                }
+
+        try:
+            insert_stmt = insert(DDR).on_conflict_do_nothing()
+            db_session.execute(
+                insert_stmt,
+                gen_cleaned_data(),
+                execution_options={"stream_results": True},
             )
-        if len(cleaned) > 0:
-            try:
-                insert_stmt = insert(DDR).values(cleaned).on_conflict_do_nothing()
-                db_session.execute(insert_stmt)
-                db_session.commit()
-            except SQLAlchemyError:
-                logging.getLogger(__name__).exception(
-                    "Failed do commit, rolling back DataDrivenRelationshipIndex bulk index"
-                )
-                db_session.rollback()
+            db_session.commit()
+        except SQLAlchemyError:
+            logging.getLogger(__name__).exception(
+                "Failed do commit, rolling back DataDrivenRelationshipIndex bulk index"
+            )
+            db_session.rollback()
 
     @staticmethod
     def types() -> Generator[str, None, None]:
@@ -74,17 +85,14 @@ ddr_index = DataDrivenRelationshipIndex()
 
 class ConceptIndex:
     @staticmethod
-    def bulk_insert(data):
-        if data is None or len(data) == 0:
-            return
-        clean_data = [
-            {"iri": iri} for iri in data if (iri is not None) and (len(iri) > 0)
-        ]
-        if len(clean_data) == 0:
-            return
-        insert_stmt = insert(Concept).values(clean_data).on_conflict_do_nothing()
+    def bulk_insert(data: Sequence[str]) -> None:
+        insert_stmt = insert(Concept).on_conflict_do_nothing()
         try:
-            db_session.execute(insert_stmt)
+            db_session.execute(
+                insert_stmt,
+                ({"iri": iri} for iri in data if (iri is not None) and (len(iri) > 0)),
+                execution_options={"stream_results": True},
+            )
             db_session.commit()
         except SQLAlchemyError:
             logging.getLogger(__name__).exception(
@@ -106,7 +114,7 @@ class ConceptIndex:
 
 class DataCubeDefinitionIndex:
     @staticmethod
-    def index(dsd: List[Dict], iri: str) -> None:
+    def index(dsd: Sequence[Dict], iri: str) -> None:
         # momentalne si jen ulozime resources na dimenzi
         for dataset in dsd:
             for dimension in dataset["dimensions"]:

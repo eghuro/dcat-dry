@@ -2,8 +2,16 @@ import logging
 
 from celery import chain
 
-from tsa.tasks.query import (compile_analyses, concept_definition, concept_usage, cross_dataset_sameas,
-                             data_driven_relationships, finalize_sameas, gen_related_ds, ruian_reference)
+from tsa.tasks.query import (
+    compile_analyses,
+    concept_definition,
+    concept_usage,
+    cross_dataset_sameas,
+    data_driven_relationships,
+    finalize_sameas,
+    gen_related_ds,
+    ruian_reference,
+)
 
 
 def query():

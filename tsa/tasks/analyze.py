@@ -1,7 +1,6 @@
 """Celery tasks for running analyses."""
 import json
 import logging
-from collections import defaultdict
 from typing import Tuple
 
 import rdflib
@@ -26,6 +25,13 @@ jsonld.set_document_loader(
 
 
 def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
+    """
+    Normalize and parse JSON-LD with possible context expansion.
+
+    :param data: JSON-LD data
+    :return: RDF graph
+    :raises ParserError: if the JSON-LD could not be parsed
+    """
     graph = rdflib.ConjunctiveGraph()
     try:
         json_data = json.loads(data)
@@ -52,14 +58,24 @@ def convert_jsonld(data: str) -> rdflib.ConjunctiveGraph:
 
 def load_graph(
     iri: str, data: str, format_guess: str, log_error_as_exception: bool = False
-) -> rdflib.ConjunctiveGraph:  # noqa: E252
+) -> rdflib.ConjunctiveGraph:
+    """
+    Load a graph from a string with loaded distribution.
+
+    :param iri: IRI of the distribution
+    :param data: the data to load
+    :param format_guess: guessed format of the data
+    :param log_error_as_exception: log exceptions as exception with trace (if not, log errors as warning)
+    :return: the loaded graph or an empty graph if loading failed
+    """
     log = logging.getLogger(__name__)
     try:
-        if format_guess.lower() == "json-ld":
+        format_guess = format_guess.lower()
+        if format_guess == "json-ld":
             graph = convert_jsonld(data)
         else:
             graph = rdflib.ConjunctiveGraph()
-            graph.parse(data=data, format=format_guess.lower())
+            graph.parse(data=data, format=format_guess)
         return graph
     except (TypeError, ParserError):
         log.warning("Failed to parse %s (%s)", iri, format_guess)
@@ -72,7 +88,7 @@ def load_graph(
         message = f"Failed to parse graph for {iri}"
         {True: log.exception, False: log.warning}[log_error_as_exception](message)
     except ValueError:
-        log.exception(
+        {True: log.exception, False: log.warning}[log_error_as_exception](
             "Missing data, iri: %s, format: %s, data: %s",
             iri,
             format_guess,
@@ -82,6 +98,12 @@ def load_graph(
 
 
 def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
+    """
+    Analyze and index a graph.
+
+    :param graph: the graph to analyze
+    :param iri: the IRI of the distribution
+    """
     log = logging.getLogger(__name__)
     if graph is None:
         log.debug("Graph is None for %s", iri)
@@ -92,76 +114,88 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     analyzers = [c for c in AbstractAnalyzer.__subclasses__() if hasattr(c, "token")]
     log.debug("Analyzers: %s", str(len(analyzers)))
 
-    store = []
-    for analyzer_class in analyzers:
-        analyzer_token = analyzer_class.token
-        log.debug("Analyze and index %s with %s", iri, analyzer_token)
-        analyzer = analyzer_class()
+    def gen_analyzes():
+        for analyzer_class in analyzers:
+            analyzer_token = analyzer_class.token
+            log.debug("Analyze and index %s with %s", iri, analyzer_token)
+            analyzer = analyzer_class()
 
-        token, res = analyze_and_index_one(analyzer, analyzer_class, graph, iri, log)
-        store.append({"iri": iri, "analyzer": token, "data": res})
-        log.debug("Done analyze and index %s with %s", iri, analyzer_token)
+            token, res = analyze_and_index_one(analyzer, graph, iri, log)
+            yield {"iri": iri, "analyzer": token, "data": res}
+            log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
-    log.debug("Done processing %s, now storing", iri)
-    if len(store) > 0:
-        try:
-            db_session.execute(insert(Analysis).values(store))
-            db_session.commit()
-        except SQLAlchemyError:
-            logging.getLogger(__name__).exception("Failed to store analyses in DB")
-            db_session.rollback()
+    try:
+        db_session.execute(
+            insert(Analysis), gen_analyzes(), execution_options={"stream_results": True}
+        )
+        db_session.commit()
+    except SQLAlchemyError:
+        logging.getLogger(__name__).exception("Failed to store analyses in DB")
+        db_session.rollback()
     log.info("Done storing %s", iri)
 
 
-def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> Tuple[str, str]:
-    log.info("Analyzing %s with %s", iri, analyzer_class.token)
-    with TimedBlock(f"analyze.{analyzer_class.token}"):
-        res = analyzer.analyze(graph, iri)
-    log.info(
-        "Done analyzing %s with %s: %s", iri, analyzer_class.token, json.dumps(res)
-    )
+def analyze_and_index_one(
+    analyzer: AbstractAnalyzer,
+    graph: rdflib.Graph,
+    distribution_iri: str,
+    log: logging.Logger,
+) -> Tuple[str, str]:
+    """
+    Analyze and index a graph with single analyzer.
 
-    log.debug("Find relations of %s in %s", analyzer_class.token, iri)
+    :param analyzer: the analyzer instance to use
+    :param analyzer_class: the analyzer class
+    :param graph: the graph to analyze
+    :param distribution_iri: the IRI of the distribution
+    :param log: the logger to use
+    :return: the analyzer token and the result
+    """
+    log.debug("Find relations of %s in %s", analyzer.token, distribution_iri)
     try:
-        iris_found = defaultdict(list)
-        with TimedBlock(f"index.{analyzer_class.token}"):
-            for common_iri, group, rel_type in analyzer.find_relation(graph):
-                log.debug(
-                    "Distribution: %s, relationship type: %s, common resource: %s, significant resource: %s",
-                    iri,
-                    rel_type,
-                    common_iri,
-                    group,
-                )
-                # TODO: group IRI not used
-                iris_found[(rel_type, common_iri)].append(
-                    iri
-                )  # this is so that we sadd whole list in one call
 
-        log.debug("Storing relations in DB")
-
-        relationships = []
-        for item in iris_found.items():
-            (rel_type, key) = item[0]
+        def check(common, group, rel_type):
+            if common is None or len(common) == 0:
+                return False
+            if group is None or len(group) == 0:
+                return False
             if rel_type is None or len(rel_type) == 0:
-                continue
-            if key is None or len(key) == 0:
-                continue
-            iris = item[1]
-            # log.debug("Adding %s items into set", str(len(iris)))
-            for candidate_iri in iris:
-                if candidate_iri is not None and len(candidate_iri) > 0:
-                    relationships.append(
-                        {"type": rel_type, "group": key, "candidate": candidate_iri}
-                    )
-        if len(relationships) > 0:
-            try:
-                db_session.execute(insert(Relationship).values(relationships))
-                db_session.commit()
-            except SQLAlchemyError:
-                log.exception("Failed to store relations in DB")
-                db_session.rollback()
-    except TypeError:
-        log.debug("Skip %s for %s", analyzer_class.token, iri)
+                return False
+            return True
 
-    return analyzer_class.token, res
+        def gen_relations():
+            with TimedBlock(f"index.{analyzer.token}"):
+                for common_iri, group, rel_type in analyzer.find_relation(graph):
+                    log.debug(
+                        "Distribution: %s, relationship type: %s, common resource: %s, significant resource: %s",
+                        distribution_iri,
+                        rel_type,
+                        common_iri,
+                        group,
+                    )
+                    if check(common_iri, group, rel_type):
+                        yield {
+                            "type": rel_type,
+                            "group": group,
+                            "common": common_iri,
+                            "candidate": distribution_iri,
+                        }
+
+        try:
+            db_session.execute(
+                insert(Relationship),
+                gen_relations(),
+                execution_options={"stream_results": True},
+            )
+            db_session.commit()
+        except SQLAlchemyError:
+            log.exception("Failed to store relations in DB")
+            db_session.rollback()
+    except TypeError:
+        log.debug("Skip %s for %s", analyzer.token, distribution_iri)
+
+    log.info("Analyzing %s with %s", distribution_iri, analyzer.token)
+    with TimedBlock(f"analyze.{analyzer.token}"):
+        res = analyzer.analyze(graph, distribution_iri)
+    log.info("Done analyzing %s with %s", distribution_iri, analyzer.token)
+    return analyzer.token, res

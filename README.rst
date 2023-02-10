@@ -4,8 +4,8 @@ DCAT DRY
 
 .. |github| image:: https://img.shields.io/github/release-pre/eghuro/dcat-dry.svg
 .. |licence| image:: https://img.shields.io/github/license/eghuro/dcat-dry.svg
-.. |ochrona] image:: https://img.shields.io/badge/secured_by-ochrona-blue
-|github|  |licence|  |ochrona|
+
+|github|  |licence|
 
 
 DCAT-AP Dataset Relationship Indexer. Indexing linked data and relationships between datasets.
@@ -20,7 +20,7 @@ Features:
 
 
 Build & run with Docker
-----------
+------------------------
 
 For DCAT-DRY service only:
 
@@ -36,10 +36,11 @@ For the full environment use docker-compose:
     docker-compose up --build
 
 Build & run manually
-----------
-CPython 3.7+ is supported.
+---------------------
+CPython 3.8+ is supported.
 
 Install redis server first. In following example we will assume it runs on localhost, port 6379 and DB 0 is used.
+
 Setup postgresql server as well. In the following example we will assume it runs on localhost, port 5432, DB is postgres and user/password is postgres:example
 
 Run the following commands to bootstrap your environment ::
@@ -78,6 +79,7 @@ To deploy::
 
     export FLASK_DEBUG=0
     # Follow commands above to bootstrap the environment
+
 In your production environment, make sure the ``FLASK_DEBUG`` environment
 variable is unset or is set to ``0``, so that ``ProdConfig`` is used.
 
@@ -114,4 +116,3 @@ Get a full result ::
 Query a dataset ::
 
     /api/v1/query/dataset?iri=http://abc
-

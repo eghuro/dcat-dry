@@ -24,11 +24,32 @@ class AbstractAnalyzer(ABC):
     @abstractmethod
     def find_relation(
         self, graph: Graph
-    ) -> Optional[Generator[Tuple[str, str, str], None, None]]:
+    ) -> Generator[Tuple[str, str, str], None, None]:
+        """
+        Find relationhip candidates in the graph.
+
+        :param graph: RDF graph
+        :return: generator of tuples (common IRI, group, relationship_type)
+        """
         pass
 
     @abstractmethod
     def analyze(self, graph: Graph, iri: str) -> dict:
+        """
+        Analyze the graph and return a dataset profile.
+
+        :param graph: RDF graph
+        :param iri: IRI of the distribution
+        :return: dataset profile as a dictionary - goes into the database as data and is processed in query
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def token(self) -> str:
+        """
+        Return a token identifying the analyzer in queries.
+        """
         pass
 
 
@@ -47,7 +68,9 @@ class QbDataset:
 class CubeAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on DataCube."""
 
-    token = "cube"  # nosec
+    @property
+    def token(self) -> str:
+        return "cube"
 
     def find_relation(
         self, graph: Graph
@@ -169,11 +192,11 @@ class CubeAnalyzer(AbstractAnalyzer):
                     "dimensions": [
                         {
                             "dimension": dimension,
-                            "resources": list(resource_dimension[dimension]),
+                            "resources": tuple(resource_dimension[dimension]),
                         }
                         for dimension in dataset.dimensions
                     ],
-                    "measures": list(dataset.measures),
+                    "measures": tuple(dataset.measures),
                 }
             )
 
@@ -187,7 +210,9 @@ class CubeAnalyzer(AbstractAnalyzer):
 class SkosAnalyzer(AbstractAnalyzer):
     """RDF dataset analyzer focusing on SKOS."""
 
-    token = "skos"  # nosec
+    @property
+    def token(self) -> str:
+        return "skos"
 
     @staticmethod
     def _scheme_count_query(scheme: str) -> str:
@@ -309,7 +334,9 @@ class SkosAnalyzer(AbstractAnalyzer):
             "orderedCollection": ord_collections,
         }
 
-    def find_relation(self, graph: Graph) -> None:
+    def find_relation(
+        self, graph: Graph
+    ) -> Generator[Tuple[str, str, str], None, None]:
         """Lookup relationships based on SKOS vocabularies.
 
         Datasets are related if they share a resources that are:
@@ -395,17 +422,24 @@ class SkosAnalyzer(AbstractAnalyzer):
             concepts.append(str(row["b"]))
         ddr_index.bulk_index(ddr)
         concept_index.bulk_insert(
-            [concept_iri for concept_iri in concepts if check_iri(concept_iri)]
+            tuple(concept_iri for concept_iri in concepts if check_iri(concept_iri))
         )
+
+        if False:
+            yield {"iri1": "a", "iri2": "b", "relationship_type": "c"}
 
 
 class GenericAnalyzer(AbstractAnalyzer):
     """Basic RDF dataset analyzer inspecting general properties not related to any particular vocabulary."""
 
-    token = "generic"  # nosec
+    @property
+    def token(self) -> str:
+        return "generic"
 
     @staticmethod
-    def _count(graph: Graph) -> Tuple[int, DefaultDict, DefaultDict, list, list, list]:
+    def _count(
+        graph: Graph,
+    ) -> Tuple[int, DefaultDict, DefaultDict, tuple, tuple, tuple]:
         triples = 0
         predicates_count = defaultdict(int)  # type: DefaultDict[str, int]
         classes_count = defaultdict(int)  # type: DefaultDict[str, int]
@@ -435,9 +469,9 @@ class GenericAnalyzer(AbstractAnalyzer):
             triples,
             predicates_count,
             classes_count,
-            objects,
-            subjects,
-            locally_typed,
+            tuple(objects),
+            tuple(subjects),
+            tuple(locally_typed),
         )
 
     def analyze(self, graph: Graph, iri: str) -> dict:
@@ -450,14 +484,14 @@ class GenericAnalyzer(AbstractAnalyzer):
             subjects_list,
             locally_typed_list,
         ) = self._count(graph)
-        predicates_count = [
+        predicates_count = tuple(
             {"iri": iri, "count": count}
             for (iri, count) in initial_predicates_count.items()
-        ]
-        classes_count = [
+        )
+        classes_count = tuple(
             {"iri": iri, "count": count}
             for (iri, count) in initial_classes_count.items()
-        ]
+        )
 
         # external resource ::
         #   - objekty, ktere nejsou subjektem v tomto grafu
@@ -472,17 +506,11 @@ class GenericAnalyzer(AbstractAnalyzer):
         # toto muze byt SKOS Concept definovany jinde
 
         try:
-            insert_stmt = (
-                insert(SubjectObject)
-                .values(
-                    [
-                        {"distribution_iri": iri, "iri": s}
-                        for s in subjects.union(objects)
-                    ]
-                )
-                .on_conflict_do_nothing()
+            db_session.execute(
+                insert(SubjectObject).on_conflict_do_nothing(),
+                ({"distribution_iri": iri, "iri": s} for s in subjects.union(objects)),
+                execution_options={"stream_results": True},
             )
-            db_session.execute(insert_stmt)
             db_session.commit()
         except SQLAlchemyError:
             logging.getLogger(__name__).exception(
@@ -496,10 +524,13 @@ class GenericAnalyzer(AbstractAnalyzer):
             "triples": triples,
             "predicates": predicates_count,
             "classes": classes_count,
-            "subjects": list(subjects),
-            "objects": list(objects),
-            "external": {"not_subject": list(external_1), "no_type": list(external_2)},
-            "internal": list(objects.difference(external_1.union(external_2))),
+            "subjects": tuple(subjects),
+            "objects": tuple(objects),
+            "external": {
+                "not_subject": tuple(external_1),
+                "no_type": tuple(external_2),
+            },
+            "internal": tuple(objects.difference(external_1.union(external_2))),
         }
         return summary
 
@@ -517,16 +548,19 @@ class GenericAnalyzer(AbstractAnalyzer):
         }
         """
         try:
-            labels = []
-            for row in graph.query(
-                query
-            ):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
-                iri = str(row["x"])
-                if check_iri(iri):
-                    labels.append(self._extract_detail(row, iri))
-            if len(labels) > 0:
-                db_session.execute(insert(Label).values(labels))
-                db_session.commit()
+
+            def gen_labels():
+                for row in graph.query(
+                    query
+                ):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
+                    iri = str(row["x"])
+                    if check_iri(iri):
+                        yield self._extract_detail(row, iri)
+
+            db_session.execute(
+                insert(Label), gen_labels(), execution_options={"stream_results": True}
+            )
+            db_session.commit()
         except ParserError:
             logging.getLogger(__name__).exception("Failed to extract labels")
         except SQLAlchemyError:
@@ -553,17 +587,23 @@ class GenericAnalyzer(AbstractAnalyzer):
             log.debug(literal)
             return None
 
-    def find_relation(self, graph: Graph) -> None:
+    def find_relation(
+        self, graph: Graph
+    ) -> Generator[Tuple[str, str, str], None, None]:
         """Two distributions are related if they share resources that are owl:sameAs."""
         query = "SELECT DISTINCT ?a ?b WHERE { ?a <http://www.w3.org/2002/07/owl#sameAs> ?b. }"
         same_as_index.bulk_index(
             [(str(row["a"]), str(row["b"])) for row in graph.query(query)]
         )
 
+        if False:
+            yield {}
+
 
 class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
-
-    token = "schema-hierarchical-geo"  # nosec
+    @property
+    def token(self) -> str:
+        return "schema-hierarchical-geo"
 
     def find_relation(
         self, graph: Graph
@@ -584,12 +624,19 @@ class SchemaHierarchicalGeoAnalyzer(AbstractAnalyzer):
 
 
 class AbstractEnricher(AbstractAnalyzer):
+    """
+    Enricher is an analyzer that does not discover relations.
+    It is used to enrich the query results with additional information about the dataset.
+    """
+
     def find_relation(self, graph: Graph) -> None:
         pass  # enrichers do not discover relations
 
 
 class TimeAnalyzer(AbstractEnricher):
-    token = "time"  # nosec
+    @property
+    def token(self):
+        return "time"
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """
@@ -613,7 +660,9 @@ class TimeAnalyzer(AbstractEnricher):
 
 
 class RuianAnalyzer(AbstractEnricher):
-    token = "ruian"  # nosec
+    @property
+    def token(self):
+        return "ruian"
 
     def analyze(self, graph: Graph, iri: str) -> dict:  # noqa: unused-variable
         query = """

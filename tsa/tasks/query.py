@@ -12,7 +12,13 @@ from tsa.celery import celery
 from tsa.db import db_session
 from tsa.ddr import concept_index, ddr_index, dsd_index
 from tsa.extensions import redis_pool
-from tsa.model import Analysis, DatasetDistribution, Related, Relationship, SubjectObject
+from tsa.model import (
+    Analysis,
+    DatasetDistribution,
+    Related,
+    Relationship,
+    SubjectObject,
+)
 from tsa.net import RobotsRetry
 from tsa.ruian import RuianInspector
 from tsa.sameas import same_as_index
@@ -229,6 +235,7 @@ def concept_usage():
                     {
                         "type": "conceptUsage",
                         "group": resource_iri,
+                        "common": "",  # FIXME
                         "candidate": distr_iri,
                     }
                 )
@@ -242,6 +249,7 @@ def concept_usage():
                                 {
                                     "type": "relatedConceptUsage",
                                     "group": final_resource_iri,
+                                    "common": "",  # FIXME
                                     "candidate": distr_iri,
                                 }
                             )
@@ -273,6 +281,7 @@ def concept_definition():
                         {
                             "type": rel_type,
                             "group": resource_iri,
+                            "common": "",  # FIXME
                             "candidate": distr_iri,
                         }
                     )
@@ -309,7 +318,12 @@ def cross_dataset_sameas():
         resource = row[5]
         for iri in same_as[resource]:
             reports.append(
-                {"type": "crossSameas", "group": iri, "candidate": distr_iri}
+                {
+                    "type": "crossSameas",
+                    "group": iri,
+                    "common": "",  # FIXME
+                    "candidate": distr_iri,
+                }
             )
     report_relationship_bulk(reports)
 
@@ -342,6 +356,7 @@ def data_driven_relationships():
                                 {
                                     "type": "relatedConceptOnDimension",
                                     "group": final_resource_iri,
+                                    "common": "",  # FIXME
                                     "candidate": distr_iri,
                                 }
                             )
@@ -349,6 +364,7 @@ def data_driven_relationships():
                     {
                         "type": "conceptOnDimension",
                         "group": resource_iri,
+                        "common": "",  # FIXME
                         "candidate": distr_iri,
                     }
                 )
@@ -356,6 +372,7 @@ def data_driven_relationships():
                 {
                     "type": "resourceOnDimension",
                     "group": resource_iri,
+                    "common": "",  # FIXME
                     "candidate": distr_iri,
                 }
             )

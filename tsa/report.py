@@ -15,9 +15,9 @@ from tsa.robots import USER_AGENT
 from tsa.robots import session as online_session
 from tsa.sameas import same_as_index
 
-supported_languages = ["cs", "en"]
-enrichers = [e() for e in AbstractEnricher.__subclasses__()]
-reltypes = [
+supported_languages = ("cs", "en")
+enrichers = (e() for e in AbstractEnricher.__subclasses__())
+reltypes = (
     "qb",
     "conceptUsage",
     "relatedConceptUsage",
@@ -25,7 +25,7 @@ reltypes = [
     "conceptOnDimension",
     "relatedConceptOnDimension",
     "crossSameas",
-]
+)
 
 
 def query_dataset(iri):
@@ -63,7 +63,7 @@ def query_related(ds_iri):
     for iri in out:
         out_with_labels[iri] = {
             "label": create_labels(iri, supported_languages),
-            "details": out[iri],
+            "details": tuple(out[iri]),
         }
     return out_with_labels
 
