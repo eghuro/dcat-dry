@@ -25,19 +25,11 @@ def _dcat_extractor(
 
     extractor = Extractor(graph)
     with TimedBlock("dcat_extractor"):
-        extractor.extract()
-
-    tasks = tuple(
-        itertools.chain(
-            (
-                process_priority.si(iri, force)
-                for iri in extractor.priority_distributions
-            ),
-            (process.si(iri, force) for iri in extractor.regular_distributions),
-        )
-    )
-    monitor.log_tasks(len(tasks))
-    return group(tasks).apply_async()
+        result = group(
+            extractor.extract(process_priority, process, force)
+        ).apply_async()
+        monitor.log_tasks(extractor.tasks)
+        return result
 
 
 @celery.task(base=TrackableTask, bind=True, max_retries=5)

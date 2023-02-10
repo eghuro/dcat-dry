@@ -68,33 +68,22 @@ class Extractor:
 
     def __init__(self, graph: Graph):
         self.__graph = graph
-        self.__distributions = []
-        self.__distributions_priority = []
         self.__db_endpoints = []
         self.__db_distributions = []
+        self.__task_count = 0
 
     @property
-    def priority_distributions(self) -> List[str]:
-        """IRIs of distributions that contain RDF data."""
-        return self.__distributions_priority
+    def tasks(self) -> int:
+        return self.__task_count
 
-    @property
-    def regular_distributions(self) -> List[str]:
-        """
-        IRIs of distributions that are not catalogized
-        as containing RDF data.
-
-        They are still processed by the analyzer as we skip
-        non-RDF data later on.
-        """
-        return self.__distributions
-
-    def extract(self) -> None:
+    def extract(self, priority, regular, force):
         """Extracts DCAT-AP metadata from an RDF graph."""
         self.__db_endpoints = []
         self.__db_distributions = []
         for dataset in self.__graph.subjects(RDF.type, Extractor.dcat.Dataset):
-            self.__process_dataset(str(dataset))
+            for task in self.__process_dataset(str(dataset), priority, regular, force):
+                self.__task_count += 1
+                yield task
         self.__store_to_db()
 
     def __store_to_db(self) -> None:
@@ -113,7 +102,7 @@ class Extractor:
             Extractor.log.exception("Error while saving to database")
             db_session.rollback()
 
-    def __process_dataset(self, dataset: str) -> None:
+    def __process_dataset(self, dataset: str, priority, regular, force):
         """Extracts distributions from a dataset."""
         effective_dataset_iri = self.__get_effective_dataset_iri(dataset)
         if effective_dataset_iri is None:
@@ -122,26 +111,39 @@ class Extractor:
             URIRef(dataset), Extractor.dcat.distribution
         ):
             if isinstance(distribution, URIRef):
-                self.__process_distribution(
-                    distribution, URIRef(dataset), effective_dataset_iri
-                )
+                for task in self.__process_distribution(
+                    distribution,
+                    URIRef(dataset),
+                    effective_dataset_iri,
+                    priority,
+                    regular,
+                    force,
+                ):
+                    yield task
             else:
                 Extractor.log.warning("Invalid distribution: %s", distribution)
 
     def __process_distribution(
-        self, distribution: URIRef, dataset_iri: URIRef, effective_dataset_iri: str
-    ) -> None:
+        self,
+        distribution: URIRef,
+        dataset_iri: URIRef,
+        effective_dataset_iri: str,
+        priority,
+        regular,
+        force,
+    ):
         """
         Extract download URLs from a distribution,
         detect any services for the dataset.
         """
-        queue = self.__get_queue(distribution)
+        task = self.__get_task(distribution, priority, regular)
         for download_url in self.__graph.objects(
             distribution, Extractor.dcat.downloadURL
         ):
-            self.__process_distribution_url(
-                str(download_url), effective_dataset_iri, queue
-            )
+            for task in self.__process_distribution_url(
+                str(download_url), effective_dataset_iri, task, force, priority
+            ):
+                yield task
         for service in itertools.chain(
             self.__graph.objects(dataset_iri, Extractor.dcat.accessService),
             self.__graph.subjects(Extractor.dcat.servesDataset, dataset_iri),
@@ -164,8 +166,8 @@ class Extractor:
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
 
     def __process_distribution_url(
-        self, url: str, effective_dataset_iri: str, queue: list
-    ) -> None:
+        self, url: str, effective_dataset_iri: str, task, force, priority
+    ):
         """
         Extracts download URLs from a distribution. Apply IRI filters anc checks.
         If we sense a SPARQL endpoint, we add it to the list of endpoints.
@@ -185,10 +187,11 @@ class Extractor:
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
             return
         if url.endswith("trig") or url.endswith("jsonld"):
-            self.__distributions_priority.append(url)
-        queue.append({"ds": effective_dataset_iri, "distr": url})
+            yield priority.si(url, force)
+        else:
+            yield task.si(url, force)
 
-    def __get_queue(self, distribution: URIRef) -> list:
+    def __get_task(self, distribution: URIRef, priority, regular):
         """
         Returns the queue to which the distribution should be added.
         If format or media suggest RDF data, the distribution is added to the priority queue.
@@ -198,16 +201,16 @@ class Extractor:
         """
         for media_type in self.__graph.objects(distribution, Extractor.dcat.mediaType):
             if str(media_type) in Extractor.media_priority:
-                return self.__distributions_priority
+                return priority
         for format in self.__graph.objects(distribution, Extractor.dcterms["format"]):
             if str(format) in Extractor.format_priority:
-                return self.__distributions_priority
+                return priority
         for distribution_format in self.__graph.objects(
             distribution, Extractor.nkod.mediaType
         ):
             if "rdf" in str(distribution_format):
-                return self.__distributions_priority
-        return self.__distributions
+                return priority
+        return regular
 
     def __get_effective_dataset_iri(self, dataset: str) -> str:
         """
