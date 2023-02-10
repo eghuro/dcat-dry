@@ -26,6 +26,7 @@ class RuianEnricher(AbstractEnricher):
     def enrich(self, ruian_iri):
         root = "https://linked.cuzk.cz/resource/ruian/"
         if ruian_iri.startswith(root):
+            # FIXME: this is always empty, adjust to the latest changes
             key = analysis_dataset(ruian_iri)
             try:
                 payload = self.__redis.get(key)

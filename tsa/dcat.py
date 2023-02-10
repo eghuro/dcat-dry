@@ -90,11 +90,9 @@ class Extractor:
         """Stores the extracted metadata to the database."""
         try:
             if len(self.__db_endpoints) > 0:
-                db_session.execute(insert(DatasetEndpoint).values(self.__db_endpoints))
+                db_session.execute(insert(DatasetEndpoint), self.__db_endpoints)
             if len(self.__db_distributions) > 0:
-                db_session.execute(
-                    insert(DatasetDistribution).values(self.__db_distributions)
-                )
+                db_session.execute(insert(DatasetDistribution), self.__db_distributions)
             if len(self.__db_endpoints) > 0 or len(self.__db_distributions) > 0:
                 db_session.commit()
                 GenericAnalyzer().get_details(self.__graph)

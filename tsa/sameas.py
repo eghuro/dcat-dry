@@ -25,52 +25,56 @@ class Index:
         return index
 
     def bulk_index(self, pairs):
-        data = [
-            {"relationship_type": self.__key, "iri1": a, "iri2": b}
-            for (a, b) in pairs
-            if ((a is not None) and (len(a) > 0) and (b is not None) and (len(b) > 0))
-        ]
-        if self.__symmetric:
-            data.extend(
-                [
-                    {"relationship_type": self.__key, "iri1": b, "iri2": a}
-                    for (a, b) in pairs
-                    if (
-                        (a is not None)
-                        and (len(a) > 0)
-                        and (b is not None)
-                        and (len(b) > 0)
-                    )
-                ]
+        def gen_data():
+            for (a, b) in pairs:
+                if a is not None and len(a) > 0 and b is not None and len(b) > 0:
+                    yield {"relationship_type": self.__key, "iri1": a, "iri2": b}
+                    if self.__symmetric:
+                        yield {
+                            "relationship_type": self.__key,
+                            "iri1": b,
+                            "iri2": a,
+                        }
+
+        insert_stmt = insert(DDR).on_conflict_do_nothing()
+        try:
+            db_session.execute(
+                insert_stmt, gen_data(), execution_options={"stream_results": True}
             )
-        if len(data) > 0:
-            insert_stmt = insert(DDR).values(data).on_conflict_do_nothing()
-            try:
-                db_session.execute(insert_stmt)
-                db_session.commit()
-            except SQLAlchemyError:
-                logging.getLogger(__name__).exception(
-                    "Failed do commit, rolling back bulk index"
-                )
-                db_session.rollback()
+            db_session.commit()
+        except SQLAlchemyError:
+            logging.getLogger(__name__).exception(
+                "Failed do commit, rolling back bulk index"
+            )
+            db_session.rollback()
 
     def finalize(self):
-        graph = defaultdict(set)
-        try:
-            for ddr in db_session.query(DDR).filter_by(relationship_type=self.__key):
-                graph[ddr.iri1].add(ddr.iri2)
 
-            ddr_vals = []
-            for node in graph.keys():  # noqa: consider-iterating-dictionary
-                visited = self.__bfs(graph, node)
-                # add all reachable nodes into index (transitivity)
-                for iri in visited:
-                    ddr_vals.append(
-                        {"iri1": node, "iri2": iri, "relationship_type": self.__key}
-                    )
-            insert_stmt = insert(DDR).values(ddr_vals).on_conflict_do_nothing()
+        try:
+
+            def gen_values():
+                graph = defaultdict(set)
+                for ddr in db_session.query(DDR).filter_by(
+                    relationship_type=self.__key
+                ):
+                    graph[ddr.iri1].add(ddr.iri2)
+                for node in graph.keys():  # noqa: consider-iterating-dictionary
+                    visited = self.__bfs(graph, node)
+                    # add all reachable nodes into index (transitivity)
+                    for iri in visited:
+                        yield {
+                            "iri1": node,
+                            "iri2": iri,
+                            "relationship_type": self.__key,
+                        }
+
+            insert_stmt = insert(DDR).on_conflict_do_nothing()
             try:
-                db_session.execute(insert_stmt)
+                db_session.execute(
+                    insert_stmt,
+                    gen_values(),
+                    execution_options={"stream_results": True},
+                )
                 db_session.commit()
             except SQLAlchemyError:
                 logging.getLogger(__name__).exception("Failed fo finalize index")

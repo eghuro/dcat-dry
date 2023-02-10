@@ -474,17 +474,11 @@ class GenericAnalyzer(AbstractAnalyzer):
         # toto muze byt SKOS Concept definovany jinde
 
         try:
-            insert_stmt = (
-                insert(SubjectObject)
-                .values(
-                    [
-                        {"distribution_iri": iri, "iri": s}
-                        for s in subjects.union(objects)
-                    ]
-                )
-                .on_conflict_do_nothing()
+            db_session.execute(
+                insert(SubjectObject).on_conflict_do_nothing,
+                ({"distribution_iri": iri, "iri": s} for s in subjects.union(objects)),
+                execution_options={"stream_results": True},
             )
-            db_session.execute(insert_stmt)
             db_session.commit()
         except SQLAlchemyError:
             logging.getLogger(__name__).exception(
@@ -522,16 +516,19 @@ class GenericAnalyzer(AbstractAnalyzer):
         }
         """
         try:
-            labels = []
-            for row in graph.query(
-                query
-            ):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
-                iri = str(row["x"])
-                if check_iri(iri):
-                    labels.append(self._extract_detail(row, iri))
-            if len(labels) > 0:
-                db_session.execute(insert(Label).values(labels))
-                db_session.commit()
+
+            def gen_labels():
+                for row in graph.query(
+                    query
+                ):  # If the type is “SELECT”, iterating will yield lists of ResultRow objects
+                    iri = str(row["x"])
+                    if check_iri(iri):
+                        yield self._extract_detail(row, iri)
+
+            db_session.execute(
+                insert(Label), gen_labels(), execution_options={"stream_results": True}
+            )
+            db_session.commit()
         except ParserError:
             logging.getLogger(__name__).exception("Failed to extract labels")
         except SQLAlchemyError:

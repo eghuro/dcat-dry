@@ -105,31 +105,20 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
             yield {"iri": iri, "analyzer": token, "data": res}
             log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
-    store = tuple(gen_analyzes())
-    log.debug("Done processing %s, now storing", iri)
-    if len(store) > 0:
-        try:
-            db_session.execute(insert(Analysis).values(store))
-            db_session.commit()
-        except SQLAlchemyError:
-            logging.getLogger(__name__).exception("Failed to store analyses in DB")
-            db_session.rollback()
+    try:
+        db_session.execute(
+            insert(Analysis), gen_analyzes(), execution_options={"stream_results": True}
+        )
+        db_session.commit()
+    except SQLAlchemyError:
+        logging.getLogger(__name__).exception("Failed to store analyses in DB")
+        db_session.rollback()
     log.info("Done storing %s", iri)
 
 
 def analyze_and_index_one(
     analyzer, analyzer_class, graph, distribution_iri, log
 ) -> Tuple[str, str]:
-    log.info("Analyzing %s with %s", distribution_iri, analyzer_class.token)
-    with TimedBlock(f"analyze.{analyzer_class.token}"):
-        res = analyzer.analyze(graph, distribution_iri)
-    log.info(
-        "Done analyzing %s with %s: %s",
-        distribution_iri,
-        analyzer_class.token,
-        json.dumps(res),
-    )
-
     log.debug("Find relations of %s in %s", analyzer_class.token, distribution_iri)
     try:
 
@@ -160,16 +149,21 @@ def analyze_and_index_one(
                             "candidate": distribution_iri,
                         }
 
-        log.debug("Storing relations in DB")
-        relationships = tuple(gen_relations())
-        if len(relationships) > 0:
-            try:
-                db_session.execute(insert(Relationship).values(relationships))
-                db_session.commit()
-            except SQLAlchemyError:
-                log.exception("Failed to store relations in DB")
-                db_session.rollback()
+        try:
+            db_session.execute(
+                insert(Relationship),
+                gen_relations(),
+                execution_options={"stream_results": True},
+            )
+            db_session.commit()
+        except SQLAlchemyError:
+            log.exception("Failed to store relations in DB")
+            db_session.rollback()
     except TypeError:
         log.debug("Skip %s for %s", analyzer_class.token, distribution_iri)
 
+    log.info("Analyzing %s with %s", distribution_iri, analyzer_class.token)
+    with TimedBlock(f"analyze.{analyzer_class.token}"):
+        res = analyzer.analyze(graph, distribution_iri)
+    log.info("Done analyzing %s with %s", distribution_iri, analyzer_class.token)
     return analyzer_class.token, res
