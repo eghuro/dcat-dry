@@ -2,7 +2,7 @@
 """Click commands."""
 import json
 import logging
-import os
+from itertools import chain, islice
 from typing import Any, Generator, List
 
 import click
@@ -31,6 +31,13 @@ def divide_chunks(
         yield list_to_split[i : i + chunk_size]
 
 
+def chunks(iterable, size=10):
+    # https://stackoverflow.com/a/24527424
+    iterator = iter(iterable)
+    for first in iterator:
+        yield chain([first], islice(iterator, size - 1))
+
+
 @click.command()
 @click.option("-g", "--graphs", required=True, help="List of graphs")
 @click.option("-s", "--sparql", required=True, help="IRI of the SPARQL endpoint")
@@ -45,19 +52,9 @@ def batch(graphs=None, sparql=None):
         return
     log.info("Analyzing endpoint %s", sparql)
 
-    red = redis.Redis(connection_pool=redis_pool)
-    key = "batch:" + sparql
     with open(graphs, "r", encoding="utf-8") as graphs_file:
-        lines = graphs_file.readlines()
-        log.debug("Read lines")
-        for iris in divide_chunks(lines, 1000):
-            graphs = [
-                iri.strip()
-                for iri in iris
-                if check_iri(iri) and (red.pfadd(key, iri) == 0)
-            ]
-            # inspect_graphs.si(graphs, sparql, False).apply_async()
-            batch_inspect.si(sparql, graphs, 10).apply_async()
+        for chunk in chunks(graphs_file, 1000):
+            batch_inspect.si(sparql, chunk, 10).apply_async()
 
 
 @click.command()
