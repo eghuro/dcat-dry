@@ -41,6 +41,7 @@ class DatasetDistribution(Base):
     ds = db.Column(db.String, nullable=False)
     distr = db.Column(db.String, nullable=False)
     relevant = db.Column(db.Boolean, nullable=True, default=False)
+    ofn = db.Column(db.String, nullable=True)
 
 
 class Datacube(Base):

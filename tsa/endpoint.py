@@ -33,6 +33,7 @@ class SparqlEndpointAnalyzer:
           ?ds a <http://www.w3.org/ns/dcat#Dataset>;
           <http://purl.org/dc/terms/title> ?title;
           <http://www.w3.org/ns/dcat#keyword> ?keyword;
+          <http://purl.org/dc/terms/conformsTo> ?conformsTo;
           <http://www.w3.org/ns/dcat#distribution> ?d.
           ?d a <http://www.w3.org/ns/dcat#Distribution>;
           <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
@@ -51,6 +52,7 @@ class SparqlEndpointAnalyzer:
          ?ds a <http://www.w3.org/ns/dcat#Dataset>.
          ?ds <http://purl.org/dc/terms/title> ?title.
          OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
+        OPTIONAL {?ds <http://purl.org/dc/terms/conformsTo> ?conformsTo. }
          ?ds <http://www.w3.org/ns/dcat#distribution> ?d.
          OPTIONAL { ?d <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL. }
          OPTIONAL { ?d <http://purl.org/dc/terms/format> ?format. }
