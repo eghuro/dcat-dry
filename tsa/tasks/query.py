@@ -235,6 +235,7 @@ def concept_usage():
                     {
                         "type": "conceptUsage",
                         "group": resource_iri,
+                        "common": "",  # FIXME
                         "candidate": distr_iri,
                     }
                 )
@@ -248,6 +249,7 @@ def concept_usage():
                                 {
                                     "type": "relatedConceptUsage",
                                     "group": final_resource_iri,
+                                    "common": "",  # FIXME
                                     "candidate": distr_iri,
                                 }
                             )
@@ -279,6 +281,7 @@ def concept_definition():
                         {
                             "type": rel_type,
                             "group": resource_iri,
+                            "common": "",  # FIXME
                             "candidate": distr_iri,
                         }
                     )
@@ -315,7 +318,12 @@ def cross_dataset_sameas():
         resource = row[5]
         for iri in same_as[resource]:
             reports.append(
-                {"type": "crossSameas", "group": iri, "candidate": distr_iri}
+                {
+                    "type": "crossSameas",
+                    "group": iri,
+                    "common": "",  # FIXME
+                    "candidate": distr_iri,
+                }
             )
     report_relationship_bulk(reports)
 
@@ -348,6 +356,7 @@ def data_driven_relationships():
                                 {
                                     "type": "relatedConceptOnDimension",
                                     "group": final_resource_iri,
+                                    "common": "",  # FIXME
                                     "candidate": distr_iri,
                                 }
                             )
@@ -355,6 +364,7 @@ def data_driven_relationships():
                     {
                         "type": "conceptOnDimension",
                         "group": resource_iri,
+                        "common": "",  # FIXME
                         "candidate": distr_iri,
                     }
                 )
@@ -362,6 +372,7 @@ def data_driven_relationships():
                 {
                     "type": "resourceOnDimension",
                     "group": resource_iri,
+                    "common": "",  # FIXME
                     "candidate": distr_iri,
                 }
             )
