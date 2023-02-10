@@ -44,7 +44,7 @@ from tsa.tasks.analyze import do_analyze_and_index, load_graph
 from tsa.tasks.common import TrackableTask
 from tsa.util import check_iri
 
-trie = trie = marisa_trie.Trie()
+trie = marisa_trie.Trie()
 try:
     with open(Config.EXCLUDE_PREFIX_LIST, "r") as f:
         trie = marisa_trie.Trie([x.strip() for x in f.readlines()])
