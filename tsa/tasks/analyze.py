@@ -117,50 +117,50 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
     log.info("Done storing %s", iri)
 
 
-def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> Tuple[str, str]:
-    log.info("Analyzing %s with %s", iri, analyzer_class.token)
+def analyze_and_index_one(
+    analyzer, analyzer_class, graph, distribution_iri, log
+) -> Tuple[str, str]:
+    log.info("Analyzing %s with %s", distribution_iri, analyzer_class.token)
     with TimedBlock(f"analyze.{analyzer_class.token}"):
-        res = analyzer.analyze(graph, iri)
+        res = analyzer.analyze(graph, distribution_iri)
     log.info(
-        "Done analyzing %s with %s: %s", iri, analyzer_class.token, json.dumps(res)
+        "Done analyzing %s with %s: %s",
+        distribution_iri,
+        analyzer_class.token,
+        json.dumps(res),
     )
 
-    log.debug("Find relations of %s in %s", analyzer_class.token, iri)
+    log.debug("Find relations of %s in %s", analyzer_class.token, distribution_iri)
     try:
-        iris_found = defaultdict(list)
-        with TimedBlock(f"index.{analyzer_class.token}"):
-            for common_iri, group, rel_type in analyzer.find_relation(graph):
-                log.debug(
-                    "Distribution: %s, relationship type: %s, common resource: %s, significant resource: %s",
-                    iri,
-                    rel_type,
-                    common_iri,
-                    group,
-                )
-                # TODO: group IRI not used
-                iris_found[(rel_type, common_iri)].append(
-                    iri
-                )  # this is so that we sadd whole list in one call
 
-        log.debug("Storing relations in DB")
+        def check(common, group, rel_type):
+            if common is None or len(common) == 0:
+                return False
+            if group is None or len(group) == 0:
+                return False
+            if rel_type is None or len(rel_type) == 0:
+                return False
+            return True
 
         def gen_relations():
-            for item in iris_found.items():
-                (rel_type, key) = item[0]
-                if rel_type is None or len(rel_type) == 0:
-                    continue
-                if key is None or len(key) == 0:
-                    continue
-                iris = item[1]
-                # log.debug("Adding %s items into set", str(len(iris)))
-                for candidate_iri in iris:
-                    if candidate_iri is not None and len(candidate_iri) > 0:
+            with TimedBlock(f"index.{analyzer_class.token}"):
+                for common_iri, group, rel_type in analyzer.find_relation(graph):
+                    log.debug(
+                        "Distribution: %s, relationship type: %s, common resource: %s, significant resource: %s",
+                        distribution_iri,
+                        rel_type,
+                        common_iri,
+                        group,
+                    )
+                    if check(common_iri, group, rel_type):
                         yield {
                             "type": rel_type,
-                            "group": key,
-                            "candidate": candidate_iri,
+                            "group": group,
+                            "common": common_iri,
+                            "candidate": distribution_iri,
                         }
 
+        log.debug("Storing relations in DB")
         relationships = tuple(gen_relations())
         if len(relationships) > 0:
             try:
@@ -170,6 +170,6 @@ def analyze_and_index_one(analyzer, analyzer_class, graph, iri, log) -> Tuple[st
                 log.exception("Failed to store relations in DB")
                 db_session.rollback()
     except TypeError:
-        log.debug("Skip %s for %s", analyzer_class.token, iri)
+        log.debug("Skip %s for %s", analyzer_class.token, distribution_iri)
 
     return analyzer_class.token, res
