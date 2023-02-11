@@ -2331,7 +2331,7 @@ requests = "^2.27"
 type = "git"
 url = "https://github.com/eghuro/py-couchdb.git"
 reference = "HEAD"
-resolved_reference = "76edbe73f6651fdfdaf87b96a74fc9743e9b6e59"
+resolved_reference = "82ae4b88fe7c7b52435df974fa77d3cac00119da"
 
 [[package]]
 name = "pycparser"
