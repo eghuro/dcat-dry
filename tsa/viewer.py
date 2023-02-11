@@ -10,6 +10,8 @@ class ViewerProvider:
         """
         Initialize the provider. Connect to CouchDB.
         """
+        if Config.COUCHDB_URL is None:
+            return
         server = pycouchdb.Server(Config.COUCHDB_URL)
         try:
             self.__datasets = server.database("datasets")
@@ -104,3 +106,6 @@ class ViewerProvider:
                     )
                 except pycouchdb.exceptions.Conflict:
                     pass
+
+
+viewer = ViewerProvider()

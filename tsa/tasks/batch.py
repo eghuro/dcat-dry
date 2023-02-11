@@ -12,7 +12,7 @@ from tsa.dcat import Extractor
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry
-from tsa.viewer import ViewerProvider
+from tsa.viewer import viewer
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import process, process_priority
 
@@ -78,7 +78,6 @@ def do_inspect_graph(
 
         # populate the viewer / couchdb with the graph
         if graph:
-            viewer = ViewerProvider()
             viewer.serialize_to_couchdb(graph, graph_iri)
     except (rdflib.query.ResultException, HTTPError):
         log.error(
