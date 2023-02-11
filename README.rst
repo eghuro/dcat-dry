@@ -26,8 +26,8 @@ For DCAT-DRY service only:
 
 .. code-block:: bash
 
-    docker build . -t nkod-ts
-    docker run -p 80:8000 --name nkod-ts nkod-ts
+    docker build . -t dcat-dry
+    docker run -p 80:8000 --name dcat-dry dcat-dry
 
 For the full environment use docker-compose:
 
@@ -47,8 +47,7 @@ Run the following commands to bootstrap your environment ::
 
     git clone https://github.com/eghuro/dcat-dry
     cd dcat-dry
-    poetry install --only-root
-
+    poetry install --with robots,gevent --without dev
     # Start redis and postgres servers
 
     # Export environment variables
