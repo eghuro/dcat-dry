@@ -2385,28 +2385,6 @@ files = [
 plugins = ["importlib-metadata"]
 
 [[package]]
-name = "pyld"
-version = "2.0.3"
-description = "Python implementation of the JSON-LD API"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "PyLD-2.0.3.tar.gz", hash = "sha256:287445f888c3a332ccbd20a14844c66c2fcbaeab3c99acd506a0788e2ebb2f82"},
-]
-
-[package.dependencies]
-cachetools = "*"
-frozendict = "*"
-lxml = "*"
-
-[package.extras]
-aiohttp = ["aiohttp"]
-cachetools = ["cachetools"]
-frozendict = ["frozendict"]
-requests = ["requests"]
-
-[[package]]
 name = "pylint"
 version = "2.13.9"
 description = "python code static checker"
@@ -3737,4 +3715,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "d7c30a3f18f6d8135e242cf715ef35eece1c0a6223cc6d2affcfc258bca04d5e"
+content-hash = "f846e74c1ee09c174b0aab14709fa0fb1b78e05274eb934a15865c165ae7f861"
