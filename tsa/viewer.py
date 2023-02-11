@@ -37,33 +37,16 @@ class ViewerProvider:
         # except pycouchdb.exceptions.NotFound:
         #    self.__static = server.create('static')
 
-    def __construct_dataset(self, graph: rdflib.Graph, iri: str) -> rdflib.Graph:
+    def __construct(self, graph: rdflib.Graph, iri: rdflib.URIRef) -> rdflib.Graph:
         """
-        Create a new Graph with only the dataset.
+        Create a new Graph with only the required iri as a subject.
 
-        :param graph: the graph to construct the dataset from
-        :param iri: the IRI of the dataset
-        :return: the constructed dataset
+        :param graph: the graph to construct from
+        :param iri: the IRI of the resource we are interested in
+        :return: the constructed subgraph
         """
         return graph.query(
-            "CONSTRUCT {?s ?p ?o} WHERE {?s a dcat:Dataset; ?p ?o}",
-            initNs={"dcat": rdflib.Namespace("http://www.w3.org/ns/dcat#")},
-            initBindings={"s": rdflib.URIRef(iri)},
-        ).graph
-
-    def __construct_distribution(
-        self, graph: rdflib.Graph, iri: rdflib.URIRef
-    ) -> rdflib.Graph:
-        """
-        Create a new Graph with only the distribution.
-
-        :param graph: the graph to construct the distribution from
-        :param iri: the IRI of the distribution
-        :return: the constructed distribution
-        """
-        return graph.query(
-            "CONSTRUCT {?s ?p ?o} WHERE {?s a dcat:Distribution; ?p ?o}",
-            initNs={"dcat": rdflib.Namespace("http://www.w3.org/ns/dcat#")},
+            "CONSTRUCT {?s ?p ?o} WHERE {?s ?p ?o}",
             initBindings={"s": iri},
         ).graph
 
@@ -74,21 +57,22 @@ class ViewerProvider:
         Inserts dataset and all distributions into respective databases.
 
         :param graph: the graph to serialize
-        :param iri: the IRI of the distribution
+        :param iri: the IRI of the dataset
         """
-        log = logging.getLogger(__name__)
         with TimedBlock("couchdb"):
             try:
-                self.__datasets.save(
-                    {
-                        "_id": iri,
-                        "jsonld": self.__construct_dataset(graph, iri).serialize(
-                            format="json-ld"
-                        ),
-                    }
-                )
+                if iri not in self.__datasets:
+                    self.__datasets.save(
+                        {
+                            "_id": iri,
+                            "jsonld": self.__construct(
+                                graph, rdflib.URIRef(iri)
+                            ).serialize(format="json-ld"),
+                        }
+                    )
+                    self.__datasets.commit()
             except pycouchdb.exceptions.Conflict:
-                pass
+                logging.getLogger(__name__).exception("Failed to save dataset: %s", iri)
 
             for distribution in graph.objects(
                 rdflib.URIRef(iri),
@@ -97,16 +81,23 @@ class ViewerProvider:
                 if not isinstance(distribution, rdflib.URIRef):
                     continue
                 try:
-                    self.__distributions.save(
-                        {
-                            "_id": str(distribution),
-                            "jsonld": self.__construct_distribution(
-                                graph, distribution
-                            ).serialize(format="json-ld"),
-                        }
-                    )
+                    iri = str(distribution)
+                    if iri not in self.__distributions:
+                        self.__distributions.save(
+                            {
+                                "_id": iri,
+                                "jsonld": self.__construct(
+                                    graph, distribution
+                                ).serialize(format="json-ld"),
+                            }
+                        )
+                        self.__distributions.commit()
                 except pycouchdb.exceptions.Conflict:
-                    pass
+                    logging.getLogger(__name__).exception(
+                        "Failed to save distribution: %s - dataset: %s",
+                        str(distribution),
+                        iri,
+                    )
 
 
 viewer = ViewerProvider()

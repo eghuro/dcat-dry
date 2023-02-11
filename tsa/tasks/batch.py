@@ -71,20 +71,30 @@ def do_inspect_graph(
     """
     log = logging.getLogger(__name__)
     result = None
+    graph_iri = graph_iri.strip()
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        graph = inspector.process_graph(graph_iri)
-        result = _dcat_extractor(graph, force)
-
-        # populate the viewer / couchdb with the graph
-        if graph:
-            viewer.serialize_to_couchdb(graph, graph_iri)
+        result = _dcat_extractor(inspector.process_graph(graph_iri), force)
+        couchdb_load.si(endpoint_iri, graph_iri).apply_async()
     except (rdflib.query.ResultException, HTTPError):
         log.error(
             "Failed to inspect graph %s: ResultException or HTTP Error", graph_iri
         )
     monitor.log_inspected()
     return result
+
+
+@celery.task(base=TrackableTask)
+def couchdb_load(endpoint_iri, graph_iri) -> None:
+    """Load to couchdb for viewer.
+
+    :param endpoint_iri: IRI of the SPARQL endpoint
+    :param graph_iri: IRI of the named graph to inspect
+    """
+    inspector = SparqlEndpointAnalyzer(endpoint_iri)
+    graph = inspector.process_graph(graph_iri)
+    if graph:
+        viewer.serialize_to_couchdb(graph, graph_iri)
 
 
 def multiply(item: Any, times: int) -> Any:

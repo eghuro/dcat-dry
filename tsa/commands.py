@@ -11,7 +11,6 @@ from flask import current_app
 from flask.cli import with_appcontext
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
-from tsa.extensions import redis_pool
 from tsa.query import query
 from tsa.report import import_labels as import_labels_impl
 from tsa.sameas import same_as_index
