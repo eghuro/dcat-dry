@@ -3,6 +3,7 @@ import pycouchdb
 import rdflib
 from tsa.settings import Config
 from tsa.monitor import TimedBlock
+from tsa.robots import session
 
 
 class ViewerProvider:
@@ -12,7 +13,7 @@ class ViewerProvider:
         """
         if Config.COUCHDB_URL is None:
             return
-        server = pycouchdb.Server(Config.COUCHDB_URL)
+        server = pycouchdb.Server(Config.COUCHDB_URL, session=session)
         try:
             self.__datasets = server.database("datasets")
         except pycouchdb.exceptions.NotFound:

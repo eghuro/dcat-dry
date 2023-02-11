@@ -2320,14 +2320,18 @@ version = "1.14.2"
 description = "Modern pure python CouchDB Client."
 category = "main"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
-files = [
-    {file = "pycouchdb-1.14.2-py2.py3-none-any.whl", hash = "sha256:434758aa6b49c6a67fcf89e71a11c36e2ec2df51e2998c38bcd570eab94cc288"},
-    {file = "pycouchdb-1.14.2.tar.gz", hash = "sha256:00bc6c7dd4744895920b9153cb9537bc5ecaff72002ea10209c05580e186e0eb"},
-]
+python-versions = "^3.7 | ^3.8 | ^3.9 | ^3.10"
+files = []
+develop = false
 
 [package.dependencies]
-requests = ">=2.25,<3.0"
+requests = "^2.27"
+
+[package.source]
+type = "git"
+url = "https://github.com/eghuro/py-couchdb.git"
+reference = "HEAD"
+resolved_reference = "76edbe73f6651fdfdaf87b96a74fc9743e9b6e59"
 
 [[package]]
 name = "pycparser"
@@ -3761,4 +3765,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "c499f22ce9f69a5fd385402ac07c17027be644553721f735ef778bd92b810cd1"
+content-hash = "92f3f122d7d214c8ba4fd1c3e7f385c176ba3b018de17ebebd713cef31514f06"
