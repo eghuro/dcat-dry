@@ -33,12 +33,14 @@ services:
       - REDIS_CELERY=redis://redis:6379/1
       - TZ=Europe/Prague
       - DB=postgresql+psycopg2://postgres:example@db:5432/postgres
+      - COUCHDB=http://admin:password@couchdb:5984/
     volumes:
       - ./exclude.txt:/tmp/exclude.txt
     command: celery -A tsa.celery worker -l debug -Q high_priority,default,query,low_priority --pool=gevent -c 100
     depends_on:
       - redis
       - db
+      - couchdb
   beat:
     restart: always
     build:
@@ -68,3 +70,11 @@ services:
       POSTGRES_PASSWORD: example
     ports:
       - "5432:5432"
+  couchdb:
+    image: apache/couchdb:3
+    restart: always
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+    ports:
+      - "5984:5984"
