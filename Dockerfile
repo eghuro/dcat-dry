@@ -13,7 +13,7 @@ RUN apt-get update; apt-get install -y libxml2-dev libxslt-dev; python -m pip in
 
 WORKDIR /tmp
 COPY pyproject.toml poetry.lock /tmp/
-RUN poetry config virtualenvs.create false; poetry install --with logzio,robots,gevent --no-interaction --no-ansi --no-root
+RUN poetry config virtualenvs.create false; poetry install --with logzio,robots,gevent --without dev --no-interaction --no-ansi --no-root
 
 FROM base as runner
 COPY . /tmp
