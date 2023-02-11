@@ -144,10 +144,11 @@ accept = ", ".join(
         "text/n3;charset=utf-8",
         "application/n-triples",
         "application/n-quads",
-        "application/xml;q=0.9",
+        "application/trix",
+        "application/json;q=0.9" "application/xml;q=0.9",
         "text/xml;q=0.9",
-        "text/plain;q=0.9",
-        "*/*;q=0.8",
+        "text/plain;q=0.8",
+        "*/*;q=0.7",
     )
 )
 
