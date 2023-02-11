@@ -72,7 +72,7 @@ class ViewerProvider:
                     )
                     self.__datasets.commit()
             except pycouchdb.exceptions.Conflict:
-                logging.getLogger(__name__).exception("Failed to save dataset: %s", iri)
+                logging.getLogger(__name__).warning("Failed to save dataset: %s", iri)
 
             for distribution in graph.objects(
                 rdflib.URIRef(iri),
@@ -93,7 +93,7 @@ class ViewerProvider:
                         )
                         self.__distributions.commit()
                 except pycouchdb.exceptions.Conflict:
-                    logging.getLogger(__name__).exception(
+                    logging.getLogger(__name__).warning(
                         "Failed to save distribution: %s - dataset: %s",
                         str(distribution),
                         iri,
