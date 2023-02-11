@@ -125,9 +125,7 @@ def do_analyze_and_index(graph: rdflib.Graph, iri: str) -> None:
             log.debug("Done analyze and index %s with %s", iri, analyzer_token)
 
     try:
-        db_session.execute(
-            insert(Analysis), gen_analyzes(), execution_options={"stream_results": True}
-        )
+        db_session.execute(insert(Analysis), gen_analyzes())
         db_session.commit()
     except SQLAlchemyError:
         logging.getLogger(__name__).exception("Failed to store analyses in DB")
@@ -182,11 +180,7 @@ def analyze_and_index_one(
                         }
 
         try:
-            db_session.execute(
-                insert(Relationship),
-                gen_relations(),
-                execution_options={"stream_results": True},
-            )
+            db_session.execute(insert(Relationship), gen_relations())
             db_session.commit()
         except SQLAlchemyError:
             log.exception("Failed to store relations in DB")

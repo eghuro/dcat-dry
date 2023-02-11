@@ -12,6 +12,7 @@ from tsa.dcat import Extractor
 from tsa.endpoint import SparqlEndpointAnalyzer
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry
+from tsa.viewer import ViewerProvider
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import process, process_priority
 
@@ -39,9 +40,7 @@ def _dcat_extractor(
 
 
 @celery.task(base=TrackableTask, bind=True, max_retries=5)
-def inspect_graph(
-    self, endpoint_iri: str, graph_iri: str, force: bool
-) -> Optional[AsyncResult]:
+def inspect_graph(self, endpoint_iri: str, graph_iri: str, force: bool) -> None:
     """
     Extract DCAT datasets from a named graph of an endpoint,
     process them and trigger analysis of the distributions.
@@ -54,7 +53,7 @@ def inspect_graph(
     :param force: force reprocessing of the distributions
     """
     try:
-        return do_inspect_graph(graph_iri, force, endpoint_iri)
+        do_inspect_graph(graph_iri, force, endpoint_iri)
     except RobotsRetry as exc:
         self.retry(timeout=exc.delay)
 
@@ -78,8 +77,9 @@ def do_inspect_graph(
         result = _dcat_extractor(graph, force)
 
         # populate the viewer / couchdb with the graph
-        viewer = ViewerProvider()
-        viewer.process_graph(graph_iri, graph)
+        if graph:
+            viewer = ViewerProvider()
+            viewer.serialize_to_couchdb(graph, graph_iri)
     except (rdflib.query.ResultException, HTTPError):
         log.error(
             "Failed to inspect graph %s: ResultException or HTTP Error", graph_iri

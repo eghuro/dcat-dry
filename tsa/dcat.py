@@ -226,10 +226,7 @@ class Extractor:
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
             return
         self.__db_distributions.append(
-            {
-                "distr": url,
-                "ds": effective_dataset_iri,
-            }
+            {"distr": url, "ds": effective_dataset_iri, "processed": False}
         )
         if ofn is not None:
             self.__db_distributions[-1]["ofn"] = ofn

@@ -410,19 +410,15 @@ def store_pure_subjects(iri: str, graph: rdflib.Graph) -> None:
     """
     if iri is None or len(iri) == 0:
         return
-    insert_stmt = (
-        insert(SubjectObject)
-        .values(
-            [
+    try:
+        db_session.execute(
+            insert(SubjectObject).on_conflict_do_nothing(),
+            (
                 {"distribution_iri": iri, "iri": str(sub), "pure_subject": True}
                 for sub, _, _ in graph
                 if ((sub is not None) and len(str(sub)) > 0)
-            ]
+            ),
         )
-        .on_conflict_do_nothing()
-    )
-    try:
-        db_session.execute(insert_stmt)
         db_session.commit()
     except SQLAlchemyError:
         logging.getLogger(__name__).error("Failed to store pure objects")

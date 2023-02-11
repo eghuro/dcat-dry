@@ -1,4 +1,4 @@
-"""Added common in Relationship. Added ofn in DatasetDistribution.
+"""Added common in Relationship. Added ofn and processed in DatasetDistribution.
 
 Revision ID: 96edbcb9c734
 Revises: 06850d25958a
@@ -23,6 +23,10 @@ def upgrade() -> None:
         "relationship_index_common", "relationship", ["common"], postgresql_using="HASH"
     )
     op.add_column("dataset_distribution", sa.Column("ofn", sa.String(), nullable=True))
+    op.add_column(
+        "dataset_distribution",
+        sa.Column("processed", sa.Boolean(), nullable=False, default=False),
+    )
     # ### end Alembic commands ###
 
 
@@ -31,4 +35,5 @@ def downgrade() -> None:
     op.drop_index("relationship_index_common", table_name="relationship")
     op.drop_column("relationship", "common")
     op.drop_column("dataset_distribution", "ofn")
+    op.drop_column("dataset_distribution", "processed")
     # ### end Alembic commands ###

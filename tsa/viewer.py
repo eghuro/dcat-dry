@@ -14,11 +14,17 @@ class ViewerProvider:
         try:
             self.__datasets = server.database("datasets")
         except pycouchdb.exceptions.NotFound:
-            self.__datasets = server.create("datasets")
+            try:
+                self.__datasets = server.create("datasets")
+            except pycouchdb.exceptions.Conflict:
+                self.__datasets = server.database("datasets")
         try:
             self.__distributions = server.database("distributions")
         except pycouchdb.exceptions.NotFound:
-            self.__distributions = server.create("distributions")
+            try:
+                self.__distributions = server.create("distributions")
+            except pycouchdb.exceptions.Conflict:
+                self.__distributions = server.database("distributions")
         # try:
         #    self.__labels = server.database('labels')
         # except pycouchdb.exceptions.NotFound:
@@ -28,7 +34,37 @@ class ViewerProvider:
         # except pycouchdb.exceptions.NotFound:
         #    self.__static = server.create('static')
 
-    def serialize_to_couchdb(self, dataset: rdflib.Graph, iri: str) -> None:
+    def __construct_dataset(self, graph: rdflib.Graph, iri: str) -> rdflib.Graph:
+        """
+        Create a new Graph with only the dataset.
+
+        :param graph: the graph to construct the dataset from
+        :param iri: the IRI of the dataset
+        :return: the constructed dataset
+        """
+        return graph.query(
+            "CONSTRUCT {?s ?p ?o} WHERE {?s a dcat:Dataset; ?p ?o}",
+            initNs={"dcat": rdflib.Namespace("http://www.w3.org/ns/dcat#")},
+            initBindings={"s": rdflib.URIRef(iri)},
+        ).graph
+
+    def __construct_distribution(
+        self, graph: rdflib.Graph, iri: rdflib.URIRef
+    ) -> rdflib.Graph:
+        """
+        Create a new Graph with only the distribution.
+
+        :param graph: the graph to construct the distribution from
+        :param iri: the IRI of the distribution
+        :return: the constructed distribution
+        """
+        return graph.query(
+            "CONSTRUCT {?s ?p ?o} WHERE {?s a dcat:Distribution; ?p ?o}",
+            initNs={"dcat": rdflib.Namespace("http://www.w3.org/ns/dcat#")},
+            initBindings={"s": iri},
+        ).graph
+
+    def serialize_to_couchdb(self, graph: rdflib.Graph, iri: str) -> None:
         """
         Serialize a DCAT Dataset to CouchDB.
         See https://github.com/linkedpipes/dcat-ap-viewer/wiki/Provider:-CouchDB for schema definition.
@@ -38,24 +74,33 @@ class ViewerProvider:
         :param iri: the IRI of the distribution
         """
         log = logging.getLogger(__name__)
-        log.debug("Serialize to CouchDB - execution: %s", iri)
         with TimedBlock("couchdb"):
             try:
                 self.__datasets.save(
-                    {"_id": iri, "jsonld": graph.serialize(format="json-ld")}
+                    {
+                        "_id": iri,
+                        "jsonld": self.__construct_dataset(graph, iri).serialize(
+                            format="json-ld"
+                        ),
+                    }
                 )
             except pycouchdb.exceptions.Conflict:
-                log.debug("Document already exists: %s", iri)
+                pass
+
             for distribution in graph.objects(
                 rdflib.URIRef(iri),
                 rdflib.URIRef("http://www.w3.org/ns/dcat#distribution"),
             ):
+                if not isinstance(distribution, rdflib.URIRef):
+                    continue
                 try:
                     self.__distributions.save(
                         {
                             "_id": str(distribution),
-                            "jsonld": graph.serialize(format="json-ld"),
+                            "jsonld": self.__construct_distribution(
+                                graph, distribution
+                            ).serialize(format="json-ld"),
                         }
                     )
                 except pycouchdb.exceptions.Conflict:
-                    log.debug("Document already exists: %s", str(distribution))
+                    pass

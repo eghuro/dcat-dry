@@ -42,6 +42,7 @@ class DatasetDistribution(Base):
     distr = db.Column(db.String, nullable=False)
     relevant = db.Column(db.Boolean, nullable=True, default=False)
     ofn = db.Column(db.String, nullable=True)
+    processed = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class Datacube(Base):

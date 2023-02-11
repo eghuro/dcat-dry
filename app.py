@@ -10,7 +10,7 @@ app = create_app(ProdConfig)
 
 
 @app.before_first_request
-def setup_logging():
+def setup_logging():  # noqa: unused-function
     """Set up logging to STDOUT from INFO level up in production environment."""
     if not app.debug:
         # In production mode, add log handler to sys.stderr.

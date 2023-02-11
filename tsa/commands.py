@@ -54,7 +54,7 @@ def batch(graphs=None, sparql=None):
 
     with open(graphs, "r", encoding="utf-8") as graphs_file:
         for chunk in chunks(graphs_file, 1000):
-            batch_inspect.si(sparql, chunk, 10).apply_async()
+            batch_inspect.si(sparql, tuple(x for x in chunk), 10).apply_async()
 
 
 @click.command()

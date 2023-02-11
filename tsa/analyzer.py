@@ -509,7 +509,6 @@ class GenericAnalyzer(AbstractAnalyzer):
             db_session.execute(
                 insert(SubjectObject).on_conflict_do_nothing(),
                 ({"distribution_iri": iri, "iri": s} for s in subjects.union(objects)),
-                execution_options={"stream_results": True},
             )
             db_session.commit()
         except SQLAlchemyError:
@@ -557,9 +556,7 @@ class GenericAnalyzer(AbstractAnalyzer):
                     if check_iri(iri):
                         yield self._extract_detail(row, iri)
 
-            db_session.execute(
-                insert(Label), gen_labels(), execution_options={"stream_results": True}
-            )
+            db_session.execute(insert(Label), gen_labels())
             db_session.commit()
         except ParserError:
             logging.getLogger(__name__).exception("Failed to extract labels")

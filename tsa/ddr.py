@@ -51,11 +51,7 @@ class DataDrivenRelationshipIndex:
 
         try:
             insert_stmt = insert(DDR).on_conflict_do_nothing()
-            db_session.execute(
-                insert_stmt,
-                gen_cleaned_data(),
-                execution_options={"stream_results": True},
-            )
+            db_session.execute(insert_stmt, gen_cleaned_data())
             db_session.commit()
         except SQLAlchemyError:
             logging.getLogger(__name__).exception(
@@ -91,7 +87,6 @@ class ConceptIndex:
             db_session.execute(
                 insert_stmt,
                 ({"iri": iri} for iri in data if (iri is not None) and (len(iri) > 0)),
-                execution_options={"stream_results": True},
             )
             db_session.commit()
         except SQLAlchemyError:

@@ -38,9 +38,7 @@ class Index:
 
         insert_stmt = insert(DDR).on_conflict_do_nothing()
         try:
-            db_session.execute(
-                insert_stmt, gen_data(), execution_options={"stream_results": True}
-            )
+            db_session.execute(insert_stmt, gen_data())
             db_session.commit()
         except SQLAlchemyError:
             logging.getLogger(__name__).exception(
@@ -70,11 +68,7 @@ class Index:
 
             insert_stmt = insert(DDR).on_conflict_do_nothing()
             try:
-                db_session.execute(
-                    insert_stmt,
-                    gen_values(),
-                    execution_options={"stream_results": True},
-                )
+                db_session.execute(insert_stmt, gen_values())
                 db_session.commit()
             except SQLAlchemyError:
                 logging.getLogger(__name__).exception("Failed fo finalize index")
