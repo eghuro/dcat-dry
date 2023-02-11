@@ -2415,7 +2415,7 @@ requests = ["requests"]
 type = "git"
 url = "https://github.com/eghuro/pyld.git"
 reference = "HEAD"
-resolved_reference = "2ed6ec9a2fb4e7261826eaa85e86e0d51bbb0eb2"
+resolved_reference = "7dddbbeaff0b5daf7f2271abc149ba1a34dd676e"
 
 [[package]]
 name = "pylint"
@@ -3765,4 +3765,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "92f3f122d7d214c8ba4fd1c3e7f385c176ba3b018de17ebebd713cef31514f06"
+content-hash = "3ba06f79330a8ca59e04108e044df2e4276242e86b5f09fa83842554081e63c1"
