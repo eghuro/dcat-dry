@@ -19,6 +19,21 @@ try:
 except ImportError:
     Config.ROBOTS = False
 
+
+def couchdb_cache_filter(request: requests.Response) -> bool:
+    """
+    Filter for caching couchdb requests. Do not cache HEAD requests to couchdb.
+    These are used to check if a resource exists and if cached will always return 404
+    even if we added the resource afterwards (e.g. creating the db).
+
+    :param request: the request to check
+    :return: True if the request should be cached
+    """
+    return request.request.method == "HEAD" and request.url.startswith(
+        Config.COUCHDB_URL
+    )
+
+
 soft, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
 USER_AGENT = requests_toolbelt.user_agent(
     "DRYbot", tsa.__version__, extras=[("requests", requests.__version__)]
@@ -31,6 +46,7 @@ session = CachedSession(
     cache_control=True,
     allowable_codes=[200, 400, 404],
     stale_if_error=True,
+    filter_fn=couchdb_cache_filter,
 )
 session.headers.update({"User-Agent": USER_AGENT})
 adapter = requests.adapters.HTTPAdapter(
