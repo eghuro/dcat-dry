@@ -4,7 +4,7 @@ import logging
 from typing import Tuple
 
 import rdflib
-from pyld.lib.pyld import jsonld
+from pyld import jsonld
 from rdflib.exceptions import ParserError
 from requests.exceptions import HTTPError, RequestException
 from sqlalchemy import insert
