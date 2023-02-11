@@ -15,14 +15,14 @@ from tsa.db import db_session
 from tsa.model import Analysis, Relationship
 from tsa.monitor import TimedBlock
 from tsa.net import accept
-from tsa.robots import USER_AGENT, session
+from tsa.robots import session
 from tsa.settings import Config
 
 jsonld.set_document_loader(
     jsonld.requests_document_loader(
         timeout=Config.TIMEOUT,
         session=session,
-        headers={"User-Agent": USER_AGENT, "Accept": accept},
+        headers={"Accept": accept},
     )
 )
 

@@ -96,7 +96,6 @@ class SparqlEndpointAnalyzer:
                 _node_to_sparql,
                 "application/rdf+xml",
                 session=session,
-                headers={"User-Agent": USER_AGENT},
             )
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
