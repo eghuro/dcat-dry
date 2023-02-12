@@ -110,7 +110,7 @@ def load_graph(
     iri: str,
     data: Response,
     format_guess: str,
-    graph_name: str,
+    storage_file_name: str,
     log_error_as_exception: bool = False,
 ) -> rdflib.ConjunctiveGraph:
     """
@@ -119,15 +119,16 @@ def load_graph(
     :param iri: IRI of the distribution
     :param data: the data to load (Response object)
     :param format_guess: guessed format of the data
+    :param storage_file_name: where to store the graph in - in case of on disk storage. This should not exist yet. If it does, there will be an error. Usually, the caller sets up a temporary directory and then creates any name - since it's the only file in the directory, it's safe to use.
     :param log_error_as_exception: log exceptions as exception with trace (if not, log errors as warning)
     :return: the loaded graph or an empty graph if loading failed
     """
     log = logging.getLogger(__name__)
     try:
         format_guess = format_guess.lower()
-        store = plugin.get("LevelDB", Store)(identifier=URIRef(graph_name))
+        store = plugin.get("LevelDB", Store)(identifier=URIRef(storage_file_name))
         graph = rdflib.ConjunctiveGraph(store)
-        graph.open(graph_name, create=True)
+        graph.open(storage_file_name, create=True)
         if format_guess == "json-ld":
             convert_jsonld(data.raw, graph)
         else:

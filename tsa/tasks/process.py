@@ -264,13 +264,14 @@ class FailedDereference(ValueError):
 
 
 def dereference_one_impl(
-    iri_to_dereference: Optional[str], iri_distr: str, graph_name: str
+    iri_to_dereference: Optional[str], iri_distr: str, storage_file_name: str
 ) -> rdflib.ConjunctiveGraph:  # can raise RobotsRetry
     """
     Dereference one IRI. In case of any error, try to dereference from endpoints.
 
     :param iri_to_dereference: IRI to dereference
     :param iri_distr: IRI of the distribution (used for logging)
+    :param storage_file_name: Where to store the dereferenced graph
     :return: Graph with the resource and its neighbors
     :raises FailedDereference: If the IRI cannot be dereferenced
     :raises RobotsRetry: If the IRI cannot be dereferenced from endpoints due to robots.txt
@@ -291,7 +292,9 @@ def dereference_one_impl(
         guess, _, _ = guess_format(iri_to_dereference, response, log)
         # content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
-        graph = load_graph(iri_to_dereference, response, guess, graph_name, False)
+        graph = load_graph(
+            iri_to_dereference, response, guess, storage_file_name, False
+        )
         if graph is not None and len(graph) > 0:
             return graph
         log.debug(
@@ -331,18 +334,19 @@ def has_same_as(graph: rdflib.Graph) -> bool:
 
 
 def dereference_one(
-    iri_to_dereference: Optional[str], iri_distr: str, graph_name: str
+    iri_to_dereference: Optional[str], iri_distr: str, storage_file_name: str
 ) -> Tuple[rdflib.ConjunctiveGraph, bool]:
     """
     Dereference one IRI, return the graph and a boolean indicating if the graph contains owl:sameAs statements.
 
     :param iri_to_dereference: IRI to dereference
     :param iri_distr: IRI of the distribution
+    :param storage_file_name: Where to store the dereferenced graph
     :return: Tuple of graph and boolean indicating if the graph contains owl:sameAs statements
     :raises FailedDereference: if all attempts to dereference failed or if we are not allowed to dereference due to robots.txt
     """
     try:
-        graph = dereference_one_impl(iri_to_dereference, iri_distr, graph_name)
+        graph = dereference_one_impl(iri_to_dereference, iri_distr, storage_file_name)
         return graph, has_same_as(graph)
     except FailedDereference:
         logging.getLogger(__name__).exception(
