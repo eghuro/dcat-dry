@@ -106,7 +106,7 @@ class SparqlEndpointAnalyzer:
         and return them as a graph.
 
         :param graph_iri: named graph IRI
-        :return: DCAT-AP dataset - graph. The graph is from an active query and is meant to be only traversed once, otherwise bad things happen.
+        :return: DCAT-AP dataset - graph.
         """
         log = logging.getLogger(__name__)
         graph_iri = graph_iri.strip()
@@ -121,7 +121,6 @@ class SparqlEndpointAnalyzer:
             with TimedBlock("process_graph"):
                 return graph.query(SparqlEndpointAnalyzer.__query(graph_iri)).graph
                 # implementation detail for CONSTRUCT!
-                # this graph can be only used once, otherwise bad things happen
         except ResultException as exc:
             log.error(
                 "Failed to process %s in %s: %s", graph_iri, self.__endpoint, str(exc)

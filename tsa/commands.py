@@ -2,13 +2,12 @@
 """Click commands."""
 import json
 import logging
-from itertools import chain, islice
 from typing import Any, Generator, List
 
 import click
-import redis
 from flask import current_app
 from flask.cli import with_appcontext
+from more_itertools import chunked
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 from tsa.query import query
@@ -30,13 +29,6 @@ def divide_chunks(
         yield list_to_split[i : i + chunk_size]
 
 
-def chunks(iterable, size=10):
-    # https://stackoverflow.com/a/24527424
-    iterator = iter(iterable)
-    for first in iterator:
-        yield chain([first], islice(iterator, size - 1))
-
-
 @click.command()
 @click.option("-g", "--graphs", required=True, help="List of graphs")
 @click.option("-s", "--sparql", required=True, help="IRI of the SPARQL endpoint")
@@ -46,14 +38,17 @@ def batch(graphs=None, sparql=None):
     DCAT-AP catalogue is stored in the named graphs listed in the graph's file.
     """
     log = logging.getLogger(__name__)
+    if not graphs:
+        log.error("No graphs file provided")
+        return
     if not check_iri(sparql):
         log.error("Not a valid SPARQL Endpoint: %s", sparql)
         return
     log.info("Analyzing endpoint %s", sparql)
 
     with open(graphs, "r", encoding="utf-8") as graphs_file:
-        for chunk in chunks(graphs_file, 1000):
-            batch_inspect.si(sparql, tuple(x for x in chunk), 10).apply_async()
+        for chunk in chunked(graphs_file, 1000):
+            batch_inspect.si(sparql, chunk, 10).apply_async()
 
 
 @click.command()

@@ -3,6 +3,7 @@ import logging
 from typing import List, Optional, Any
 
 import rdflib
+import redis
 from celery import group
 from celery.result import AsyncResult
 from requests.exceptions import HTTPError
@@ -10,9 +11,11 @@ from requests.exceptions import HTTPError
 from tsa.celery import celery
 from tsa.dcat import Extractor
 from tsa.endpoint import SparqlEndpointAnalyzer
+from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry
 from tsa.viewer import viewer
+from tsa.settings import Config
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import process, process_priority
 
@@ -75,7 +78,8 @@ def do_inspect_graph(
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
         result = _dcat_extractor(inspector.process_graph(graph_iri), force)
-        couchdb_load.si(endpoint_iri, graph_iri).apply_async()
+        if Config.COUCHDB_URL:
+            couchdb_load.si(endpoint_iri, graph_iri).apply_async()
     except (rdflib.query.ResultException, HTTPError):
         log.error(
             "Failed to inspect graph %s: ResultException or HTTP Error", graph_iri
@@ -91,10 +95,12 @@ def couchdb_load(endpoint_iri, graph_iri) -> None:
     :param endpoint_iri: IRI of the SPARQL endpoint
     :param graph_iri: IRI of the named graph to inspect
     """
-    inspector = SparqlEndpointAnalyzer(endpoint_iri)
-    graph = inspector.process_graph(graph_iri)
-    if graph:
-        viewer.serialize_to_couchdb(graph, graph_iri)
+    red = redis.Redis(connection_pool=redis_pool)
+    with red.lock("couchdb_load", timeout=60):
+        inspector = SparqlEndpointAnalyzer(endpoint_iri)
+        graph = inspector.process_graph(graph_iri)
+        if graph:
+            viewer.serialize_to_couchdb(graph, graph_iri)
 
 
 def multiply(item: Any, times: int) -> Any:

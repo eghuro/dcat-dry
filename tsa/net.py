@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
-from io import BytesIO
+from io import StringIO
 from random import randint
 from typing import Tuple, Optional
 
@@ -193,14 +193,14 @@ def get_content(iri: str, response: requests.Response) -> str:
     """
     chsize = 1024
     conlen = 0
-    data = BytesIO()
-    for chunk in response.iter_content(chunk_size=chsize):
+    data = StringIO()
+    for chunk in response.iter_content(chunk_size=chsize, decode_unicode=True):
         if chunk:
             data.write(chunk)
             conlen = conlen + len(chunk)
     monitor.log_size(conlen)
     try:
-        return data.getvalue().decode("utf-8")
+        return data.getvalue()
     except UnicodeDecodeError as exc:
         logging.getLogger(__name__).warning(
             "Failed to load content for %s: %s", iri, exc
