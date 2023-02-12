@@ -4,7 +4,7 @@ import json
 import logging
 import tempfile
 from functools import partial
-from typing import Tuple, Any
+from typing import Tuple, Any, TextIO
 
 import rdflib
 from requests import Response
@@ -20,7 +20,7 @@ from tsa.analyzer import AbstractAnalyzer
 from tsa.db import db_session
 from tsa.model import Analysis, Relationship
 from tsa.monitor import TimedBlock
-from tsa.net import accept, fetch
+from tsa.net import accept, fetch, StreamedFile
 from tsa.robots import session
 from tsa.settings import Config
 from tsa.util import check_iri
@@ -130,13 +130,11 @@ def load_graph(
         graph = rdflib.ConjunctiveGraph(store)
         graph.open(storage_file_name, create=True)
         if format_guess == "json-ld":
-            convert_jsonld(data.raw, graph)
+            convert_jsonld(StreamedFile(iri, data), graph)
         else:
             # parse graph directly from the response so that we read the data directly into the store (in case of large graphs)
             # this leverages the fact that requests.Response.raw is a file-like object
-            # however, we need to monkey patch the name attribute as the parser expects a real file
-            data.raw.name = iri  # prevents AttributeError: 'HTTPResponse' object has no attribute 'name' from rdflib parser
-            graph.parse(file=data.raw, format=format_guess)
+            graph.parse(file=StreamedFile(iri, data), format=format_guess)
         return graph
     except (TypeError, ParserError):
         log.warning("Failed to parse %s (%s)", iri, format_guess)
