@@ -29,9 +29,7 @@ def monitor(*args):  # pylint: disable=unused-argument
     redis_cfg = os.environ.get("REDIS_CELERY", None)
     pool = redis_lib.ConnectionPool().from_url(redis_cfg)
     red = redis_lib.Redis(connection_pool=pool)
-    enqueued = (
-        red.llen("default") + red.llen("high_priority") + red.llen("low_priority")
-    )
+    enqueued = red.llen("celery") + red.llen("celery:0") + red.llen("celery:1")
     if enqueued > 0:
         log.info("Enqueued: %s", str(enqueued))
         red.set("shouldQuery", 1)
