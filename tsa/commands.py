@@ -2,16 +2,14 @@
 """Click commands."""
 import json
 import logging
-import os
 from typing import Any, Generator, List
 
 import click
-import redis
 from flask import current_app
 from flask.cli import with_appcontext
+from more_itertools import chunked
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 
-from tsa.extensions import redis_pool
 from tsa.query import query
 from tsa.report import import_labels as import_labels_impl
 from tsa.sameas import same_as_index
@@ -40,24 +38,17 @@ def batch(graphs=None, sparql=None):
     DCAT-AP catalogue is stored in the named graphs listed in the graph's file.
     """
     log = logging.getLogger(__name__)
+    if not graphs:
+        log.error("No graphs file provided")
+        return
     if not check_iri(sparql):
         log.error("Not a valid SPARQL Endpoint: %s", sparql)
         return
     log.info("Analyzing endpoint %s", sparql)
 
-    red = redis.Redis(connection_pool=redis_pool)
-    key = "batch:" + sparql
     with open(graphs, "r", encoding="utf-8") as graphs_file:
-        lines = graphs_file.readlines()
-        log.debug("Read lines")
-        for iris in divide_chunks(lines, 1000):
-            graphs = [
-                iri.strip()
-                for iri in iris
-                if check_iri(iri) and (red.pfadd(key, iri) == 0)
-            ]
-            # inspect_graphs.si(graphs, sparql, False).apply_async()
-            batch_inspect.si(sparql, graphs, 10).apply_async()
+        for chunk in chunked(graphs_file, 1000):
+            batch_inspect.si(sparql, chunk, 10).apply_async()
 
 
 @click.command()

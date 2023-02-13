@@ -21,17 +21,20 @@ include = [
     "tsa.tasks.system",
 ]
 broker_transport_options = {
+    "priority_steps": list(range(3)),
+    "sep": ":",
+    "queue_order_strategy": "priority",
     "fanout_prefix": True,
     "fanout_patterns": True,
     "max_connections": 20,
 }
 task_create_missing_queues = True
-task_default_queue = "default"
-task_routes = {
-    "tsa.tasks.process.process_priority": {"queue": "high_priority"},
-    "tsa.tasks.query.*": {"queue": "query"},
-    "tsa.tasks.batch.*": {"queue": "low_priority"},
-    "tsa.tasks.commonn.monitor": {"queue": "default"},
+task_default_queue = "celery:1"
+task_task_routes = {
+    "tsa.tasks.process.process_priority": {"queue": "celery"},
+    "tsa.tasks.query.*": {"queue": "celery:2"},
+    "tsa.tasks.batch.*": {"queue": "celery:2"},
+    "tsa.tasks.commonn.monitor": {"queue": "celery:1"},
 }
 beat_schedule = {
     "check-queue-every-ten-minutes": {

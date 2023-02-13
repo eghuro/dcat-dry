@@ -28,12 +28,11 @@ class Config:
     SD_BASE_IRI = "https://data.eghuro.cz/resource/"
     EXCLUDE_PREFIX_LIST = "/tmp/exclude.txt"
     MAX_RECURSION_LEVEL = 3
-    MATTERMOST_CHANNEL = os.environ.get("CHANNEL", None)
-    MATTERMOST_HOOK = os.environ.get("MATTERMOST", None)
-    COMPRESSED = True
+    COMPRESSED = False
     LIMITED = False  # True = pouze vybrana URL - viz batch.py test_allowed
     ROBOTS = True
     TIMEOUT = 10800  # 3H
+    COUCHDB_URL = os.environ.get("COUCHDB", None)
 
 
 class ProdConfig(Config):

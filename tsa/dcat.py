@@ -1,6 +1,6 @@
 import itertools
 import logging
-from typing import Generator, List
+from typing import Generator, Optional
 
 from rdflib import Graph, Namespace, URIRef
 from rdflib.namespace import RDF
@@ -20,8 +20,8 @@ from tsa.util import check_iri
 class Extractor:
     """Extracts DCAT-AP metadata from an RDF graph."""
 
-    log = logging.getLogger(__name__)
-    media_priority = frozenset(
+    _log = logging.getLogger(__name__)
+    _media_priority = frozenset(
         (
             "https://www.iana.org/assignments/media-types/application/rdf+xml",
             "https://www.iana.org/assignments/media-types/application/trig",
@@ -40,7 +40,7 @@ class Extractor:
         )
     )  # IANA
 
-    format_priority = frozenset(
+    _format_priority = frozenset(
         (
             "http://publications.europa.eu/resource/authority/file-type/RDF",
             "http://publications.europa.eu/resource/authority/file-type/RDFA",
@@ -62,9 +62,9 @@ class Extractor:
             "https://publications.europa.eu/resource/authority/file-type/N3",
         )
     )  # EU
-    dcat = Namespace("http://www.w3.org/ns/dcat#")
-    dcterms = Namespace("http://purl.org/dc/terms/")
-    nkod = Namespace("https://data.gov.cz/slovník/nkod/mediaTyp")
+    _dcat = Namespace("http://www.w3.org/ns/dcat#")
+    _dcterms = Namespace("http://purl.org/dc/terms/")
+    _nkod = Namespace("https://data.gov.cz/slovník/nkod/mediaTyp")
 
     def __init__(self, graph: Graph):
         self.__graph = graph
@@ -88,7 +88,7 @@ class Extractor:
         """
         self.__db_endpoints = []
         self.__db_distributions = []
-        for dataset in self.__graph.subjects(RDF.type, Extractor.dcat.Dataset):
+        for dataset in self.__graph.subjects(RDF.type, Extractor._dcat.Dataset):
             for task in self.__process_dataset(str(dataset), priority, regular, force):
                 self.__task_count += 1
                 yield task
@@ -105,7 +105,7 @@ class Extractor:
                 db_session.commit()
                 GenericAnalyzer().get_details(self.__graph)
         except SQLAlchemyError:
-            Extractor.log.exception("Error while saving to database")
+            Extractor._log.exception("Error while saving to database")
             db_session.rollback()
 
     def __process_dataset(self, dataset: str, priority, regular, force: bool):
@@ -121,8 +121,11 @@ class Extractor:
         effective_dataset_iri = self.__get_effective_dataset_iri(dataset)
         if effective_dataset_iri is None:
             return
+        ofn = self.__graph.value(URIRef(dataset), Extractor._dcterms.conformsTo)
+        if ofn is not None:
+            ofn = str(ofn)
         for distribution in self.__graph.objects(
-            URIRef(dataset), Extractor.dcat.distribution
+            URIRef(dataset), Extractor._dcat.distribution
         ):
             if isinstance(distribution, URIRef):
                 for task in self.__process_distribution(
@@ -132,10 +135,11 @@ class Extractor:
                     priority,
                     regular,
                     force,
+                    ofn,
                 ):
                     yield task
             else:
-                Extractor.log.warning("Invalid distribution: %s", distribution)
+                Extractor._log.warning("Invalid distribution: %s", distribution)
 
     def __process_distribution(
         self,
@@ -145,6 +149,7 @@ class Extractor:
         priority,
         regular,
         force: bool,
+        ofn: Optional[str],
     ):
         """
         Extract download URLs from a distribution,
@@ -156,19 +161,20 @@ class Extractor:
         :param priority: Celery task signature for priority tasks - known RDF formats
         :param regular: Celery task signature for regular tasks - likely not RDF format
         :param force: Force processing of all distributions
+        :param ofn: IRI of the standard the dataset conforms to
         :return: Generator of Celery tasks
         """
         task = self.__get_task(distribution, priority, regular)
         for download_url in self.__graph.objects(
-            distribution, Extractor.dcat.downloadURL
+            distribution, Extractor._dcat.downloadURL
         ):
             for task in self.__process_distribution_url(
-                str(download_url), effective_dataset_iri, task, force, priority
+                str(download_url), effective_dataset_iri, task, force, priority, ofn
             ):
                 yield task
         for service in itertools.chain(
-            self.__graph.objects(dataset_iri, Extractor.dcat.accessService),
-            self.__graph.subjects(Extractor.dcat.servesDataset, dataset_iri),
+            self.__graph.objects(dataset_iri, Extractor._dcat.accessService),
+            self.__graph.subjects(Extractor._dcat.servesDataset, dataset_iri),
         ):
             if isinstance(service, URIRef):
                 self.__process_service(service, effective_dataset_iri)
@@ -181,15 +187,21 @@ class Extractor:
         :param service: IRI of the service (DCAT:accessService)
         :param effective_dataset_iri: IRI of the dataset (or series)
         """
-        Extractor.log.debug("Service: %s", str(service))
-        for endpoint in self.__graph.objects(service, Extractor.dcat.endpointURL):
+        Extractor._log.debug("Service: %s", str(service))
+        for endpoint in self.__graph.objects(service, Extractor._dcat.endpointURL):
             url = str(endpoint)
             if not check_iri(url) or filter_iri(url):
                 return
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
 
     def __process_distribution_url(
-        self, url: str, effective_dataset_iri: str, task, force: bool, priority
+        self,
+        url: str,
+        effective_dataset_iri: str,
+        task,
+        force: bool,
+        priority,
+        ofn: Optional[str],
     ):
         """
         Extracts download URLs from a distribution. Apply IRI filters anc checks.
@@ -200,18 +212,24 @@ class Extractor:
         :param task: Celery task to execute
         :param force: Force processing of all distributions
         :param priority: Celery task signature for priority tasks - in case we are sure the URL is RDF to override the default task
+        :param ofn: IRI of the standard the dataset conforms to
         :return: Generator of Celery task signatures with proper URL and force flag
         """
         if not check_iri(url) or filter_iri(url):
             return
         if url.endswith("/sparql"):
-            Extractor.log.info(
+            Extractor._log.info(
                 "Guessing %s is a SPARQL endpoint, will use for dereferences from effective DCAT dataset %s",
                 url,
                 effective_dataset_iri,
             )
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
             return
+        self.__db_distributions.append(
+            {"distr": url, "ds": effective_dataset_iri, "processed": False}
+        )
+        if ofn is not None:
+            self.__db_distributions[-1]["ofn"] = ofn
         if url.endswith("trig") or url.endswith("jsonld"):
             yield priority.si(url, force)
         else:
@@ -227,14 +245,14 @@ class Extractor:
         :param regular: Celery task signature for regular tasks - likely not RDF format
         :return: task to execute (priority or regular)
         """
-        for media_type in self.__graph.objects(distribution, Extractor.dcat.mediaType):
-            if str(media_type) in Extractor.media_priority:
+        for media_type in self.__graph.objects(distribution, Extractor._dcat.mediaType):
+            if str(media_type) in Extractor._media_priority:
                 return priority
-        for format in self.__graph.objects(distribution, Extractor.dcterms["format"]):
-            if str(format) in Extractor.format_priority:
+        for format in self.__graph.objects(distribution, Extractor._dcterms["format"]):
+            if str(format) in Extractor._format_priority:
                 return priority
         for distribution_format in self.__graph.objects(
-            distribution, Extractor.nkod.mediaType
+            distribution, Extractor._nkod.mediaType
         ):
             if "rdf" in str(distribution_format):
                 return priority
@@ -269,4 +287,4 @@ class Extractor:
             for parent in self.__graph.query(query):
                 yield str(parent["parent"])
         except ValueError:
-            Extractor.log.warning("Failed to query parent. Query was: %s", query)
+            Extractor._log.warning("Failed to query parent. Query was: %s", query)

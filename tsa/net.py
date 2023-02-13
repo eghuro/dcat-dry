@@ -1,9 +1,9 @@
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
-from io import BytesIO
+from io import StringIO, SEEK_END, DEFAULT_BUFFER_SIZE
 from random import randint
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Iterable, TextIO
 
 import rdflib
 import redis
@@ -144,10 +144,11 @@ accept = ", ".join(
         "text/n3;charset=utf-8",
         "application/n-triples",
         "application/n-quads",
-        "application/xml;q=0.9",
+        "application/trix",
+        "application/json;q=0.9" "application/xml;q=0.9",
         "text/xml;q=0.9",
-        "text/plain;q=0.9",
-        "*/*;q=0.8",
+        "text/plain;q=0.8",
+        "*/*;q=0.7",
     )
 )
 
@@ -192,14 +193,14 @@ def get_content(iri: str, response: requests.Response) -> str:
     """
     chsize = 1024
     conlen = 0
-    data = BytesIO()
-    for chunk in response.iter_content(chunk_size=chsize):
+    data = StringIO()
+    for chunk in response.iter_content(chunk_size=chsize, decode_unicode=True):
         if chunk:
             data.write(chunk)
             conlen = conlen + len(chunk)
     monitor.log_size(conlen)
     try:
-        return data.getvalue().decode("utf-8")
+        return data.getvalue()
     except UnicodeDecodeError as exc:
         logging.getLogger(__name__).warning(
             "Failed to load content for %s: %s", iri, exc
@@ -292,3 +293,117 @@ def guess_format(
         raise Skip()
 
     return guess, (guess in priority), decompression_map[guess]
+
+
+class StreamedFile(TextIO):
+    def __init__(self, iri: str, response: requests.Response):
+        self.__iri = iri
+        self.__response = response
+        if response.encoding is None:
+            response.encoding = "utf-8"
+        self.__iterator = response.iter_content(chunk_size=None, decode_unicode=True)
+        self.__buffer = StringIO()
+        self.__buffered = 0
+        self.__buffer_start = 0
+        self.__closed = False
+
+    def read(self, size: Optional[int] = None) -> str:
+        if self.__closed:
+            raise OSError("No more data to read.")
+
+        # Read and return at most size characters from the stream as a single str.
+        # If size is negative or None, reads until EOF.
+        if size is None or size < 0:
+            self.__buffer.seek(0, SEEK_END)
+            for chunk in self.__iterator:
+                if chunk:
+                    self.__buffer.write(chunk)
+                    self.__buffered = self.__buffered + len(chunk)
+            return self.__buffer.getvalue()
+
+        if self.__buffered >= size:
+            self.__buffer.seek(self.__buffer_start)
+            self.__buffer_start = self.__buffer_start + size
+            return self.__buffer.read(size)
+
+        # buffered is less than size, read from iterator until size, then get value
+        for chunk in self.__iterator:
+            if chunk:
+                self.__buffer.write(chunk)
+                self.__buffered = self.__buffered + len(chunk)
+            if self.__buffered >= size:
+                break
+
+        # either end of iterator or buffered is greater than size
+        if self.__buffered < size:
+            # end of iterator
+            self.__closed = True
+            self.__buffer.seek(self.__buffer_start)
+            self.__buffer_start = self.__buffer_start + self.__buffered
+            return self.__buffer.read(self.__buffered)
+
+        # buffered is greater than size
+        self.__buffer.seek(self.__buffer_start)
+        self.__buffer_start = self.__buffer_start + size
+        return self.__buffer.read(size)
+
+    def __enter__(self):
+        self.__buffer.close()
+        self.__buffer = StringIO()
+        self.__buffered = 0
+        self.__buffer_start = 0
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if not self.__closed:
+            return self.read(DEFAULT_BUFFER_SIZE)
+        raise StopIteration
+
+    def readable(self) -> bool:
+        return not self.__closed and (self.__buffer_start <= self.__buffered)
+
+    def close(self) -> None:
+        self.__response.close()
+        self.__buffer.close()
+
+    @property
+    def name(self) -> str:
+        return self.__iri
+
+    def seekable(self) -> bool:
+        return False
+
+    def writable(self) -> bool:
+        return False
+
+    def closed(self) -> bool:
+        return self.__closed
+
+    def fileno(self) -> int:
+        raise OSError("Streamed file does not support fileno")
+
+    def isatty(self) -> bool:
+        return False
+
+    def flush(self) -> None:
+        pass
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        raise OSError("Streamed file does not support seek")
+
+    def truncate(self, size: Optional[int] = None) -> int:
+        raise OSError("Streamed file does not support truncate")
+
+    def tell(self) -> int:
+        raise OSError("Streamed file does not support tell")
+
+    def write(self, s: str) -> int:
+        raise OSError("Streamed file does not support write")
+
+    def writelines(self, lines: Iterable[str]) -> None:
+        raise OSError("Streamed file does not support writelines")

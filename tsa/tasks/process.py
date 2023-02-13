@@ -2,6 +2,7 @@
 import logging
 import os
 import sys
+import tempfile
 from typing import Generator, List, Optional, Sequence, Tuple
 
 import marisa_trie
@@ -29,7 +30,6 @@ from tsa.net import (
     RobotsRetry,
     Skip,
     fetch,
-    get_content,
     guess_format,
 )
 from tsa.redis import KeyRoot, root_name
@@ -264,13 +264,14 @@ class FailedDereference(ValueError):
 
 
 def dereference_one_impl(
-    iri_to_dereference: Optional[str], iri_distr: str
+    iri_to_dereference: Optional[str], iri_distr: str, storage_file_name: str
 ) -> rdflib.ConjunctiveGraph:  # can raise RobotsRetry
     """
     Dereference one IRI. In case of any error, try to dereference from endpoints.
 
     :param iri_to_dereference: IRI to dereference
     :param iri_distr: IRI of the distribution (used for logging)
+    :param storage_file_name: Where to store the dereferenced graph
     :return: Graph with the resource and its neighbors
     :raises FailedDereference: If the IRI cannot be dereferenced
     :raises RobotsRetry: If the IRI cannot be dereferenced from endpoints due to robots.txt
@@ -289,9 +290,11 @@ def dereference_one_impl(
             return dereference_from_endpoints(iri_to_dereference, iri_distr)
         # test_content_length(iri_to_dereference, response, log)
         guess, _, _ = guess_format(iri_to_dereference, response, log)
-        content = get_content(iri_to_dereference, response)
+        # content = get_content(iri_to_dereference, response)
         monitor.log_dereference_processed()
-        graph = load_graph(iri_to_dereference, content, guess, False)
+        graph = load_graph(
+            iri_to_dereference, response, guess, storage_file_name, False
+        )
         if graph is not None and len(graph) > 0:
             return graph
         log.debug(
@@ -331,18 +334,19 @@ def has_same_as(graph: rdflib.Graph) -> bool:
 
 
 def dereference_one(
-    iri_to_dereference: Optional[str], iri_distr: str
+    iri_to_dereference: Optional[str], iri_distr: str, storage_file_name: str
 ) -> Tuple[rdflib.ConjunctiveGraph, bool]:
     """
     Dereference one IRI, return the graph and a boolean indicating if the graph contains owl:sameAs statements.
 
     :param iri_to_dereference: IRI to dereference
     :param iri_distr: IRI of the distribution
+    :param storage_file_name: Where to store the dereferenced graph
     :return: Tuple of graph and boolean indicating if the graph contains owl:sameAs statements
     :raises FailedDereference: if all attempts to dereference failed or if we are not allowed to dereference due to robots.txt
     """
     try:
-        graph = dereference_one_impl(iri_to_dereference, iri_distr)
+        graph = dereference_one_impl(iri_to_dereference, iri_distr, storage_file_name)
         return graph, has_same_as(graph)
     except FailedDereference:
         logging.getLogger(__name__).exception(
@@ -376,21 +380,25 @@ def expand_graph_with_dereferences(
             if iri_to_dereference in dereferenced:
                 continue
             try:
-                sub_graph, should_continue = dereference_one(
-                    iri_to_dereference, iri_distr
-                )
-                dereferenced.add(iri_to_dereference)
-                if sub_graph is not None:
-                    graph += sub_graph
-
-                if should_continue and level < Config.MAX_RECURSION_LEVEL:
-                    log.info(
-                        "Continue dereferencing: now at %s, dereferenced %s",
-                        iri_distr,
-                        iri_to_dereference,
+                with tempfile.TemporaryDirectory() as dir:
+                    tmp_name = os.path.join(dir, "graph")
+                    sub_graph, should_continue = dereference_one(
+                        iri_to_dereference, iri_distr, tmp_name
                     )
-                    new_level = level + 1
-                    queue.append((iri_to_dereference, new_level))
+                    dereferenced.add(iri_to_dereference)
+                    if sub_graph is not None:
+                        graph += sub_graph
+                        sub_graph.close()
+                        sub_graph.destroy(configuration=tmp_name)
+
+                    if should_continue and level < Config.MAX_RECURSION_LEVEL:
+                        log.info(
+                            "Continue dereferencing: now at %s, dereferenced %s",
+                            iri_distr,
+                            iri_to_dereference,
+                        )
+                        new_level = level + 1
+                        queue.append((iri_to_dereference, new_level))
 
             except UnicodeDecodeError:
                 log.exception(
@@ -410,26 +418,24 @@ def store_pure_subjects(iri: str, graph: rdflib.Graph) -> None:
     """
     if iri is None or len(iri) == 0:
         return
-    insert_stmt = (
-        insert(SubjectObject)
-        .values(
-            [
+    try:
+        db_session.execute(
+            insert(SubjectObject).on_conflict_do_nothing(),
+            (
                 {"distribution_iri": iri, "iri": str(sub), "pure_subject": True}
                 for sub, _, _ in graph
                 if ((sub is not None) and len(str(sub)) > 0)
-            ]
+            ),
         )
-        .on_conflict_do_nothing()
-    )
-    try:
-        db_session.execute(insert_stmt)
         db_session.commit()
     except SQLAlchemyError:
         logging.getLogger(__name__).error("Failed to store pure objects")
         db_session.rollback()
 
 
-def process_content(content: str, iri: str, guess: str, log: logging.Logger) -> None:
+def process_content(
+    content: requests.Response, iri: str, guess: str, log: logging.Logger
+) -> None:
     """
     Process content from a given IRI.
     - Parse the graph
@@ -443,27 +449,31 @@ def process_content(content: str, iri: str, guess: str, log: logging.Logger) -> 
     :param log: The logger to use
     """
     log.info("Analyze and index %s", iri)
-    with TimedBlock("process.load"):
-        graph = load_graph(iri, content, guess, True)
+    with tempfile.TemporaryDirectory() as dir:
+        tmp_name = os.path.join(dir, "graph")
+        with TimedBlock("process.load"):
+            graph = load_graph(iri, content, guess, tmp_name, True)
 
-    if graph is None:
-        log.warning("Graph is none: %s", iri)
-        return
-    if len(graph) == 0:
-        log.debug("Graph is empty: %s", iri)
-        return
+        if graph is None:
+            log.warning("Graph is none: %s", iri)
+            return
+        if len(graph) == 0:
+            log.debug("Graph is empty: %s", iri)
+            return
 
-    store_pure_subjects(iri, graph)
+        store_pure_subjects(iri, graph)
 
-    with TimedBlock("process.dereference"):
-        try:
-            graph = expand_graph_with_dereferences(graph, iri)
-        except ValueError:
-            log.exception("Failed to expand dereferenes: %s", iri)
-    with TimedBlock("process.analyze_and_index"):
-        do_analyze_and_index(graph, iri)
-    log.debug("Done analyze and index %s (immediate)", iri)
-    monitor.log_processed()
+        with TimedBlock("process.dereference"):
+            try:
+                graph = expand_graph_with_dereferences(graph, iri)
+            except ValueError:
+                log.exception("Failed to expand dereferenes: %s", iri)
+        with TimedBlock("process.analyze_and_index"):
+            do_analyze_and_index(graph, iri)
+        log.debug("Done analyze and index %s (immediate)", iri)
+        monitor.log_processed()
+        graph.close()
+        graph.destroy(configuration=tmp_name)
 
 
 def _filter(
@@ -557,8 +567,7 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         if archive_type is None:
             try:
                 log.debug("Get content of %s", iri)
-                content = get_content(iri, response)
-                process_content(content, iri, guess, log)
+                process_content(response, iri, guess, log)
             except requests.exceptions.ChunkedEncodingError as err:
                 task.retry(exc=err)
             except NoContent:
@@ -577,10 +586,11 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
         monitor.log_processed()
         task.update_state(state=states.FAILURE, meta="Timeout")
         raise Ignore()
-    except requests.exceptions.HTTPError as err:
+    except (requests.exceptions.HTTPError) as err:
         log.warning(
             "HTTP Error processing %s: %s", iri, str(err)
         )  # this is a 404 or similar, not worth retrying
+        monitor.log_processed()
     except requests.exceptions.RequestException as err:
         task.retry(exc=err)
     except Exception as err:

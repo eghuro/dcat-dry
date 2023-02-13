@@ -14,7 +14,6 @@ classifiers=[
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: Implementation :: CPython",
         "Development Status :: 3 - Alpha",
         "Framework :: Flask",
@@ -48,10 +47,12 @@ flask-sqlalchemy = "^3.0.3"
 frozendict = "^2.3.4"
 flask-rdf = "^0.2.1"
 psycopg2-binary = "^2.9.5"
-pyld = "^2.0.3"
 requests-cache = "^0.9.8"
 requests-toolbelt = "^0.10.1"
 rfc3987 = "^1.3.8"
+pyld = { git = "https://github.com/eghuro/pyld.git" }
+more-itertools = "^9.0.0"
+rdflib-leveldb = {git = "https://github.com/RDFLib/rdflib-leveldb"}
 
 [tool.poetry.group.statsd]
 optional = true
@@ -89,6 +90,12 @@ optional = true
 [tool.poetry.group.gevent.dependencies]
 gevent = "^22.10.2"
 psycogreen = "^1.0.2"
+
+[tool.poetry.group.couchdb]
+optional = true
+
+[tool.poetry.group.couchdb.dependencies]
+pycouchdb = { git = "https://github.com/eghuro/py-couchdb.git" }
 
 [tool.poetry.group.test]
 optional = true

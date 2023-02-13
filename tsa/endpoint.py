@@ -33,6 +33,7 @@ class SparqlEndpointAnalyzer:
           ?ds a <http://www.w3.org/ns/dcat#Dataset>;
           <http://purl.org/dc/terms/title> ?title;
           <http://www.w3.org/ns/dcat#keyword> ?keyword;
+          <http://purl.org/dc/terms/conformsTo> ?conformsTo;
           <http://www.w3.org/ns/dcat#distribution> ?d.
           ?d a <http://www.w3.org/ns/dcat#Distribution>;
           <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL;
@@ -51,6 +52,7 @@ class SparqlEndpointAnalyzer:
          ?ds a <http://www.w3.org/ns/dcat#Dataset>.
          ?ds <http://purl.org/dc/terms/title> ?title.
          OPTIONAL {?ds <http://www.w3.org/ns/dcat#keyword> ?keyword. }
+        OPTIONAL {?ds <http://purl.org/dc/terms/conformsTo> ?conformsTo. }
          ?ds <http://www.w3.org/ns/dcat#distribution> ?d.
          OPTIONAL { ?d <http://www.w3.org/ns/dcat#downloadURL> ?downloadURL. }
          OPTIONAL { ?d <http://purl.org/dc/terms/format> ?format. }
@@ -94,7 +96,6 @@ class SparqlEndpointAnalyzer:
                 _node_to_sparql,
                 "application/rdf+xml",
                 session=session,
-                headers={"User-Agent": USER_AGENT},
             )
 
     def process_graph(self, graph_iri: str) -> Optional[Graph]:
@@ -105,7 +106,7 @@ class SparqlEndpointAnalyzer:
         and return them as a graph.
 
         :param graph_iri: named graph IRI
-        :return: DCAT-AP dataset - graph
+        :return: DCAT-AP dataset - graph.
         """
         log = logging.getLogger(__name__)
         graph_iri = graph_iri.strip()
@@ -118,9 +119,8 @@ class SparqlEndpointAnalyzer:
 
         try:
             with TimedBlock("process_graph"):
-                return graph.query(
-                    SparqlEndpointAnalyzer.__query(graph_iri)
-                ).graph  # implementation detail for CONSTRUCT!
+                return graph.query(SparqlEndpointAnalyzer.__query(graph_iri)).graph
+                # implementation detail for CONSTRUCT!
         except ResultException as exc:
             log.error(
                 "Failed to process %s in %s: %s", graph_iri, self.__endpoint, str(exc)
