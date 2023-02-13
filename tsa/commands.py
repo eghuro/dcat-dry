@@ -14,8 +14,9 @@ from tsa.query import query
 from tsa.report import import_labels as import_labels_impl
 from tsa.sameas import same_as_index
 from tsa.tasks.batch import batch_inspect
-from tsa.tasks.process import dereference_one
 from tsa.util import check_iri
+from tsa.viewer import viewer
+from tsa.settings import Config
 
 # register any new command in app.py: register_commands and tsa.rst in docs
 
@@ -75,15 +76,11 @@ def import_sameas(file):
 
 
 @click.command()
-@click.option("-i", "--iri", required=True, help="IRI to dereference")
-def dereference(iri=None):
-    dereference_one(iri, "AD-HOC")
-
-
-@click.command()
 def finalize():
     """Finalize the index after the batch scan is done."""
     query()
+    if Config.COUCHDB_URL:
+        viewer.serialize_to_couchdb()
 
 
 @click.command()

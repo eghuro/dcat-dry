@@ -78,29 +78,12 @@ def do_inspect_graph(
     try:
         inspector = SparqlEndpointAnalyzer(endpoint_iri)
         result = _dcat_extractor(inspector.process_graph(graph_iri), force)
-        if Config.COUCHDB_URL:
-            couchdb_load.si(endpoint_iri, graph_iri).apply_async()
     except (rdflib.query.ResultException, HTTPError):
         log.error(
             "Failed to inspect graph %s: ResultException or HTTP Error", graph_iri
         )
     monitor.log_inspected()
     return result
-
-
-@celery.task(base=TrackableTask)
-def couchdb_load(endpoint_iri, graph_iri) -> None:
-    """Load to couchdb for viewer.
-
-    :param endpoint_iri: IRI of the SPARQL endpoint
-    :param graph_iri: IRI of the named graph to inspect
-    """
-    red = redis.Redis(connection_pool=redis_pool)
-    with red.lock("couchdb_load", timeout=60):
-        inspector = SparqlEndpointAnalyzer(endpoint_iri)
-        graph = inspector.process_graph(graph_iri)
-        if graph:
-            viewer.serialize_to_couchdb(graph, graph_iri)
 
 
 def multiply(item: Any, times: int) -> Any:

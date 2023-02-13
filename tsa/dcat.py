@@ -2,6 +2,8 @@ import itertools
 import logging
 from typing import Generator, Optional
 
+import json
+import redis
 from rdflib import Graph, Namespace, URIRef
 from rdflib.namespace import RDF
 from sqlalchemy import insert
@@ -12,6 +14,7 @@ from tsa.db import db_session
 from tsa.model import DatasetDistribution, DatasetEndpoint
 from tsa.tasks.process import filter_iri
 from tsa.util import check_iri
+from tsa.extensions import redis_pool
 
 # TODO: possibly scan for service description as well
 # TODO: if no graph provided, use service as a whole instead of distributions
@@ -88,10 +91,15 @@ class Extractor:
         """
         self.__db_endpoints = []
         self.__db_distributions = []
-        for dataset in self.__graph.subjects(RDF.type, Extractor._dcat.Dataset):
-            for task in self.__process_dataset(str(dataset), priority, regular, force):
-                self.__task_count += 1
-                yield task
+        red = redis.StrictRedis(connection_pool=redis_pool)
+        with red.pipeline() as pipe:
+            for dataset in self.__graph.subjects(RDF.type, Extractor._dcat.Dataset):
+                for task in self.__process_dataset(
+                    str(dataset), priority, regular, force, pipe
+                ):
+                    self.__task_count += 1
+                    yield task
+            pipe.execute()
         self.__store_to_db()
 
     def __store_to_db(self) -> None:
@@ -108,7 +116,7 @@ class Extractor:
             Extractor._log.exception("Error while saving to database")
             db_session.rollback()
 
-    def __process_dataset(self, dataset: str, priority, regular, force: bool):
+    def __process_dataset(self, dataset: str, priority, regular, force: bool, pipe):
         """
         Extracts distributions from a dataset.
 
@@ -124,6 +132,7 @@ class Extractor:
         ofn = self.__graph.value(URIRef(dataset), Extractor._dcterms.conformsTo)
         if ofn is not None:
             ofn = str(ofn)
+        distribution_iris = set()
         for distribution in self.__graph.objects(
             URIRef(dataset), Extractor._dcat.distribution
         ):
@@ -138,8 +147,10 @@ class Extractor:
                     ofn,
                 ):
                     yield task
+                distribution_iris.add(str(distribution))
             else:
                 Extractor._log.warning("Invalid distribution: %s", distribution)
+        pipe.hsetnx("dcat", dataset, json.dumps(list(distribution_iris)))
 
     def __process_distribution(
         self,

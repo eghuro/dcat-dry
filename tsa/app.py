@@ -83,5 +83,4 @@ def register_commands(app):
     app.cli.add_command(commands.import_labels)
     app.cli.add_command(commands.import_labels)
     app.cli.add_command(commands.import_sameas)
-    app.cli.add_command(commands.dereference)
     app.cli.add_command(commands.finalize)
