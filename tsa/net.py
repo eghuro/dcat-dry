@@ -307,9 +307,9 @@ class StreamedFile(TextIO):
         self.__buffer_start = 0
         self.__closed = False
 
-    def read(self, size: Optional[int] = None) -> str:
+    def read(self, size: Optional[int] = None) -> Optional[str]:
         if self.__closed:
-            raise OSError("No more data to read.")
+            return None
 
         # Read and return at most size characters from the stream as a single str.
         # If size is negative or None, reads until EOF.
