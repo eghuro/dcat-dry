@@ -67,6 +67,13 @@ class SubjectObject(Base):
     pure_subject = db.Column(db.Boolean, nullable=True, default=False)
 
 
+class Predicate(Base):
+    __tablename__ = "predicate"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    distribution_iri = db.Column(db.String, nullable=False)
+    iri = db.Column(db.String, nullable=False)
+
+
 class Relationship(Base):
     __tablename__ = "relationship"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)

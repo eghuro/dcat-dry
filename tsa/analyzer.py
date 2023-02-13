@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
 from tsa.ddr import concept_index, ddr_index, dsd_index
-from tsa.model import Label, SubjectObject
+from tsa.model import Label, SubjectObject, Predicate
 from tsa.sameas import same_as_index
 from tsa.util import check_iri
 
@@ -509,6 +509,13 @@ class GenericAnalyzer(AbstractAnalyzer):
             db_session.execute(
                 insert(SubjectObject).on_conflict_do_nothing(),
                 ({"distribution_iri": iri, "iri": s} for s in subjects.union(objects)),
+            )
+            db_session.execute(
+                insert(Predicate).on_conflict_do_nothing(),
+                (
+                    {"distribution_iri": iri, "iri": p}
+                    for p in initial_predicates_count.keys()
+                ),
             )
             db_session.commit()
         except SQLAlchemyError:
