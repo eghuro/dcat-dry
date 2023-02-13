@@ -10,7 +10,7 @@ Create Date: 2023-02-10 13:04:29.666294
 """
 from alembic import op
 import sqlalchemy as sa
-
+from tsa.model import ProcessingStatus
 
 # revision identifiers, used by Alembic.
 revision = "96edbcb9c734"
@@ -28,7 +28,12 @@ def upgrade() -> None:
     op.add_column("dataset_distribution", sa.Column("ofn", sa.String(), nullable=True))
     op.add_column(
         "dataset_distribution",
-        sa.Column("processed", sa.Boolean(), nullable=False, default=False),
+        sa.Column(
+            "processed",
+            sa.types.Enum(ProcessingStatus),
+            nullable=False,
+            default=ProcessingStatus.not_processed,
+        ),
     )
     op.create_table(
         "predicate",

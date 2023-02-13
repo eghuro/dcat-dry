@@ -22,7 +22,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from tsa.celery import celery
 from tsa.db import db_session
 from tsa.extensions import redis_pool
-from tsa.model import DatasetDistribution, DatasetEndpoint, SubjectObject
+from tsa.model import (
+    DatasetDistribution,
+    DatasetEndpoint,
+    SubjectObject,
+    ProcessingStatus,
+)
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import (
     NoContent,
@@ -472,6 +477,7 @@ def process_content(
             do_analyze_and_index(graph, iri)
         log.debug("Done analyze and index %s (immediate)", iri)
         monitor.log_processed()
+
         graph.close()
         graph.destroy(configuration=tmp_name)
 
@@ -570,27 +576,42 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
                 process_content(response, iri, guess, log)
             except requests.exceptions.ChunkedEncodingError as err:
                 task.retry(exc=err)
-            except NoContent:
-                log.warning("No content for %s", iri)
         else:
             do_decompress(red, iri, archive_type, response)
+    except NoContent:
+        log.warning("No content for %s", iri)
+        db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+            processed=ProcessingStatus.processed_nok
+        )
     except Skip:
         monitor.log_processed()  # any logging is handled already
+        db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+            processed=ProcessingStatus.skipped
+        )
     except ParserError as err:
         log.warning("Failed to parse %s - likely not an RDF: %s", iri, str(err))
         monitor.log_processed()
+        db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+            processed=ProcessingStatus.processed_nok
+        )
     except RobotsRetry as err:
         task.retry(countdown=err.delay)
     except Timeout:
         log.error("Failed to get %s: timeout", iri)
         monitor.log_processed()
         task.update_state(state=states.FAILURE, meta="Timeout")
+        db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+            processed=ProcessingStatus.processed_nok
+        )
         raise Ignore()
     except (requests.exceptions.HTTPError) as err:
         log.warning(
             "HTTP Error processing %s: %s", iri, str(err)
         )  # this is a 404 or similar, not worth retrying
         monitor.log_processed()
+        db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+            processed=ProcessingStatus.processed_nok
+        )
     except requests.exceptions.RequestException as err:
         task.retry(exc=err)
     except Exception as err:
@@ -600,6 +621,15 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
             exc = sys.exc_info()[1]
             log.exception("Failed to get %s: %s", iri, str(exc))
             monitor.log_processed()
+            db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+                processed=ProcessingStatus.processed_nok
+            )
+
+    else:
+        db_session.query(DatasetDistribution).filter_by(distr=iri).update(
+            processed=ProcessingStatus.processed_ok
+        )
+    db_session.commit()
 
 
 def do_decompress(
