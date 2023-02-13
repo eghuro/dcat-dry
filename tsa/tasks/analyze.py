@@ -49,23 +49,39 @@ def recursive_expander_hook(level: int, decoded: dict) -> dict:
 
     def test_if_should_dereference(value: Any) -> bool:
         if isinstance(value, str):
-            return check_iri(value) and level < Config.MAX_RECURSION_LEVEL
+            return check_iri(value)
         return False
 
     try:
         if "@import" in decoded and test_if_should_dereference(decoded["@import"]):
+            logging.getLogger(__name__).debug(
+                "Expanding @import %s", decoded["@import"]
+            )
             response = fetch(decoded["@import"])
-            decoded.update(json.load(response.raw, object_hook=next_hook))
+            del decoded["@import"]
+            decoded = json.load(
+                StreamedFile(decoded["@import"], response), object_hook=next_hook
+            ).update(decoded)
         if "@context" in decoded:
             if test_if_should_dereference(decoded["@context"]):
+                logging.getLogger(__name__).debug(
+                    "Expanding @context %s", decoded["@context"]
+                )
                 response = fetch(decoded["@context"])
-                remote = json.load(response.raw, object_hook=next_hook)
+                remote = json.load(
+                    StreamedFile(decoded["@context"], response), object_hook=next_hook
+                )
                 decoded["@context"] = remote
             elif isinstance(decoded["@context"], list):
                 for i, context in enumerate(decoded["@context"]):
                     if test_if_should_dereference(context):
+                        logging.getLogger(__name__).debug(
+                            "Expanding @context %s", context
+                        )
                         response = fetch(context)
-                        remote = json.load(response.raw, object_hook=next_hook)
+                        remote = json.load(
+                            StreamedFile(context, response), object_hook=next_hook
+                        )
                         decoded["@context"][i] = remote
     except UnicodeDecodeError:
         logging.getLogger(__name__).warning("Failed to decode JSON-LD, falling back")
