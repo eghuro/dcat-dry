@@ -104,9 +104,7 @@ try:
                             )
                 red.delete("dcat")
 
-    viewer = ViewerProvider()
 except ImportError:
     from tsa.settings import Config
 
     Config.COUCHDB_URL = None
-    viewer = None

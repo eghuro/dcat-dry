@@ -15,7 +15,6 @@ from tsa.report import import_labels as import_labels_impl
 from tsa.sameas import same_as_index
 from tsa.tasks.batch import batch_inspect
 from tsa.util import check_iri
-from tsa.viewer import viewer
 from tsa.settings import Config
 
 # register any new command in app.py: register_commands and tsa.rst in docs
@@ -76,11 +75,15 @@ def import_sameas(file):
 
 
 @click.command()
-def finalize():
+@click.option("-s", "--sparql", required=True, help="IRI of the SPARQL endpoint")
+def finalize(sparql=None):
     """Finalize the index after the batch scan is done."""
     query()
     if Config.COUCHDB_URL:
-        viewer.serialize_to_couchdb()
+        from tsa.viewer import ViewerProvider
+
+        viewer = ViewerProvider()
+        viewer.serialize_to_couchdb(sparql)
 
 
 @click.command()

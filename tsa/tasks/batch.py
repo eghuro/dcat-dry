@@ -3,7 +3,6 @@ import logging
 from typing import List, Optional, Any
 
 import rdflib
-import redis
 from celery import group
 from celery.result import AsyncResult
 from requests.exceptions import HTTPError
@@ -11,11 +10,8 @@ from requests.exceptions import HTTPError
 from tsa.celery import celery
 from tsa.dcat import Extractor
 from tsa.endpoint import SparqlEndpointAnalyzer
-from tsa.extensions import redis_pool
 from tsa.monitor import TimedBlock, monitor
 from tsa.net import RobotsRetry
-from tsa.viewer import viewer
-from tsa.settings import Config
 from tsa.tasks.common import TrackableTask
 from tsa.tasks.process import process, process_priority
 
