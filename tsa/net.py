@@ -9,6 +9,7 @@ import rdflib
 import redis
 import requests
 import urllib3
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.db import db_session
@@ -124,8 +125,14 @@ class RobotsBlock:
             log.info("Recording crawl-delay of %s for %s", self.__delay, self.__iri)
             try:
                 expire = datetime.now() + timedelta(seconds=int(self.__delay))
-                db_session.add(RobotsDelay(iri=self.__iri, expiration=expire))
-                db_session.commit()
+                db_session.execute(
+                    insert(RobotsDelay)
+                    .values(iri=self.__iri, expiration=expire)
+                    .on_conflict_do_update(
+                        constraint="robots_delay_pkey", set={"expiration": expire}
+                    )
+                )
+                return db_session.commit()
             except ValueError:
                 log.error("Invalid delay value - could not convert to int")
             except SQLAlchemyError:
