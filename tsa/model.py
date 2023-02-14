@@ -1,7 +1,6 @@
 import enum
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.types import Enum
 
 from tsa.extensions import db
 
@@ -14,6 +13,7 @@ class ProcessingStatus(enum.Enum):
     not_processed = 0
     processed_ok = 1
     processed_nok = 2
+    skipped = 3
 
 
 class Label(Base):
@@ -50,7 +50,12 @@ class DatasetDistribution(Base):
     distr = db.Column(db.String, nullable=False)
     relevant = db.Column(db.Boolean, nullable=True, default=False)
     ofn = db.Column(db.String, nullable=True)
-    processed = db.Column(Enum(ProcessingStatus), nullable=False, default=False)
+    processed = db.Column(
+        db.Enum(ProcessingStatus),
+        nullable=False,
+        default=ProcessingStatus.not_processed.name,
+        server_default=ProcessingStatus.not_processed.name,
+    )
 
 
 class Datacube(Base):

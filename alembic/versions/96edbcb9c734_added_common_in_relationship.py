@@ -10,6 +10,7 @@ Create Date: 2023-02-10 13:04:29.666294
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from tsa.model import ProcessingStatus
 
 # revision identifiers, used by Alembic.
@@ -26,13 +27,16 @@ def upgrade() -> None:
         "relationship_index_common", "relationship", ["common"], postgresql_using="HASH"
     )
     op.add_column("dataset_distribution", sa.Column("ofn", sa.String(), nullable=True))
+    processing_status = postgresql.ENUM(ProcessingStatus, name="processing_status")
+    processing_status.create(op.get_bind(), checkfirst=True)
     op.add_column(
         "dataset_distribution",
         sa.Column(
             "processed",
-            sa.types.Enum(ProcessingStatus),
+            processing_status,
             nullable=False,
-            default=ProcessingStatus.not_processed,
+            default=ProcessingStatus.not_processed.name,
+            server_default=ProcessingStatus.not_processed.name,
         ),
     )
     op.create_table(
@@ -65,4 +69,6 @@ def downgrade() -> None:
     op.drop_column("dataset_distribution", "ofn")
     op.drop_column("dataset_distribution", "processed")
     op.drop_table("predicate")
+    processing_status = postgresql.ENUM(ProcessingStatus, name="processing_status")
+    processing_status.drop(op.get_bind())
     # ### end Alembic commands ###
