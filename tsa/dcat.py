@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from tsa.analyzer import GenericAnalyzer
 from tsa.db import db_session
-from tsa.model import DatasetDistribution, DatasetEndpoint
+from tsa.model import DatasetDistribution, DatasetEndpoint, ProcessingStatus
 from tsa.tasks.process import filter_iri
 from tsa.util import check_iri
 from tsa.extensions import redis_pool
@@ -237,7 +237,11 @@ class Extractor:
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
             return
         self.__db_distributions.append(
-            {"distr": url, "ds": effective_dataset_iri, "processed": False}
+            {
+                "distr": url,
+                "ds": effective_dataset_iri,
+                "processed": ProcessingStatus.not_processed,
+            }
         )
         if ofn is not None:
             self.__db_distributions[-1]["ofn"] = ofn
