@@ -14,6 +14,7 @@ Welcome to DCAT DRY's documentation!
    history
    modules
    cli
+   setup
 
 
 
