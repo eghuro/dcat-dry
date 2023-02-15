@@ -64,6 +64,7 @@ except FileNotFoundError:
 @celery.task(
     bind=True,
     base=TrackableTask,
+    rate_limit="15/m",
     ignore_result=True,
     autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError),
 )
@@ -82,6 +83,7 @@ def process_priority(self, iri, force):
 @celery.task(
     bind=True,
     time_limit=300,
+    rate_limit="5/m",
     base=TrackableTask,
     ignore_result=True,
     autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError),
