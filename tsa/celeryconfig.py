@@ -34,7 +34,7 @@ task_task_routes = {
     "tsa.tasks.process.process_priority": {"queue": "celery"},
     "tsa.tasks.query.*": {"queue": "celery:2"},
     "tsa.tasks.batch.*": {"queue": "celery:2"},
-    "tsa.tasks.commonn.monitor": {"queue": "celery:1"},
+    "tsa.tasks.common.monitor": {"queue": "celery:1"},
 }
 beat_schedule = {
     "check-queue-every-ten-minutes": {
