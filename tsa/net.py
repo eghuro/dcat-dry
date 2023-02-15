@@ -129,7 +129,7 @@ class RobotsBlock:
                     insert(RobotsDelay)
                     .values(iri=self.__iri, expiration=expire)
                     .on_conflict_do_update(
-                        constraint="robots_delay_pkey", set={"expiration": expire}
+                        constraint="robots_delay_pkey", set_={"expiration": expire}
                     )
                 )
                 return db_session.commit()
@@ -152,7 +152,8 @@ accept = ", ".join(
         "application/n-triples",
         "application/n-quads",
         "application/trix",
-        "application/json;q=0.9" "application/xml;q=0.9",
+        "application/json;q=0.9",
+        "application/xml;q=0.9",
         "text/xml;q=0.9",
         "text/plain;q=0.8",
         "*/*;q=0.7",
