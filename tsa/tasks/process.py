@@ -557,6 +557,19 @@ def do_fetch(
     raise Skip()
 
 
+def update_nok(iri: str) -> None:
+    """
+    Update the status of a distribution to processed_nok.
+
+    :param iri: IRI of the distribution
+    """
+    db_session.execute(
+        update(DatasetDistribution)
+        .where(DatasetDistribution.distr == iri)
+        .values(processed=ProcessingStatus.processed_nok)
+    )
+
+
 def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
     """
     Analyze an RDF distribution under given IRI.
@@ -581,48 +594,28 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
             do_decompress(red, iri, archive_type, response)
     except NoContent:
         log.warning("No content for %s", iri)
-        db_session.execute(
-            update(DatasetDistribution)
-            .where(distr=iri)
-            .values(processed=ProcessingStatus.processed_nok)
-        )
+        update_nok(iri)
     except Skip:
         monitor.log_processed()  # any logging is handled already
-        db_session.execute(
-            update(DatasetDistribution)
-            .where(distr=iri)
-            .values(processed=ProcessingStatus.processed_nok)
-        )
+
     except ParserError as err:
         log.warning("Failed to parse %s - likely not an RDF: %s", iri, str(err))
         monitor.log_processed()
-        db_session.execute(
-            update(DatasetDistribution)
-            .where(distr=iri)
-            .values(processed=ProcessingStatus.processed_nok)
-        )
+        update_nok(iri)
     except RobotsRetry as err:
         task.retry(countdown=err.delay)
     except Timeout:
         log.error("Failed to get %s: timeout", iri)
         monitor.log_processed()
         task.update_state(state=states.FAILURE, meta="Timeout")
-        db_session.execute(
-            update(DatasetDistribution)
-            .where(distr=iri)
-            .values(processed=ProcessingStatus.processed_nok)
-        )
+        update_nok(iri)
         raise Ignore()
     except (requests.exceptions.HTTPError) as err:
         log.warning(
             "HTTP Error processing %s: %s", iri, str(err)
         )  # this is a 404 or similar, not worth retrying
         monitor.log_processed()
-        db_session.execute(
-            update(DatasetDistribution)
-            .where(distr=iri)
-            .values(processed=ProcessingStatus.processed_nok)
-        )
+        update_nok(iri)
     except requests.exceptions.RequestException as err:
         task.retry(exc=err)
     except Exception as err:
@@ -632,16 +625,11 @@ def do_process(iri: str, task: Task, is_prio: bool, force: bool) -> None:
             exc = sys.exc_info()[1]
             log.exception("Failed to get %s: %s", iri, str(exc))
             monitor.log_processed()
-            db_session.execute(
-                update(DatasetDistribution)
-                .where(distr=iri)
-                .values(processed=ProcessingStatus.processed_nok)
-            )
-
+            update_nok(iri)
     else:
         db_session.execute(
             update(DatasetDistribution)
-            .where(distr=iri)
+            .where(DatasetDistribution.distr == iri)
             .values(processed=ProcessingStatus.processed_ok)
         )
     db_session.commit()
