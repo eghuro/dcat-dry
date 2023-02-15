@@ -202,7 +202,7 @@ class Extractor:
         for endpoint in self.__graph.objects(service, Extractor._dcat.endpointURL):
             url = str(endpoint)
             if not check_iri(url) or filter_iri(url):
-                return
+                continue
             self.__db_endpoints.append({"endpoint": url, "ds": effective_dataset_iri})
 
     def __process_distribution_url(
