@@ -48,20 +48,22 @@ def recursive_expander_hook(level: int, decoded: dict) -> dict:
     next_hook = partial(recursive_expander_hook, level + 1)
 
     def test_if_should_dereference(value: Any) -> bool:
+        if level >= Config.MAX_RECURSION_LEVEL:
+            return False
         if isinstance(value, str):
             return check_iri(value)
         return False
 
     try:
-        if "@import" in decoded and test_if_should_dereference(decoded["@import"]):
-            logging.getLogger(__name__).debug(
-                "Expanding @import %s", decoded["@import"]
-            )
-            response = fetch(decoded["@import"])
-            del decoded["@import"]
-            decoded = json.load(
-                StreamedFile(decoded["@import"], response), object_hook=next_hook
-            ).update(decoded)
+        if "@import" in decoded:
+            import_iri = decoded["@import"]
+            if test_if_should_dereference(import_iri):
+                logging.getLogger(__name__).debug("Expanding @import %s", import_iri)
+                response = fetch(import_iri)
+                del decoded["@import"]
+                decoded = json.load(
+                    StreamedFile(import_iri, response), object_hook=next_hook
+                ).update(decoded)
         if "@context" in decoded:
             if test_if_should_dereference(decoded["@context"]):
                 logging.getLogger(__name__).debug(
