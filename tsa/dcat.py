@@ -15,6 +15,7 @@ from tsa.model import DatasetDistribution, DatasetEndpoint, ProcessingStatus
 from tsa.tasks.process import filter_iri
 from tsa.util import check_iri
 from tsa.extensions import redis_pool
+from tsa.settings import Config
 
 # TODO: possibly scan for service description as well
 # TODO: if no graph provided, use service as a whole instead of distributions
@@ -175,14 +176,24 @@ class Extractor:
         :param ofn: IRI of the standard the dataset conforms to
         :return: Generator of Celery tasks
         """
-        task = self.__get_task(distribution, priority, regular)
+        task, is_priority = self.__get_task(distribution, priority, regular)
         for download_url in self.__graph.objects(
             distribution, Extractor._dcat.downloadURL
         ):
-            for task in self.__process_distribution_url(
+            if download_url.startswith("https://data.gov.cz/soubor/nkod"):
+                # NKOD catalog - roughly GBs, it's what we're processing at the moment anyways
+                # usually causes OOM crashes
+                # can have various extensions
+                continue
+            for task, change in self.__process_distribution_url(
                 str(download_url), effective_dataset_iri, task, force, priority, ofn
             ):
-                yield task
+                # task can now become a priority task
+                is_priority_after = is_priority or change
+                if is_priority_after or not Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
+                    yield task
+                    if is_priority_after and Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
+                        break
         for service in itertools.chain(
             self.__graph.objects(dataset_iri, Extractor._dcat.accessService),
             self.__graph.subjects(Extractor._dcat.servesDataset, dataset_iri),
@@ -209,9 +220,9 @@ class Extractor:
         self,
         url: str,
         effective_dataset_iri: str,
-        task,
+        standard_task,
         force: bool,
-        priority,
+        priority_task,
         ofn: Optional[str],
     ):
         """
@@ -246,9 +257,9 @@ class Extractor:
         if ofn is not None:
             self.__db_distributions[-1]["ofn"] = ofn
         if url.endswith("trig") or url.endswith("jsonld"):
-            yield priority.si(url, force)
+            yield priority_task.si(url, force), True
         else:
-            yield task.si(url, force)
+            yield standard_task.si(url, force), False
 
     def __get_task(self, distribution: URIRef, priority, regular):
         """
@@ -258,20 +269,20 @@ class Extractor:
         :param distribution: IRI of the distribution
         :param priority: Celery task signature for priority tasks - known RDF formats
         :param regular: Celery task signature for regular tasks - likely not RDF format
-        :return: task to execute (priority or regular)
+        :return: tuple: task to execute (priority or regular) and priority flag
         """
         for media_type in self.__graph.objects(distribution, Extractor._dcat.mediaType):
             if str(media_type) in Extractor._media_priority:
-                return priority
+                return priority, True
         for format in self.__graph.objects(distribution, Extractor._dcterms["format"]):
             if str(format) in Extractor._format_priority:
-                return priority
+                return priority, True
         for distribution_format in self.__graph.objects(
             distribution, Extractor._nkod.mediaType
         ):
             if "rdf" in str(distribution_format):
-                return priority
-        return regular
+                return priority, True
+        return regular, False
 
     def __get_effective_dataset_iri(self, dataset: str) -> str:
         """

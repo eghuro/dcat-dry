@@ -33,6 +33,7 @@ class Config:
     ROBOTS = True
     TIMEOUT = 10800  # 3H
     COUCHDB_URL = os.environ.get("COUCHDB", None)
+    ONLY_ONE_PRIORITY_DISTRIBUTION = True
 
 
 class ProdConfig(Config):
