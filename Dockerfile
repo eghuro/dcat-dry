@@ -9,7 +9,7 @@ ENV PYTHONFAULTHANDLER=1 \
   POETRY_VERSION=${POETRY_VERSION:-1.3.2} \
   FLASK_DEBUG=0
 RUN apt-get update && \
-    apt-get install -y libxml2-dev libxslt-dev libleveldb-dev gcc g++ wget build-essential checkinstall  libreadline-dev  libncursesw5-dev  libssl-dev  libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev && \
+    apt-get install -y libxml2-dev libxslt-dev libleveldb-dev gcc g++ wget build-essential checkinstall  libreadline-dev  libncursesw5-dev  libssl-dev  libsqlite3-dev sqlite3 tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev && \
     cd /usr/src && \
     wget https://www.python.org/ftp/python/3.10.9/Python-3.10.9.tgz && \
     tar xzf Python-3.10.9.tgz && \
