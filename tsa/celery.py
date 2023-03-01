@@ -2,18 +2,9 @@
 
 import celery
 from atenvironment import environment
-from gevent import monkey
 
 from tsa.extensions import on_error
 from tsa.log import logging_setup
-
-monkey.patch_all()
-try:
-    import psycogreen.gevent
-
-    psycogreen.gevent.patch_psycopg()
-except ImportError:
-    pass
 
 
 @environment("DSN", default=[None], onerror=on_error)
