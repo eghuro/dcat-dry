@@ -43,6 +43,8 @@ Install redis server first. In following example we will assume it runs on local
 
 Setup postgresql server as well. In the following example we will assume it runs on localhost, port 5432, DB is postgres and user/password is postgres:example
 
+You will need some libraries installed: libxml2-dev libxslt-dev libleveldb-dev  libsqlite3-dev and sqlite3
+
 Run the following commands to bootstrap your environment ::
 
     git clone https://github.com/eghuro/dcat-dry
@@ -99,6 +101,20 @@ Running Tests
 To run all tests, run ::
 
     flask test
+
+
+Before execution
+----------------
+
+# Prepare couchdb ::
+
+    curl -X PUT http://admin:password@127.0.0.1:5984/_users
+    curl -X PUT http://admin:password@127.0.0.1:5984/_replicator
+    curl -X PUT http://admin:password@127.0.0.1:5984/_global_changes
+
+# Migrate database ::
+
+    alembic upgrade head
 
 
 API
