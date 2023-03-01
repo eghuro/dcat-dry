@@ -11,6 +11,7 @@ services:
       - REDIS_CELERY=redis://redis:6379/1
       - TZ=Europe/Prague
       - DB=postgresql+psycopg2://postgres:example@db:5432/postgres
+      - COUCHDB=http://admin:password@couchdb:5984/
     volumes:
       - ./graphs.txt:/tmp/graphs.txt
     command: gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug app:app
@@ -20,6 +21,7 @@ services:
      - celery
      - redis
      - db
+     - couchdb
   celery:
     restart: always
     build:
@@ -34,27 +36,11 @@ services:
       - COUCHDB=http://admin:password@couchdb:5984/
     volumes:
       - ./exclude.txt:/tmp/exclude.txt
-    command: celery -A tsa.celery worker -l debug -Q celery,celery:1,celery:2 --pool=gevent -c 100
+    command: celery -A tsa.celery worker -l debug -Q celery,celery:1,celery:2 --pool=gevent -c 60
     depends_on:
       - redis
       - db
       - couchdb
-  beat:
-    restart: always
-    build:
-        context: .
-        args:
-            POETRY_VERSION: 1.3.2
-    environment:
-      - REDIS=redis://redis:6379/0
-      - REDIS_CELERY=redis://redis:6379/1
-      - TZ=Europe/Prague
-      - DB=postgresql+psycopg2://postgres:example@db:5432/postgres
-    command: celery -A tsa.celery beat -l warning
-    depends_on:
-      - redis
-      - db
-      - celery
   redis:
     restart: on-failure
     image: "redis:alpine"
