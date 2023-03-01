@@ -79,7 +79,7 @@ try:
                             self.__datasets.commit()
                     except pycouchdb.exceptions.Conflict:
                         logging.getLogger(__name__).warning(
-                            "Failed to save dataset: %s", iri
+                            "Failed to save dataset: %s", dataset_iri
                         )
 
                     for distribution_iri in json.loads(red.hget("dcat", dataset_iri)):

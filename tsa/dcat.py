@@ -85,21 +85,21 @@ class Extractor:
         """
         Extracts DCAT-AP metadata from an RDF graph.
 
-        :param priority: Celery task signature for priority tasks - known RDF formats
-        :param regular: Celery task signature for regular tasks - likely not RDF format
+        :param priority: Celery task (function) for priority tasks - known RDF formats
+        :param regular: Celery task (function) for regular tasks - likely not RDF format
         :param force: Force processing of all distributions
-        :return: Generator of Celery tasks
+        :return: Generator of Celery task signatures
         """
         self.__db_endpoints = []
         self.__db_distributions = []
         red = redis.StrictRedis(connection_pool=redis_pool)
         with red.pipeline() as pipe:
             for dataset in self.__graph.subjects(RDF.type, Extractor._dcat.Dataset):
-                for task in self.__process_dataset(
+                for signature in self.__process_dataset(
                     str(dataset), priority, regular, force, pipe
                 ):
                     self.__task_count += 1
-                    yield task
+                    yield signature
             pipe.execute()
         self.__store_to_db()
 
@@ -138,7 +138,7 @@ class Extractor:
             URIRef(dataset), Extractor._dcat.distribution
         ):
             if isinstance(distribution, URIRef):
-                for task in self.__process_distribution(
+                for signature in self.__process_distribution(
                     distribution,
                     URIRef(dataset),
                     effective_dataset_iri,
@@ -147,7 +147,7 @@ class Extractor:
                     force,
                     ofn,
                 ):
-                    yield task
+                    yield signature
                 distribution_iris.add(str(distribution))
             else:
                 Extractor._log.warning("Invalid distribution: %s", distribution)
@@ -185,13 +185,13 @@ class Extractor:
                 # usually causes OOM crashes
                 # can have various extensions
                 continue
-            for task, change in self.__process_distribution_url(
+            for signature, change in self.__process_distribution_url(
                 str(download_url), effective_dataset_iri, task, force, priority, ofn
             ):
                 # task can now become a priority task
                 is_priority_after = is_priority or change
                 if is_priority_after or not Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
-                    yield task
+                    yield signature
                     if is_priority_after and Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
                         break
         for service in itertools.chain(
