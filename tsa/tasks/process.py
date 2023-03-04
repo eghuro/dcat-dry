@@ -430,9 +430,9 @@ def store_pure_subjects(iri: str, graph: rdflib.Graph) -> None:
         db_session.execute(
             insert(SubjectObject).on_conflict_do_nothing(),
             (
-                {"distribution_iri": iri, "iri": str(sub), "pure_subject": True}
-                for sub, _, _ in graph
-                if ((sub is not None) and len(str(sub)) > 0)
+                {"distribution_iri": iri, "iri": str(row[0]), "pure_subject": True}
+                for row in graph.query("SELECT DISTINCT ?s WHERE { ?s ?p ?o }")
+                if ((row[0] is not None) and len(str(row[0])) > 0)
             ),
         )
         db_session.commit()
