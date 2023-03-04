@@ -138,7 +138,8 @@ class Extractor:
             URIRef(dataset), Extractor._dcat.distribution
         ):
             if isinstance(distribution, URIRef):
-                for signature in self.__process_distribution(
+                jsonld_signature, yielded = None, False
+                for signature, is_jsonld in self.__process_distribution(
                     distribution,
                     URIRef(dataset),
                     effective_dataset_iri,
@@ -147,7 +148,18 @@ class Extractor:
                     force,
                     ofn,
                 ):
-                    yield signature
+                    # Prefer to yield other than JSON-LD distribution
+                    if is_jsonld and Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
+                        jsonld_signature = signature
+                    else:
+                        yielded = True
+                        yield signature
+                if (
+                    jsonld_signature is not None
+                    and not yielded
+                    and Config.ONLY_ONE_PRIORITY_DISTRIBUTION
+                ):
+                    yield jsonld_signature
                 distribution_iris.add(str(distribution))
             else:
                 Extractor._log.warning("Invalid distribution: %s", distribution)
@@ -176,23 +188,22 @@ class Extractor:
         :param ofn: IRI of the standard the dataset conforms to
         :return: Generator of Celery tasks
         """
-        task, is_priority = self.__get_task(distribution, priority, regular)
+        task, is_priority, is_jsonld = self.__get_task(distribution, priority, regular)
         for download_url in self.__graph.objects(
             distribution, Extractor._dcat.downloadURL
         ):
-            if download_url.startswith("https://data.gov.cz/soubor/nkod"):
-                # NKOD catalog - roughly GBs, it's what we're processing at the moment anyways
-                # usually causes OOM crashes
-                # can have various extensions
-                continue
             for signature, change in self.__process_distribution_url(
                 str(download_url), effective_dataset_iri, task, force, priority, ofn
             ):
                 # task can now become a priority task
                 is_priority_after = is_priority or change
                 if is_priority_after or not Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
-                    yield signature
-                    if is_priority_after and Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
+                    yield signature, is_jsonld
+                    if (
+                        not is_jsonld
+                        and is_priority_after
+                        and Config.ONLY_ONE_PRIORITY_DISTRIBUTION
+                    ):
                         break
         for service in itertools.chain(
             self.__graph.objects(dataset_iri, Extractor._dcat.accessService),
@@ -269,20 +280,30 @@ class Extractor:
         :param distribution: IRI of the distribution
         :param priority: Celery task signature for priority tasks - known RDF formats
         :param regular: Celery task signature for regular tasks - likely not RDF format
-        :return: tuple: task to execute (priority or regular) and priority flag
+        :return: tuple: task to execute (priority or regular), priority flag (True if the distribution is added to the priority queue), json-ld flag (True if the distribution is in json-ld format)
         """
         for media_type in self.__graph.objects(distribution, Extractor._dcat.mediaType):
             if str(media_type) in Extractor._media_priority:
-                return priority, True
+                return (
+                    priority,
+                    True,
+                    str(media_type)
+                    == "http://www.iana.org/assignments/media-types/application/ld+json",
+                )
         for format in self.__graph.objects(distribution, Extractor._dcterms["format"]):
             if str(format) in Extractor._format_priority:
-                return priority, True
+                return (
+                    priority,
+                    True,
+                    str(format)
+                    == "https://publications.europa.eu/resource/authority/file-type/JSON_LD",
+                )
         for distribution_format in self.__graph.objects(
             distribution, Extractor._nkod.mediaType
         ):
             if "rdf" in str(distribution_format):
-                return priority, True
-        return regular, False
+                return priority, True, False
+        return regular, False, False
 
     def __get_effective_dataset_iri(self, dataset: str) -> str:
         """
