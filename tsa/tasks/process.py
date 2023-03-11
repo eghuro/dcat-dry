@@ -64,6 +64,7 @@ except FileNotFoundError:
 @celery.task(
     bind=True,
     base=TrackableTask,
+    time_limit=3600,  # 1 hour
     rate_limit="15/m",
     ignore_result=True,
     autoretry_for=(redis.exceptions.BusyLoadingError, redis.exceptions.ConnectionError),
@@ -145,17 +146,17 @@ def get_iris_to_dereference(
         log.debug("Graph is None when dereferencing %s", iri)
         return
     log.debug("Get iris to dereference from distribution: %s", iri)
-    for subject, predicate, object_iri in graph:
-        pred = str(predicate)
-        obj = str(object_iri)
-        sub = str(subject)
-
-        if check_iri(pred) and not filter_iri(pred):
-            yield pred
-        if check_iri(obj) and not filter_iri(obj):
-            yield obj
-        if check_iri(sub) and not filter_iri(sub):
-            yield sub
+    query = """
+    select distinct ?x where {
+        optional {?x ?_ ?_}
+        optional {?_ ?x ?_}
+        optional {?_ ?_ ?x}
+    }
+    """
+    for row in graph.query(query):
+        iri = str(row[0])
+        if check_iri(iri) and not filter_iri(iri):
+            yield iri
 
 
 def dereference_from_endpoint(iri: str, endpoint_iri: str) -> rdflib.Graph:
