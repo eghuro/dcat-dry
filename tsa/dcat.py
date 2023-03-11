@@ -154,6 +154,8 @@ class Extractor:
                     else:
                         yielded = True
                         yield signature
+                        if Config.ONLY_ONE_PRIORITY_DISTRIBUTION:
+                            break
                 if (
                     jsonld_signature is not None
                     and not yielded
