@@ -2,10 +2,20 @@
 History
 =======
 
+0.6.0 (2023-03-11)
+-----------
+
+* Recursive context loading in JSON-LD distributions
+* Performance improvements
+* rdflib-leveldb backend for graph storage
+* CouchDB / DCAT-AP Viewer integration
+* conformsTo index (OFN)
+* predicate index
+
 0.5.0 (2023-02-09)
 ------------------
 
-* Dereferencing of external resources
+* Dereferencing external resources
 * Optimizations for processing of large DCAT-AP catalogs
 * Support for DCAT-AP 2.0.1
 * Labels extraction
