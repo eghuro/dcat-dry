@@ -67,7 +67,11 @@ try:
             with TimedBlock("couchdb"):
                 for dataset_iri in red.hkeys("dcat"):
                     try:
-                        if dataset_iri not in self.__datasets:
+                        if (
+                            dataset_iri not in self.__datasets
+                            and dataset_iri is not None
+                            and len(dataset_iri) > 0
+                        ):
                             self.__datasets.save(
                                 {
                                     "_id": dataset_iri,
@@ -81,9 +85,13 @@ try:
                         logging.getLogger(__name__).warning(
                             "Failed to save dataset: %s", dataset_iri
                         )
+                    except ValueError:
+                        logging.getLogger(__name__).warning(
+                            "Failed to save dataset: %s - SPARQL error", dataset_iri
+                        )
 
                     for distribution_iri in json.loads(red.hget("dcat", dataset_iri)):
-                        if distribution_iri is None:
+                        if distribution_iri is None or len(distribution_iri) == 0:
                             continue
                         try:
                             if distribution_iri not in self.__distributions:
@@ -99,6 +107,12 @@ try:
                         except pycouchdb.exceptions.Conflict:
                             logging.getLogger(__name__).warning(
                                 "Failed to save distribution: %s - dataset: %s",
+                                distribution_iri,
+                                dataset_iri,
+                            )
+                        except ValueError:
+                            logging.getLogger(__name__).warning(
+                                "Failed to save distribution: %s - dataset: %s - SPARQL error",
                                 distribution_iri,
                                 dataset_iri,
                             )
