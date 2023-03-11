@@ -16,7 +16,7 @@ import tsa
 project = "DCAT DRY"
 copyright = "2023, Alexandr Mansurov"
 author = "Alexandr Mansurov"
-release = "0.5"
+release = "0.6"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
