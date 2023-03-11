@@ -80,6 +80,20 @@ try:
                                     ).serialize(format="json-ld"),
                                 }
                             )
+                            # FIXME: use save_bulk
+                            """
+                            self.__datasets.save_bulk(docs, try_setting_ids=True, transaction=True)
+                            Save a bulk of documents.
+
+                            Changed in version 1.2: Now returns a new document list instead of modify the original.
+
+                            Parameters:
+                            docs – list of docs
+                            try_setting_ids – if True, we loop through docs and generate/set an id in each doc if none exists
+                            transaction – if True, couchdb do a insert in transaction model.
+                            Returns:
+                            docs
+                            """
                             self.__datasets.commit()
                     except pycouchdb.exceptions.Conflict:
                         logging.getLogger(__name__).warning(
