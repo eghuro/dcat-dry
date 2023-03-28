@@ -73,6 +73,7 @@ Ready to contribute? Here's how to set up `DCAT DRY` for local development.
 
       cd dcat-dry
       pip install --upgrade pip
+      pip install poetry
       poetry install --no-root
 
 4. Create a branch for local development::
